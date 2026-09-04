@@ -1,4 +1,7 @@
-#include "cpp-baseutils/include/logger.hpp"
+#include "background.hpp"
+#include "base_types.hpp"
+#include "commands.hpp"
+#include "logger.hpp"
 #include <iostream>
 #include "basic_commands.hpp"
 
@@ -7,11 +10,18 @@ int main() {
     baseutils::log_info("Starting program");
 
     mcc::basic_commands::init();
+    mcc::start_background();
+
     baseutils::log_success("Entering main loop mode");
 
-    std::string cmd;
+    string cmd;
     while (is_running) {
-        baseutils::log_input("Enter command (help for help)");
-        std::cin >> cmd;
+        baseutils::cli_input("Enter command (help for help)");
+        cmd = baseutils::cli_get_string();
+
+        uint8_t code = mcc::run_command(cmd);
     }
+
+    mcc::end_background();
+    baseutils::log_success("Gracefully closing program");
 }

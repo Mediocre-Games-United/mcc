@@ -1,5 +1,6 @@
 CompileFlags:
     Add:
         - "-std=c++20"
-        - "-I/home/admin/mcc"
-        - "-I/home/admin/mcc"
+        - "-I/home/admin/mcc/src"
+        - "-I/home/admin/mcc/include"
+        - "-I/home/admin/mcc/cpp-baseutils/include"
