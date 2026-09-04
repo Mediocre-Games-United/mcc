@@ -20,8 +20,13 @@ int main() {
         cmd = baseutils::cli_get_string();
 
         uint8_t code = mcc::run_command(cmd);
+        if (code == 137) {
+            baseutils::log_debug("Quit signal received");
+            is_running = false;
+        }
     }
+    baseutils::log_info("Gracefully closing program");
 
     mcc::end_background();
-    baseutils::log_success("Gracefully closing program");
+    baseutils::log_success("Closed succesfully");
 }
