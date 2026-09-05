@@ -1,3 +1,3 @@
 #pragma once
 
-#define APP_NAME mcc
+#define APP_NAME "mcc"

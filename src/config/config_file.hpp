@@ -1,11 +1,54 @@
 #pragma once
+#include "base_types.hpp"
+#include "stringmath.hpp"
 #include <cstdint>
+#include <vector>
 
-namespace mcc {
-    namespace config {
-        void init();
-        void background();
-        uint8_t cmd();
-        bool valid();
-    }
+namespace mcc::config {
+    struct SourceCompileTarget {
+        fpath src_path;
+        fpath obj_path;
+        fpath dep_path;
+    };
+    struct SharedCompileTarget {
+        string shared_object_name;
+        std::vector<SourceCompileTarget> objects;
+    };
+    struct ExecutableCompileTarget {
+        string executable_name;
+        std::vector<SourceCompileTarget> objects;
+        std::vector<SharedCompileTarget> shared;
+    };
+    struct SourceFileObject { // used as a guide to generate SourceCompileTarget objects
+        fpath path;
+        string name;
+        bool enabled = true;
+    };
+    enum class ConfigModel : uint8_t {
+        SINGLE_EXECUTABLE =      0, // compiles all files to a single executable file and ignores all subprojects. useful for simple or small projects without many dependencies
+        SINGLE_SHARED =          1, // compiles all files to a single shared object.
+        EXECUTABLES_WITH_SHARED = 2 // compiles subprojects into shared objects and links to them in the executables generated from mains
+    };
+    struct ConfigObject { // a template object that can be used to generate compile targets, should not have any functionality, only an object describing the project
+        ~ConfigObject() { for (auto &s : source_files) delete s; }
+        string name;
+        fpath directory;
+        fpath src_directory;
+        bool autodetect_source = true;
+        ConfigModel model;
+        std::vector<ConfigObject*> sub_projects;
+        std::vector<SourceFileObject*> source_files; // should not include main_source
+        SourceFileObject *main_source; // used as main for modes 0 and 2, optionally compiled multiple times
+
+        // other executables only used by mode 2
+        bool generate_launcher_wrapper = false; // if true, compile main_source into [main]_app.o -> app(.exe) and [main]_launcher.o -> launcher(.exe) and make the launcher executable a wrapper that handles the app executable
+        bool generate_crash_handler = false; // if launcher is set, also generate a crash handler from [main]_crash_handler.o -> crash_handler(.exe)
+    };
+
+    void init();
+    void background();
+    bool valid();
+
+    uint8_t reload();
+    uint8_t cmd();
 }
