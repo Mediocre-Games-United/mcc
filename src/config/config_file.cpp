@@ -8,6 +8,7 @@
 #include <format>
 #include <queue>
 
+
 struct ConfigContainerDataBlock {
     string fpath;
     mcc::config::ConfigObject *obj = NULL;
@@ -30,7 +31,7 @@ public:
                 for (size_t i = 0; i < obj->loaded_configs.size(); i ++) {
                     auto &cfg = obj->loaded_configs[i];
                     p[i].obj = cfg;
-                    p[i].fpath = cfg->directory / "project.mcc";
+                    p[i].fpath = cfg->directory / mcc::config::FNAME;
                 }
 
                 return p;
@@ -90,11 +91,71 @@ public:
             },[](void *obj) -> string {
                 return ((cf*) obj)->src_directory;
             }),
-            new cbu::U8BinarySection([](void *obj,auto value) {
+            new cbu::U8BinarySection([](void *obj,auto value) { // model
+                cf *c = (cf*) obj;
+                mcc::config::ConfigModel model;
+                switch (value) {
+                    case 0: {
+                        model = mcc::config::ConfigModel::SINGLE_EXECUTABLE;
+                        break;
+                    }
+                    case 1: {
+                        model = mcc::config::ConfigModel::SINGLE_SHARED;
+                        break;
+                    }
+                    case 2: {
+                        model = mcc::config::ConfigModel::EXECUTABLES_WITH_SHARED;
+                        break;
+                    }
+                    default: {
+                        throw std::format("Invalid config model {}",value);
+                    }
+                }
 
+                c->model = model;
             },[](void *obj) -> uint8_t {
                 return (uint8_t) ((cf*) obj)->model;
-            })
+            }),
+            new cbu::DataBinarySection([](void *obj,void *data) {
+                auto *co = (mcc::config::SourceFileObject*) data;
+                auto *c = (cf*) obj;
+
+                if (co->name.empty()) return;
+                c->main_source = new mcc::config::SourceFileObject(*co);
+            },[]() -> void* {
+                return new mcc::config::SourceFileObject();
+            },[](void *obj) { delete (mcc::config::SourceFileObject*) obj; },{
+                new cbu::StringBinarySection([](void *obj,auto value) { // main src path
+                    auto *c = (mcc::config::SourceFileObject*) obj;
+                    c->path = value;
+                },[](void *obj) -> string {
+                    auto *c = (cf*) obj;
+                    if (c->main_source) return cbu::path_to_utf8(c->main_source->path);
+
+                    return "";
+                }),
+            }),
+            new cbu::RepeatingBinarySection([](void *u,size_t *size,size_t *len) -> void* {
+                auto *obj = (mcc::config::ConfigObject*) u;
+                *len = obj->source_files.size();
+                *size = sizeof(mcc::config::SourceFileObject*);
+
+                return *obj->source_files.data();
+            },[](void *obj) {},{
+                new cbu::DataBinarySection([](void *obj, void *data) {
+                    auto *co = (mcc::config::SourceFileObject*) data;
+                    auto *c = (cf*) obj;
+
+                    c->source_files.push_back(new mcc::config::SourceFileObject(*co));
+                },[]() -> void* { return new mcc::config::SourceFileObject(); },[](void *obj) { delete (mcc::config::SourceFileObject*) obj; },{
+                    new cbu::StringBinarySection([](void *obj,auto value) { // src path
+                        auto *c = (mcc::config::SourceFileObject*) obj;
+                        c->path = value;
+                    },[](void *obj) -> string {
+                        return cbu::path_to_utf8(((mcc::config::SourceFileObject*) obj)->path);
+                    })
+                })
+            },false)
         });
     }
 };
@@ -104,15 +165,15 @@ public:
 
     cf *load_config(fpath path) {
         cf *obj = new cf();
+        obj->directory = path.parent_path();
         load_file_to_buffer(path);
         load_buffer_to_object(obj);
-        obj->directory = path.parent_path();
 
         return obj;
     }
     void save_config(cf *obj) {
         load_object_to_buffer(obj);
-        save_buffer_to_file(obj->directory / "project.mcc");
+        save_buffer_to_file(obj->directory / mcc::config::FNAME);
     }
 };
 
@@ -124,6 +185,44 @@ static void scan_config() {
 
     current_config = fmt.load_configs();
 }
+
+static bool activate_config(mcc::config::ConfigObject *obj) {
+    if (!current_config) return false;
+
+    current_config->loaded_configs.push_back(obj);
+    return true;
+}
+
+static void config_recurse_src_files(vector<cf*> &subconfigs,vector<mcc::config::SourceFileObject*> &sourcefiles,fpath path) {
+
+}
+static void config_recurse_sub_projects(vector<cf*> &subconfigs,fpath path) {
+    for (auto &s : cbu::iterate_dir(path)) {
+        if (std::filesystem::is_directory(s)) {
+            config_recurse_sub_projects(subconfigs,s);
+            continue;
+        }
+        if (!std::filesystem::is_regular_file(s)) continue;
+        if (s.filename() != mcc::config::FNAME) continue;
+
+        cbu::log_debug(std::format("Found {} at {}",mcc::config::FNAME,cbu::path_to_utf8(s)));
+        auto fmt = ConfigFileFormat();
+        cf *cfg = fmt.load_config(s);
+        activate_config(cfg);
+        subconfigs.push_back(cfg);
+
+        continue;
+    }
+}
+static void update_config_src(cf *obj) {
+    vector<cf*> subconfigs;
+    vector<mcc::config::SourceFileObject*> sourcefiles;
+
+    auto lpath = obj->directory / obj->src_directory;
+    config_recurse_sub_projects(subconfigs,lpath);
+    config_recurse_src_files(subconfigs,sourcefiles,lpath);
+}
+
 void mcc::config::init() {
     scan_config();
 }
@@ -136,12 +235,6 @@ void mcc::config::background() {
 
 }
 
-static bool activate_config(mcc::config::ConfigObject *obj) {
-    if (!current_config) return false;
-
-    current_config->loaded_configs.push_back(obj);
-    return true;
-}
 
 uint8_t mcc::config::cmd() {
     cbu::cli_output("Welcome to the config utility!");
@@ -212,7 +305,6 @@ uint8_t mcc::config::cmd() {
             cfg->directory = project_path;
             cfg->src_directory = src_path;
             cfg->model = model;
-
 
             auto fmt = ConfigFileFormat();
             fmt.save_config(cfg);

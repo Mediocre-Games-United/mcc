@@ -5,6 +5,8 @@
 #include <vector>
 
 namespace mcc::config {
+    static const char *FNAME = "project.mcc";
+
     struct SourceCompileTarget {
         fpath src_path;
         fpath obj_path;
@@ -30,7 +32,7 @@ namespace mcc::config {
         EXECUTABLES_WITH_SHARED = 2 // compiles subprojects into shared objects and links to them in the executables generated from mains
     };
     struct ConfigObject { // a template object that can be used to generate compile targets, should not have any functionality, only an object describing the project
-        ~ConfigObject() { for (auto &s : source_files) delete s; }
+        ~ConfigObject() { for (auto &s : source_files) delete s; if (main_source) delete main_source; }
         string name;
         fpath directory;
         fpath src_directory;
