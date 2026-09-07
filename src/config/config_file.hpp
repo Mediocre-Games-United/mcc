@@ -38,7 +38,7 @@ namespace mcc::config {
         ConfigModel model;
         std::vector<ConfigObject*> sub_projects;
         std::vector<SourceFileObject*> source_files; // should not include main_source
-        SourceFileObject *main_source; // used as main for modes 0 and 2, optionally compiled multiple times
+        SourceFileObject *main_source; // used as main for mode 2, otherwise ignored. optionally compiled multiple times
 
         // other executables only used by mode 2
         bool generate_launcher_wrapper = false; // if true, compile main_source into [main]_app.o -> app(.exe) and [main]_launcher.o -> launcher(.exe) and make the launcher executable a wrapper that handles the app executable

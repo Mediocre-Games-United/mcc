@@ -89,6 +89,11 @@ public:
                 c->src_directory = value;
             },[](void *obj) -> string {
                 return ((cf*) obj)->src_directory;
+            }),
+            new cbu::U8BinarySection([](void *obj,auto value) {
+
+            },[](void *obj) -> uint8_t {
+                return (uint8_t) ((cf*) obj)->model;
             })
         });
     }
@@ -104,6 +109,10 @@ public:
         obj->directory = path.parent_path();
 
         return obj;
+    }
+    void save_config(cf *obj) {
+        load_object_to_buffer(obj);
+        save_buffer_to_file(obj->directory / "project.mcc");
     }
 };
 
@@ -165,19 +174,19 @@ uint8_t mcc::config::cmd() {
                 continue;
             }
             int mi;
-            cbu::cli_input("---\nEnter config mode\nGeneric monolithic executable (1)\nShared library (2)\nExecutable with subprojects (3)\nEnter value");
-            if (!cbu::cli_get_valid_int(&mi,1,3)) {
+            cbu::cli_input("---\nEnter config mode\nGeneric executable (0 default)\nShared library (1)\nExecutable with subprojects (2)\nEnter value");
+            if (!cbu::cli_get_valid_int(&mi,0,2,true,0)) {
                 cbu::log_error(false,"Invalid value");
                 continue;
             }
             switch (mi) {
-                case 1: {
+                case 0: {
                     model = mcc::config::ConfigModel::SINGLE_EXECUTABLE;
                     break;
-                } case 2: {
+                } case 1: {
                     model = mcc::config::ConfigModel::SINGLE_SHARED;
                     break;
-                } case 3: {
+                } case 2: {
                     model = mcc::config::ConfigModel::EXECUTABLES_WITH_SHARED;
                     break;
                 }
@@ -199,9 +208,14 @@ uint8_t mcc::config::cmd() {
                                        name,
                                        cbu::path_to_utf8(project_path),
                                        cbu::path_to_utf8(src_path)));
+            cfg->name = name;
             cfg->directory = project_path;
             cfg->src_directory = src_path;
+            cfg->model = model;
 
+
+            auto fmt = ConfigFileFormat();
+            fmt.save_config(cfg);
 
             activate_config(cfg);
             cbu::log_success("Config created and activated succesfully!");
