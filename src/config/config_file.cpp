@@ -4,6 +4,7 @@
 #include "file.hpp"
 #include "logger.hpp"
 #include "binary.hpp"
+#include "state.hpp"
 #include <filesystem>
 #include <format>
 #include <queue>
@@ -212,12 +213,27 @@ static void scan_config() {
     cbu::log_verbose("Scanning local config file");
     auto fmt = ConfigContainerFileFormat();
     if (current_config) delete current_config;
+    mcc::state::state_safe([]() {
+        mcc::state::current_config = NULL;
+    });
 
     fmt.load_configs();
 }
 
 static bool activate_config(mcc::config::ConfigObject *obj) {
     if (!current_config) return false;
+
+    bool exists = false;
+    for (auto &s : current_config->loaded_configs) {
+        if (s->directory == obj->directory) {
+            exists = true;
+            break;
+        }
+    }
+    if (exists) {
+        cbu::log_info("Config is already linked! Skipping...");
+        return true;
+    }
 
     current_config->loaded_configs.push_back(obj);
     auto fmt = ConfigContainerFileFormat();
@@ -324,7 +340,9 @@ uint8_t mcc::config::reload() {
     return 0;
 }
 void mcc::config::background() {
+    if (!mcc::state::current_config) return;
 
+    update_config_src(mcc::state::current_config);
 }
 
 
@@ -338,7 +356,7 @@ uint8_t mcc::config::cmd() {
         bool has_new_project_prepath = false;
         fpath new_project_prepath;
         if (cmd == "h") {
-            cbu::cli_output("[l] list configs\n[n] new config\n[e] edit existing\n[a] link existing config\n[q] quit config utility");
+            cbu::cli_output("[l] list configs\n[n] new config\n[e] edit existing\n[a] link existing config\n[q] quit config utility\n[s] set config as the active one for other commands");
             continue;
         } if (cmd == "q") {
             cbu::cli_output("Exiting config utility...");
@@ -382,6 +400,7 @@ uint8_t mcc::config::cmd() {
                 update_config_src(cfg);
                 activate_config(cfg);
 
+                cbu::log_success(std::format("Found & loaded config {} succesfully",cfg->name));
                 continue;
             }
         } if (cmd == "n") {
@@ -445,7 +464,29 @@ uint8_t mcc::config::cmd() {
             fmt.save_config(cfg);
 
             activate_config(cfg);
-            cbu::log_success("Config created and activated succesfully!");
+            cbu::log_success("Config created and linked succesfully!");
+
+            continue;
+        } if (cmd == "s") {
+            if (!current_config) continue;
+            cbu::cli_input("Enter config name to set current");
+            string name = cbu::cli_get_string();
+
+            bool match = false;
+            for (auto &s : current_config->loaded_configs) {
+                if (s->name == name) {
+                    mcc::state::state_safe([s]() {
+                        mcc::state::current_config = s;
+                        mcc::state::current_project = s->directory;
+                    });
+
+                    cbu::log_success(std::format("Project {} at {} is now current",name,cbu::path_to_utf8(s->directory)));
+                    match = true;
+                    break;
+                }
+            }
+            if (match) continue;
+            cbu::log_warn(std::format("Project {} does not exist or is unlinked",name));
 
             continue;
         }
@@ -456,5 +497,5 @@ uint8_t mcc::config::cmd() {
     return 0;
 }
 bool mcc::config::valid() {
-    return false;
+    return mcc::state::current_config;
 }

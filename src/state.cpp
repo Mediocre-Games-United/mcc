@@ -3,8 +3,9 @@
 
 static std::mutex state_lock;
 
-fpath mcc::current_project;
-void mcc::state_safe(std::function<void()> callback) {
+fpath mcc::state::current_project;
+mcc::config::ConfigObject *current_config = NULL;
+void mcc::state::state_safe(std::function<void()> callback) {
     state_lock.lock();
     callback();
     state_lock.unlock();
