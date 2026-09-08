@@ -2,12 +2,14 @@
 #include "base_types.hpp"
 #include "cli.hpp"
 #include "commands.hpp"
+#include "init.hpp"
 #include "logger.hpp"
 #include "basic_commands.hpp"
 
 static bool is_running = true;
 int main() {
     cbu::log_info("Starting program");
+    cbu::init();
 
     mcc::basic_commands::init();
     mcc::start_background();
@@ -28,5 +30,6 @@ int main() {
     cbu::log_info("Gracefully closing program");
 
     mcc::end_background();
+    cbu::deinit();
     cbu::log_success("Closed succesfully");
 }

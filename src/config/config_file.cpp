@@ -214,7 +214,7 @@ static void scan_config() {
     auto fmt = ConfigContainerFileFormat();
     if (current_config) delete current_config;
     mcc::state::state_safe([]() {
-        mcc::state::current_config = NULL;
+        mcc::state::active_config = NULL;
     });
 
     fmt.load_configs();
@@ -340,9 +340,11 @@ uint8_t mcc::config::reload() {
     return 0;
 }
 void mcc::config::background() {
-    if (!mcc::state::current_config) return;
+    mcc::state::state_safe([]() {
+        if (!mcc::state::active_config) return;
 
-    update_config_src(mcc::state::current_config);
+        update_config_src(mcc::state::active_config);
+    });
 }
 
 
@@ -476,7 +478,7 @@ uint8_t mcc::config::cmd() {
             for (auto &s : current_config->loaded_configs) {
                 if (s->name == name) {
                     mcc::state::state_safe([s]() {
-                        mcc::state::current_config = s;
+                        mcc::state::active_config = s;
                         mcc::state::current_project = s->directory;
                     });
 
@@ -497,5 +499,5 @@ uint8_t mcc::config::cmd() {
     return 0;
 }
 bool mcc::config::valid() {
-    return mcc::state::current_config;
+    return mcc::state::active_config;
 }

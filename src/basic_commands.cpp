@@ -3,6 +3,7 @@
 #include "config/config_file.hpp"
 #include "logger.hpp"
 #include "commands.hpp"
+#include "state.hpp"
 #include "stringmath.hpp"
 #include <cstdint>
 #include <cstdlib>
@@ -36,11 +37,30 @@ static uint8_t list_all_commands() {
     return 0;
 }
 
+static void log_config(mcc::config::ConfigObject *obj) {
+    if (!obj) cbu::log_error(true,"Active config is null!");
+    cbu::log_info(std::format("Using config {}",obj->name));
+}
 static uint8_t create_package_optimized() {
     if (!mcc::config::valid()) {
         cbu::log_error(false,"No valid config found. Generate one with `config`");
 
         return 1;
+    }
+    mcc::config::ConfigObject *cfg;
+    mcc::state::state_safe([&cfg]() {
+        cfg = cfg = mcc::state::active_config;
+    });
+    log_config(cfg);
+
+    switch (cfg->model) {
+        case mcc::config::ConfigModel::SINGLE_EXECUTABLE: {
+
+
+            break;
+        } default: {
+            cbu::log_error(true,"Not implemented");
+        }
     }
 
     return 0;

@@ -6,6 +6,6 @@
 
 namespace mcc::state {
     extern fpath current_project;
-    extern mcc::config::ConfigObject *current_config;
+    extern mcc::config::ConfigObject *active_config;
     void state_safe(std::function<void()> callback);
 }
