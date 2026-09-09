@@ -32,19 +32,26 @@ static void build_object(fpath build_path,mcc::config::SourceCompileTarget tgt,s
         if (stamp > std::filesystem::last_write_time(tgt.src_path)) return;
     }
 
+    string output;
     auto code = mcc::shell::run_shell_command(build_path,std::format("{} {} {} {} {} -s {} -o {}",
                                                           CXX,CXX_FLAGS,INCLUDES,DEFINES,flags,
-                                                          cbu::path_to_utf8(tgt.src_path),cbu::path_to_utf8(tgt.obj_path)));
+                                                          cbu::path_to_utf8(tgt.src_path),
+                                                          cbu::path_to_utf8(tgt.obj_path)),
+                                              &output);
+
+
 }
 
 void mcc::compiler::build_all(mcc::config::ConfigObject *cfg,BuildType type,Platform pt) {
     vector<std::optional<cbu::WorkObject>> work;
+    fpath build_path = cfg->directory / "build";
     for (auto &s : cfg->source_files) {
         if (!s->enabled) continue;
 
+        mcc::config::SourceCompileTarget tgt;
         work.push_back(cbu::WorkObject{
-            .call = [&s]() {
-
+            .call = [&s,tgt,build_path]() {
+                build_object(build_path,tgt);
             }
         });
     }

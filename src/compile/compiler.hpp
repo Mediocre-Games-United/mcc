@@ -1,6 +1,7 @@
 #pragma once
 
 #include "config/config_file.hpp"
+
 namespace mcc::compiler {
     enum class BuildType {
         RELEASE =   0,
@@ -12,5 +13,7 @@ namespace mcc::compiler {
         WINDOWS =   0,
         LINUX =     1
     };
+    std::unordered_map<>
+
     void build_all(mcc::config::ConfigObject *cfg,BuildType type,Platform pt);
 };
