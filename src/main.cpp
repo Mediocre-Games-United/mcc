@@ -5,6 +5,7 @@
 #include "init.hpp"
 #include "logger.hpp"
 #include "basic_commands.hpp"
+#include "workers.hpp"
 
 static bool is_running = true;
 int main() {
@@ -32,4 +33,9 @@ int main() {
     mcc::end_background();
     cbu::deinit();
     cbu::log_success("Closed succesfully");
+}
+
+cbu::WorkerState *cbu::get_state() {
+    static cbu::WorkerState wstate{};
+    return &wstate;
 }

@@ -1,5 +1,6 @@
 #include "basic_commands.hpp"
 #include "cli.hpp"
+#include "compile/compiler.hpp"
 #include "config/config_file.hpp"
 #include "logger.hpp"
 #include "commands.hpp"
@@ -49,19 +50,11 @@ static uint8_t create_package_optimized() {
     }
     mcc::config::ConfigObject *cfg;
     mcc::state::state_safe([&cfg]() {
-        cfg = cfg = mcc::state::active_config;
+        cfg = mcc::state::active_config;
     });
     log_config(cfg);
 
-    switch (cfg->model) {
-        case mcc::config::ConfigModel::SINGLE_EXECUTABLE: {
-
-
-            break;
-        } default: {
-            cbu::log_error(true,"Not implemented");
-        }
-    }
+    uint8_t code = mcc::compiler::build_all(cfg,mcc::compiler::BuildType::BUILD_RELEASE,mcc::compiler::Platform::PLATFORM_LINUX);
 
     return 0;
 }

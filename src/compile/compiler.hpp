@@ -4,16 +4,17 @@
 
 namespace mcc::compiler {
     enum class BuildType {
-        RELEASE =   0,
-        BETA =      1,
-        DEBUG =     2,
-        EDITOR =    3
+        BUILD_RELEASE =   0,
+        BUILD_BETA =      1,
+        BUILD_DEBUG =     2,
+        BUILD_EDITOR =    3
     };
     enum class Platform {
-        WINDOWS =   0,
-        LINUX =     1
+        PLATFORM_WINDOWS =   0,
+        PLATFORM_LINUX =     1
     };
-    std::unordered_map<>
 
-    void build_all(mcc::config::ConfigObject *cfg,BuildType type,Platform pt);
+    extern const char *build_type_names[sizeof(BuildType)];
+    extern const char *platform_names[sizeof(Platform)];
+    uint8_t build_all(mcc::config::ConfigObject *cfg,BuildType type,Platform pt);
 };

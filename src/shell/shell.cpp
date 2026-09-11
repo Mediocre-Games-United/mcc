@@ -1,7 +1,9 @@
 #include "shell.hpp"
+#include "logger.hpp"
 
 #include <cstring>
 #include <fcntl.h>
+#include <format>
 #include <sys/types.h>
 #include <sys/wait.h>
 #include <unistd.h>
@@ -11,6 +13,8 @@ uint8_t mcc::shell::run_shell_command(
     string cmd,
     string* output
 ) {
+    cbu::log_verbose(std::format("Shell: running command {}",cmd));
+
     if (output != nullptr) {
         output->clear();
     }
