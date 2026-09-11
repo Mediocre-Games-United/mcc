@@ -93,9 +93,6 @@ public:
                 *len = obj->source_files.size();
                 *size = sizeof(mcc::config::SourceFileObject*);
 
-                for (auto &s : obj->source_files) {
-                    cbu::log_debug(std::format("Src: {}",(void*) s));
-                }
                 if (*len == 0) return NULL;
                 return obj->source_files.data();
             },[](void *obj) {},{
@@ -116,6 +113,34 @@ public:
                         c->enabled = bool(value);
                     },[](void *obj) -> uint8_t {
                         return uint8_t((*(mcc::config::SourceFileObject**) obj)->enabled);
+                    })
+                })
+            },false),
+            new cbu::RepeatingBinarySection([](void *u,size_t *size,size_t *len) -> void* {
+                auto *obj = (cf*) u;
+                *len = obj->external_objects.size();
+                *size = sizeof(mcc::config::ExternalObject*);
+
+                if (*len == 0) return NULL;
+                return obj->external_objects.data();
+            },[](void*) {},{
+                new cbu::DataBinarySection([](void *obj, void *data) {
+                    auto *co = (mcc::config::ExternalObject*) data;
+                    auto *c = (cf*) obj;
+
+                    c->external_objects.push_back(new mcc::config::ExternalObject(*co));
+                },[]() -> void* { return new mcc::config::ExternalObject(); },[](void *obj) { delete (mcc::config::ExternalObject*) obj; },{
+                    new cbu::StringBinarySection([](void *obj,auto value) { // link name
+                        auto *c = (mcc::config::ExternalObject*) obj;
+                        c->link_name = value;
+                    },[](void *obj) -> string {
+                        return cbu::path_to_utf8((*(mcc::config::ExternalObject**) obj)->link_name);
+                    }),
+                    new cbu::StringBinarySection([](void *obj,auto value) { // include path
+                        auto *c = (mcc::config::ExternalObject*) obj;
+                        c->include_path = value;
+                    },[](void *obj) -> string {
+                        return cbu::path_to_utf8((*(mcc::config::ExternalObject**) obj)->include_path);
                     })
                 })
             },false)
@@ -358,7 +383,7 @@ uint8_t mcc::config::cmd() {
         bool has_new_project_prepath = false;
         fpath new_project_prepath;
         if (cmd == "h") {
-            cbu::cli_output("[l] list configs\n[n] new config\n[e] edit existing\n[a] link existing config\n[q] quit config utility\n[s] set config as the active one for other commands");
+            cbu::cli_output("[l] list configs\n[n] new config\n[e] edit existing\n[a] link existing config\n[q] quit config utility\n[s] set config as the active one for other commands\n[x] add external library to config");
             continue;
         } if (cmd == "q") {
             cbu::cli_output("Exiting config utility...");
@@ -405,6 +430,48 @@ uint8_t mcc::config::cmd() {
                 cbu::log_success(std::format("Found & loaded config {} succesfully",cfg->name));
                 continue;
             }
+        } if (cmd == "x") {
+            string include,link,name,mode;
+
+            cbu::cli_input("Enter config name");
+            if (!cbu::cli_get_valid_string(&name)) {
+                cbu::log_error(false,"Name cannot be empty");
+                continue;
+            }
+            bool match = false;
+            cf *cfg;
+            for (auto &s : current_config->loaded_configs) {
+                if (s->name == name) {
+                    match = true;
+                    cfg = s;
+                    break;
+                }
+            }
+            if (!match) {
+                cbu::log_warn("Config does not exist or is not linked!");
+                continue;
+            }
+
+            cbu::cli_input("Enter include path");
+            if (!cbu::cli_get_valid_string(&include)) {
+                cbu::log_error(false,"Include path cannot be empty");
+                continue;
+            }
+
+            // cbu::cli_output()
+            // mode = cbu::cli_get_string();
+
+            cbu::cli_input("Enter link name (leave blank for no linking step such as header only)");
+            link = cbu::cli_get_string();
+
+            cfg->external_objects.push_back(new mcc::config::ExternalObject{
+                .include_path = include,
+                .link_name = link
+            });
+            auto fmt = ConfigFileFormat();
+            fmt.save_config(cfg);
+
+            continue;
         } if (cmd == "n") {
             string name;
             mcc::config::ConfigModel model;

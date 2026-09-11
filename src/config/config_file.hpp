@@ -26,6 +26,11 @@ namespace mcc::config {
         string name;
         bool enabled = true;
     };
+    struct ExternalObject {
+        fpath include_path; // added in -I[path] to compiler
+        string link_name = ""; // added in -l[name] to linker if non-empty
+    };
+
     enum class ConfigModel : uint8_t {
         SINGLE_EXECUTABLE =      0, // compiles all files to a single executable file and ignores all subprojects. useful for simple or small projects without many dependencies
         SINGLE_SHARED =          1, // compiles all files to a single shared object.
@@ -40,6 +45,7 @@ namespace mcc::config {
         ConfigModel model;
         std::vector<ConfigObject*> sub_projects;
         std::vector<SourceFileObject*> source_files; // should not include main_source
+        std::vector<ExternalObject*> external_objects; // libraries that are linked and included when compiling
         SourceFileObject *main_source; // used as main for mode 2, otherwise ignored. optionally compiled multiple times
 
         // other executables only used by mode 2
