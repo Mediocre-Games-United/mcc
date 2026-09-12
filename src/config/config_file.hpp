@@ -41,6 +41,8 @@ namespace mcc::config {
         string name;
         fpath directory;
         fpath src_directory;
+        bool has_parent_directory = false;
+        fpath parent_directory;
         bool autodetect_source = true;
         ConfigModel model;
         std::vector<ConfigObject*> sub_projects;

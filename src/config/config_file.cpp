@@ -143,7 +143,21 @@ public:
                         return cbu::path_to_utf8((*(mcc::config::ExternalObject**) obj)->include_path);
                     })
                 })
-            },false)
+            },false),
+            new cbu::StringBinarySection([](void *obj,auto value) { // parent directory
+                cf *c = (cf*) obj;
+                string str = value;
+                c->has_parent_directory = !str.empty();
+                if (!str.empty()) {
+                    c->parent_directory = str;
+                }
+
+            },[](void *obj) -> string {
+                cf *c = (cf*) obj;
+                if (!c->has_parent_directory) return "";
+
+                return cbu::path_to_utf8(c->parent_directory);
+            }),
         });
     }
 };
@@ -256,7 +270,7 @@ static bool activate_config(mcc::config::ConfigObject *obj) {
         }
     }
     if (exists) {
-        cbu::log_info("Config is already linked! Skipping...");
+        cbu::log_debug("Config is already linked! Skipping...");
         return true;
     }
 
@@ -266,19 +280,20 @@ static bool activate_config(mcc::config::ConfigObject *obj) {
     return true;
 }
 
-static void config_recurse_src_files(vector<cf*> &subconfigs,mcc::config::SourceFileObject *&main,vector<mcc::config::SourceFileObject*> &sourcefiles,fpath root,fpath path) {
-    bool no_match = true;
-    for (auto &s : subconfigs) {
-        if (path == s->directory) {
-            no_match = false;
-            break;
+static void config_recurse_src_files(vector<cf*> &subconfigs,mcc::config::SourceFileObject *&main,vector<mcc::config::SourceFileObject*> &sourcefiles,fpath root,fpath path,bool parent_no_match = true) {
+    bool no_match = parent_no_match;
+    if (no_match) {
+        for (auto &s : subconfigs) {
+            if (path == s->directory) {
+                no_match = false;
+                break;
+            }
         }
     }
-    if (!no_match) return;
 
     for (auto &s : cbu::iterate_dir(path)) {
         if (std::filesystem::is_directory(s)) {
-            config_recurse_src_files(subconfigs,main,sourcefiles,root,s);
+            config_recurse_src_files(subconfigs,main,sourcefiles,root,s,no_match);
             continue;
         }
         if (!std::filesystem::is_regular_file(s)) continue;
@@ -309,6 +324,7 @@ static void config_recurse_src_files(vector<cf*> &subconfigs,mcc::config::Source
                 };
                 continue;
             }
+            if (!no_match) continue;
             sourcefiles.push_back(new mcc::config::SourceFileObject{
                 .path = p,
                 .name = s.parent_path() / name
@@ -369,6 +385,8 @@ void mcc::config::background() {
         if (!mcc::state::active_config) return;
 
         update_config_src(mcc::state::active_config);
+        auto fmt = ConfigFileFormat();
+        fmt.save_config(mcc::state::active_config);
     });
 }
 
@@ -383,7 +401,7 @@ uint8_t mcc::config::cmd() {
         bool has_new_project_prepath = false;
         fpath new_project_prepath;
         if (cmd == "h") {
-            cbu::cli_output("[l] list configs\n[n] new config\n[e] edit existing\n[a] link existing config\n[q] quit config utility\n[s] set config as the active one for other commands\n[x] add external library to config");
+            cbu::cli_output("[l] list configs\n[n] new config\n[e] edit existing\n[a] link existing config\n[q] quit config utility\n[s] set config as the active one for other commands\n[x] add external library to config\n[p] add parent directory such as for a subproject dependent on a parent config.h file");
             continue;
         } if (cmd == "q") {
             cbu::cli_output("Exiting config utility...");
@@ -430,6 +448,45 @@ uint8_t mcc::config::cmd() {
                 cbu::log_success(std::format("Found & loaded config {} succesfully",cfg->name));
                 continue;
             }
+        } if (cmd == "p") {
+            string name;
+            fpath parentpath;
+
+            cbu::cli_input("Enter config name");
+            if (!cbu::cli_get_valid_string(&name)) {
+                cbu::log_error(false,"Name cannot be empty");
+                continue;
+            }
+            bool match = false;
+            cf *cfg;
+            for (auto &s : current_config->loaded_configs) {
+                if (s->name == name) {
+                    match = true;
+                    cfg = s;
+                    break;
+                }
+            }
+            if (!match) {
+                cbu::log_warn("Config does not exist or is not linked!");
+                continue;
+            }
+            cbu::cli_input("Enter parent path");
+            if (!cbu::cli_get_valid_dirpath(&parentpath,cfg->directory)) {
+                cbu::log_error(false,"Cancelled");
+                continue;
+            }
+
+            fpath relpath = std::filesystem::relative(parentpath,cfg->directory);
+            cbu::log_debug(std::format("Relative path: {}",cbu::path_to_utf8(relpath)));
+
+            cfg->has_parent_directory = true;
+            cfg->parent_directory = relpath;
+
+            auto fmt = ConfigFileFormat();
+            fmt.save_config(cfg);
+
+            cbu::log_success("Added parent directory succesfully!");
+            continue;
         } if (cmd == "x") {
             string include,link,name,mode;
 

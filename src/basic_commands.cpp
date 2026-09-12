@@ -1,11 +1,14 @@
 #include "basic_commands.hpp"
 #include "cli.hpp"
 #include "compile/compiler.hpp"
+#include "compile/packager.hpp"
 #include "config/config_file.hpp"
+#include "file.hpp"
 #include "logger.hpp"
 #include "commands.hpp"
 #include "state.hpp"
 #include "stringmath.hpp"
+#include "shell.hpp"
 #include <cstdint>
 #include <cstdlib>
 #include <format>
@@ -42,21 +45,26 @@ static void log_config(mcc::config::ConfigObject *obj) {
     if (!obj) cbu::log_error(true,"Active config is null!");
     cbu::log_info(std::format("Using config {}",obj->name));
 }
+static mcc::compiler::BuildType type = mcc::compiler::BuildType::BUILD_EDITOR;
+static mcc::compiler::Platform platform = mcc::compiler::Platform::PLATFORM_LINUX;
 static uint8_t create_package_optimized() {
     if (!mcc::config::valid()) {
         cbu::log_error(false,"No valid config found. Generate one with `config`");
 
         return 1;
     }
-    mcc::config::ConfigObject *cfg;
-    mcc::state::state_safe([&cfg]() {
-        cfg = mcc::state::active_config;
+
+
+    uint8_t code;
+    mcc::state::state_safe([&code]() {
+        log_config(mcc::state::active_config);
+
+        code = mcc::compiler::build_all(mcc::state::active_config,type,platform);
+        if (code) return;
+        code = mcc::packager::package_all(mcc::state::active_config,type,platform);
     });
-    log_config(cfg);
 
-    uint8_t code = mcc::compiler::build_all(cfg,mcc::compiler::BuildType::BUILD_RELEASE,mcc::compiler::Platform::PLATFORM_LINUX);
-
-    return 0;
+    return code;
 }
 static uint8_t run_program() {
     uint8_t res = create_package_optimized();
@@ -65,6 +73,16 @@ static uint8_t run_program() {
         return res;
     } else cbu::log_verbose("Package created, starting the run wrapper");
 
+    fpath build_path;
+    mcc::state::state_safe([&build_path]() {
+        build_path = mcc::compiler::get_build_path(mcc::state::active_config,type,platform);
+    });
 
-    return 0;
+    cbu::log_info("Starting program...");
+    uint8_t code = cbu::run_shell_command(build_path,std::format("{}/launcher",cbu::path_to_utf8(build_path)),NULL);
+    if (code) {
+        cbu::log_error(false,std::format("Program exited with code {}",code));
+    } else cbu::log_success("Program exited with code 0!");
+
+    return code;
 }
