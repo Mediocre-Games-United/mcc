@@ -437,15 +437,11 @@ uint8_t mcc::config::cmd() {
                 new_project_prepath = path;
             } else {
                 if (!std::filesystem::is_regular_file(ppath)) {
-                    cbu::log_warn("Project is an invalid file");
+                    cbu::log_warn("Project is not a file");
                     continue;
                 }
-                auto fmt = ConfigFileFormat();
-                cf *cfg = fmt.load_config(ppath);
-                update_config_src(cfg);
-                activate_config(cfg);
+                link_file(ppath);
 
-                cbu::log_success(std::format("Found & loaded config {} succesfully",cfg->name));
                 continue;
             }
         } if (cmd == "p") {
@@ -598,21 +594,7 @@ uint8_t mcc::config::cmd() {
             cbu::cli_input("Enter config name to set current");
             string name = cbu::cli_get_string();
 
-            bool match = false;
-            for (auto &s : current_config->loaded_configs) {
-                if (s->name == name) {
-                    mcc::state::state_safe([s]() {
-                        mcc::state::active_config = s;
-                        mcc::state::current_project = s->directory;
-                    });
-
-                    cbu::log_success(std::format("Project {} at {} is now current",name,cbu::path_to_utf8(s->directory)));
-                    match = true;
-                    break;
-                }
-            }
-            if (match) continue;
-            cbu::log_warn(std::format("Project {} does not exist or is unlinked",name));
+            set_name_current(name);
 
             continue;
         }
@@ -624,4 +606,53 @@ uint8_t mcc::config::cmd() {
 }
 bool mcc::config::valid() {
     return mcc::state::active_config;
+}
+
+
+static string last_config_name;
+bool mcc::config::link_file(fpath path) {
+    if (!std::filesystem::exists(path)) {
+        cbu::log_error(false,"File does not exist");
+        return false;
+    } if (!std::filesystem::is_regular_file(path)) {
+        cbu::log_error(false,"Path is not a file!");
+        return false;
+    } if (path.filename() != "project.mcc") {
+        cbu::log_error(false,"According to our arbitrary restrictions, the file has to be called project.mcc to work :nerd:");
+        return false;
+    }
+
+    auto fmt = ConfigFileFormat();
+    cf *cfg = fmt.load_config(path);
+    update_config_src(cfg);
+    activate_config(cfg);
+    last_config_name = cfg->name;
+
+    cbu::log_success(std::format("Found & loaded config {} succesfully",cfg->name));
+    return true;
+}
+bool mcc::config::set_file_current(fpath ppath) {
+    bool s = link_file(ppath);
+    if (!s) return false;
+
+    return set_name_current(last_config_name);
+}
+bool mcc::config::set_name_current(string name) {
+    bool match = false;
+    for (auto &s : current_config->loaded_configs) {
+        if (s->name == name) {
+            mcc::state::state_safe([s]() {
+                mcc::state::active_config = s;
+                mcc::state::current_project = s->directory;
+            });
+
+            cbu::log_success(std::format("Project {} at {} is now current",name,cbu::path_to_utf8(s->directory)));
+            match = true;
+            break;
+        }
+    }
+    if (match) return true;
+    cbu::log_warn(std::format("Project {} does not exist or is unlinked",name));
+
+    return false;
 }

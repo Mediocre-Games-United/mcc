@@ -61,4 +61,8 @@ namespace mcc::config {
 
     uint8_t reload();
     uint8_t cmd();
+
+    bool link_file(fpath path);
+    bool set_file_current(fpath path);
+    bool set_name_current(string name);
 }
