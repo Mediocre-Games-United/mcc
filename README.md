@@ -6,6 +6,13 @@ Simple all-in-one command line build system for C++ projects
 
 Follow the instructions at https://github.com/Mediocre-Games-United/mcc-build
 
+asd
+asd
+a
+s
+dsa
+d
+
 To use, simply type mcc in any terminal for interactive mode.
 
 ## MODES
