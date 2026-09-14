@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=MCC
+Comment=Launch the mcc interactive mode
+Exec=mcc
+Terminal=true
+Categories=Development;Building;
+MimeType=application/x-mcc;
