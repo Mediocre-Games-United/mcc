@@ -46,3 +46,5 @@ Standard mode is not implemented yet, but in standard mode mcc will execute a co
 ## PROJECT STRUCTURE
 
 The main branch will have the latest functional full version. The dev branch will have the latest development version.
+
+Please make pull requests to dev and not main.
