@@ -1,8 +1,48 @@
-simple all in one build system & wrapper for running, debugging and compiling c++ programs without the need for complicated build generators
+# MCC (mcc compiler collection)
 
-uses mingw-w64 to compile to windows
-uses g++ to compile to linux
+Simple all-in-one command line build system for C++ projects
 
-generates a .clangd file for clangd LSP
+## INSTALLATION & USAGE
 
-test commit
+Follow the instructions at [https://github.com/Mediocre-Games-United/mcc-build](mcc-build).
+
+To use, simply type mcc in any terminal for interactive mode.
+
+## MODES
+
+### INTERACTIVE
+
+In interactive mode, the program will guide the user in configuring, building and packaging. No need to learn build file syntax or troubleshoot it.
+
+### STANDARD
+
+Standard mode is not implemented yet, but in standard mode mcc will execute a command and quit, like a standard cli tool. For those who don't like the interactive mode or for automated systems that cannot interact.
+
+## FEATURES
+
+- Source to object files
+- Recompiled on change only
+- Recompiled on changes to dependencies
+- Compilation modes
+- Multithreaded
+- Monolithic executables
+- Shared libraries
+- Subprojects
+- Packager
+- Resource and lang packaging
+- Runtime wrapper
+
+## FUTURE FEATURES
+
+- Compiling to windows
+- Copying dependent shared libraries
+- Config files for LSPs
+- Automatically installing dependencies from package managers
+- Automatically installing dependencies from other sources
+- Support for C with gcc and not g++
+- Support for custom toolchains such as arm
+
+
+## PROJECT STRUCTURE
+
+The main branch will have the latest functional full version. The dev branch will have the latest development version.
