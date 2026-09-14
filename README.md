@@ -4,7 +4,7 @@ Simple all-in-one command line build system for C++ projects
 
 ## INSTALLATION & USAGE
 
-Follow the instructions at [https://github.com/Mediocre-Games-United/mcc-build]
+Follow the instructions at https://github.com/Mediocre-Games-United/mcc-build
 
 To use, simply type mcc in any terminal for interactive mode.
 
@@ -24,7 +24,7 @@ Standard mode is not implemented yet, but in standard mode mcc will execute a co
 - Recompiled on change only
 - Recompiled on changes to dependencies
 - Compilation modes
-- Multithreaded
+- Multithreading
 - Monolithic executables
 - Shared libraries
 - Subprojects
