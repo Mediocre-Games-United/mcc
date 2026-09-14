@@ -4,7 +4,7 @@ Simple all-in-one command line build system for C++ projects
 
 ## INSTALLATION & USAGE
 
-Follow the instructions at [https://github.com/Mediocre-Games-United/mcc-build](mcc-build).
+Follow the instructions at [https://github.com/Mediocre-Games-United/mcc-build]
 
 To use, simply type mcc in any terminal for interactive mode.
 
