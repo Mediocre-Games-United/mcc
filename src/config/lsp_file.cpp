@@ -17,6 +17,16 @@ static void get_includes_recurse(string &output,fpath dir) {
 static void generate_clangd_lsp(mcc::config::ConfigObject *cfg) {
     string cont = "CompileFlags:\n Add:\n  - \"-std=c++20\"\n";
     get_includes_recurse(cont,cfg->directory);
+    auto external = cfg->external_objects;
+    for (auto &s : cfg->sub_projects) {
+        for (auto &e : s->external_objects) {
+            external.push_back(e);
+        }
+    }
+    for (auto &s : external) {
+        cont += std::format("  - \"-I{}\"\n",cbu::path_to_utf8(s->include_path));
+    }
+
     fpath cpath = cfg->directory / ".clangd";
 
     BYTEARRAY bin = BYTEARRAY(cont.begin(),cont.end());
