@@ -31,12 +31,12 @@ Standard mode is not implemented yet, but in standard mode mcc will execute a co
 - Packager
 - Resource and lang packaging
 - Runtime wrapper
+- Config files for LSPs
 
 ## FUTURE FEATURES
 
 - Compiling to windows
 - Copying dependent shared libraries
-- Config files for LSPs
 - Automatically installing dependencies from package managers
 - Automatically installing dependencies from other sources
 - Support for C with gcc and not g++
