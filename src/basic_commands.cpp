@@ -59,6 +59,7 @@ static uint8_t create_package_optimized() {
     mcc::state::state_safe([&code]() {
         log_config(mcc::state::active_config);
 
+        mcc::config::update_config_src(mcc::state::active_config);
         code = mcc::compiler::build_all(mcc::state::active_config,type,platform);
         if (code) return;
         code = mcc::packager::package_all(mcc::state::active_config,type,platform);

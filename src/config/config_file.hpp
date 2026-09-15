@@ -65,4 +65,6 @@ namespace mcc::config {
     bool link_file(fpath path);
     bool set_file_current(fpath path);
     bool set_name_current(string name);
+
+    void update_config_src(ConfigObject *obj);
 }
