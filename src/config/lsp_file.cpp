@@ -8,14 +8,15 @@ static void get_includes_recurse(string &output,fpath dir) {
 
     string stem = dir.stem();
     if (stem == ".git" || stem == "build" || stem == "export") return;
-    output += std::format("- \"-I{}\"\n",cbu::path_to_utf8(dir));
+    output += std::format("  - \"-I{}\"\n",cbu::path_to_utf8(dir));
 
     for (auto &s : cbu::iterate_dir(dir)) {
         get_includes_recurse(output,s);
     }
 }
 static void generate_clangd_lsp(mcc::config::ConfigObject *cfg) {
-    string cont = "CompileFlags:\nAdd:\n- \"-std=c++20\"";
+    string cont = "CompileFlags:\n Add:\n  - \"-std=c++20\"\n";
+    get_includes_recurse(cont,cfg->directory);
     fpath cpath = cfg->directory / ".clangd";
 
     BYTEARRAY bin = BYTEARRAY(cont.begin(),cont.end());

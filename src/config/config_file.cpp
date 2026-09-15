@@ -4,6 +4,7 @@
 #include "file.hpp"
 #include "logger.hpp"
 #include "binary.hpp"
+#include "lsp_file.hpp"
 #include "state.hpp"
 #include <filesystem>
 #include <format>
@@ -394,6 +395,8 @@ void mcc::config::update_config_src(cf *obj) {
     obj->main_source = main;
     auto fmt = ConfigFileFormat();
     fmt.save_config(obj);
+
+    mcc::lsp::generate_all_lsps_for_config(obj);
 }
 
 void mcc::config::init() {
