@@ -195,11 +195,15 @@ static void get_includes_recurse(string &output,fpath dir) {
 }
 
 uint8_t mcc::compiler::build_all(mcc::config::ConfigObject *cfg,BuildType type,Platform pt) {
+    cbu::log_verbose(std::format("Building project {}",cfg->name));
     auto external = cfg->external_objects;
 
     if (cfg->model == mcc::config::ConfigModel::EXECUTABLES_WITH_SHARED) {
         cbu::log_verbose("Build: building subprojects first!");
 
+        for (auto &s : cfg->sub_projects) {
+            cbu::log_verbose(std::format("Found subproject '{}'",s->name));
+        }
         uint8_t code;
         for (auto s : cfg->sub_projects) {
             for (auto e : s->external_objects) {
@@ -218,6 +222,8 @@ uint8_t mcc::compiler::build_all(mcc::config::ConfigObject *cfg,BuildType type,P
 
     string inc = "";
     get_includes_recurse(inc,cfg->directory);
+    cbu::log_verbose(std::format("inc: {}",inc));
+
     INCLUDES = std::format("-I{} {} ",cbu::path_to_utf8(cfg->directory / "include"),inc);
     if (cfg->has_parent_directory) {
         fpath pdir = cfg->directory / cfg->parent_directory;

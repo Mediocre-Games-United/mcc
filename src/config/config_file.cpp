@@ -4,10 +4,12 @@
 #include "file.hpp"
 #include "logger.hpp"
 #include "binary.hpp"
+#include "lsp_file.hpp"
 #include "state.hpp"
 #include <filesystem>
 #include <format>
 #include <queue>
+#include "vectormath.hpp"
 
 
 struct ConfigContainerDataBlock {
@@ -25,7 +27,6 @@ using cf = mcc::config::ConfigObject;
 static ConfigContainer *current_config = NULL;
 static bool activate_config(mcc::config::ConfigObject *obj);
 static void scan_config();
-static void update_config_src(cf *obj);
 
 
 class ConfigFileFormatV1 : public cbu::BinaryFileVersion {
@@ -346,9 +347,21 @@ static void config_recurse_sub_projects(vector<cf*> &subconfigs,fpath path) {
         if (!std::filesystem::is_regular_file(s)) continue;
         if (s.filename() != mcc::config::FNAME) continue;
 
-        cbu::log_debug(std::format("Found {} at {}",mcc::config::FNAME,cbu::path_to_utf8(s)));
+        cbu::log_debug(std::format("Found subconfig {} at {}",mcc::config::FNAME,cbu::path_to_utf8(s)));
         auto fmt = ConfigFileFormat();
         cf *cfg = fmt.load_config(s);
+
+        bool found = false;
+        for (auto &o : subconfigs) {
+            if (o->name != cfg->name || o->directory != cfg->directory) continue;
+
+            cbu::log_debug("Subconfig already exists! Skipping...");
+            found = true;
+            delete cfg;
+            break;
+        }
+
+        if (found) continue;
         update_config_src(cfg);
 
         activate_config(cfg);
@@ -357,7 +370,7 @@ static void config_recurse_sub_projects(vector<cf*> &subconfigs,fpath path) {
         continue;
     }
 }
-static void update_config_src(cf *obj) {
+void mcc::config::update_config_src(cf *obj) {
     vector<cf*> subconfigs = obj->sub_projects;
     vector<mcc::config::SourceFileObject*> sourcefiles = obj->source_files;
 
@@ -366,10 +379,25 @@ static void update_config_src(cf *obj) {
     config_recurse_sub_projects(subconfigs,lpath);
     config_recurse_src_files(subconfigs,main,sourcefiles,lpath,lpath);
 
+    vector<mcc::config::SourceFileObject*> remove_queue{};
+    for (auto &s : sourcefiles) {
+        if (std::filesystem::exists(lpath / s->path)) continue;
+        remove_queue.push_back(s);
+    }
+    for (auto &s : subconfigs) update_config_src(s);
+    for (auto &s : remove_queue) {
+        cbu::vector_erase_value(sourcefiles,s);
+        delete s;
+    }
+
     obj->source_files = sourcefiles;
     obj->sub_projects = subconfigs;
 
     obj->main_source = main;
+    auto fmt = ConfigFileFormat();
+    fmt.save_config(obj);
+
+    mcc::lsp::generate_all_lsps_for_config(obj);
 }
 
 void mcc::config::init() {
