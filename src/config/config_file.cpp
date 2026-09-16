@@ -384,6 +384,7 @@ void mcc::config::update_config_src(cf *obj) {
         if (std::filesystem::exists(lpath / s->path)) continue;
         remove_queue.push_back(s);
     }
+    for (auto &s : subconfigs) update_config_src(s);
     for (auto &s : remove_queue) {
         cbu::vector_erase_value(sourcefiles,s);
         delete s;
