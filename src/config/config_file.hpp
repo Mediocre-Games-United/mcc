@@ -36,8 +36,21 @@ namespace mcc::config {
         SINGLE_SHARED =          1, // compiles all files to a single shared object.
         EXECUTABLES_WITH_SHARED = 2 // compiles subprojects into shared objects and links to them in the executables generated from mains
     };
+    enum class ExportType : uint8_t {
+        EXPORT_DEFAULT, // Builds and does nothing else on top of it
+        // EXPORT_INSTALLER, // builds and wraps the program in a simple installer (not implemented yet)
+        // EXPORT_PORTABLE, // build into a portable zip/tar.gz file (not implemented yet)
+
+        EXPORT_NONE
+    };
+
     struct ConfigObject { // a template object that can be used to generate compile targets, should not have any functionality, only an object describing the project
-        ~ConfigObject() { for (auto &s : source_files) delete s; if (main_source) delete main_source; }
+        ~ConfigObject() {
+            for (auto &s : source_files) {
+                delete s;
+            }
+            if (main_source) delete main_source;
+        }
         string name;
         fpath directory;
         fpath src_directory;
@@ -45,6 +58,7 @@ namespace mcc::config {
         fpath parent_directory;
         bool autodetect_source = true;
         ConfigModel model;
+        std::vector<ExportType> export_types;
         std::vector<ConfigObject*> sub_projects;
         std::vector<SourceFileObject*> source_files; // should not include main_source
         std::vector<ExternalObject*> external_objects; // libraries that are linked and included when compiling
@@ -65,4 +79,6 @@ namespace mcc::config {
     bool link_file(fpath path);
     bool set_file_current(fpath path);
     bool set_name_current(string name);
+
+    void update_config_src(ConfigObject *obj);
 }

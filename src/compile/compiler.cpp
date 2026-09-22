@@ -2,6 +2,7 @@
 #include "base_types.hpp"
 #include "config/config_file.hpp"
 #include "file.hpp"
+#include "libs.hpp"
 #include "logger.hpp"
 #include "shell.hpp"
 #include "workers.hpp"
@@ -74,17 +75,24 @@ static vector<fpath> parse_depfile(const string& depfile)
     return dependencies;
 }
 
-const char *mcc::compiler::build_type_names[size_t(BuildType::BUILD_COUNT)] = {
+const char *mcc::compiler::build_type_names[size_t(BuildType::BUILD_NONE)] = {
     "RELEASE","BETA","DEBUG","EDITOR"
 };
-const char *mcc::compiler::platform_names[size_t(Platform::PLATFORM_COUNT)] = {
+const char *mcc::compiler::export_type_names[size_t(mcc::config::ExportType::EXPORT_NONE)] = {
+    "DEFAULT", // "INSTALLER", "PORTABLE"
+};
+const char *mcc::compiler::platform_names[size_t(Platform::PLATFORM_NONE)] = {
     "WIN","LINUX"
 };
-const char *mcc::compiler::platform_shared[size_t(Platform::PLATFORM_COUNT)] {
+const char *mcc::compiler::platform_shared[size_t(Platform::PLATFORM_NONE)] = {
     ".dll",".so"
 };
-const char *mcc::compiler::platform_exe[size_t(Platform::PLATFORM_COUNT)] {
+const char *mcc::compiler::platform_exe[size_t(Platform::PLATFORM_NONE)] = {
     ".exe",""
+};
+
+static const char *platform_compilers[size_t(mcc::compiler::Platform::PLATFORM_NONE)] = {
+    "/usr/bin/x86_64-w64-mingw32-g++ ", "/usr/bin/g++ "
 };
 
 static std::mutex log_mutex;
@@ -185,7 +193,7 @@ static uint8_t build_object(fpath src_path,fpath build_path,mcc::config::SourceC
 static void get_includes_recurse(string &output,fpath dir) {
     if (!std::filesystem::is_directory(dir)) return;
 
-    string stem = dir.stem();
+    string stem = cbu::path_to_utf8(dir.stem());
     if (stem == ".git" || stem == "build" || stem == "export") return;
     output += std::format(" -I{}",cbu::path_to_utf8(dir));
 
@@ -194,12 +202,26 @@ static void get_includes_recurse(string &output,fpath dir) {
     }
 }
 
-uint8_t mcc::compiler::build_all(mcc::config::ConfigObject *cfg,BuildType type,Platform pt) {
+uint8_t mcc::compiler::build_absolute(fpath build_path,mcc::config::ConfigObject *cfg,BuildType type,Platform pt) {
+    if (type == BuildType::BUILD_NONE) {
+        cbu::log_error(false,"BuildType has not been defined!");
+        return -1;
+    }
+    if (pt == Platform::PLATFORM_NONE) {
+        cbu::log_error(false,"Platform has not been defined!");
+        return -1;
+    }
+
+
+    cbu::log_verbose(std::format("Building project {}",cfg->name));
     auto external = cfg->external_objects;
 
     if (cfg->model == mcc::config::ConfigModel::EXECUTABLES_WITH_SHARED) {
         cbu::log_verbose("Build: building subprojects first!");
 
+        for (auto &s : cfg->sub_projects) {
+            cbu::log_verbose(std::format("Found subproject '{}'",s->name));
+        }
         uint8_t code;
         for (auto s : cfg->sub_projects) {
             for (auto e : s->external_objects) {
@@ -218,6 +240,8 @@ uint8_t mcc::compiler::build_all(mcc::config::ConfigObject *cfg,BuildType type,P
 
     string inc = "";
     get_includes_recurse(inc,cfg->directory);
+    cbu::log_verbose(std::format("inc: {}",inc));
+
     INCLUDES = std::format("-I{} {} ",cbu::path_to_utf8(cfg->directory / "include"),inc);
     if (cfg->has_parent_directory) {
         fpath pdir = cfg->directory / cfg->parent_directory;
@@ -228,13 +252,14 @@ uint8_t mcc::compiler::build_all(mcc::config::ConfigObject *cfg,BuildType type,P
     }
 
     vector<std::optional<cbu::WorkObject>> work;
-    fpath build_path = get_build_path(cfg,type,pt);
-    cbu::log_info(std::format("Build path: {}",cbu::path_to_utf8(build_path)));
+    cbu::log_info(std::format("Build path: {}, platform: {}",cbu::path_to_utf8(build_path),int(pt)));
 
     string flags = "";
     if (cfg->model != mcc::config::ConfigModel::SINGLE_EXECUTABLE) {
         flags = "-fPIC ";
     }
+
+    CXX = platform_compilers[int(pt)];
     CXX_FLAGS = "";
     switch (type) {
         case BuildType::BUILD_BETA: {
@@ -245,14 +270,14 @@ uint8_t mcc::compiler::build_all(mcc::config::ConfigObject *cfg,BuildType type,P
         case BuildType::BUILD_DEBUG: {
             CXX_FLAGS += "-DDEBUG=1 ";
             CXX_FLAGS += DEBUG_FLAGS;
-            CXX_FLAGS += SUPER_DEBUG_FLAGS;
+            if (pt == Platform::PLATFORM_LINUX) CXX_FLAGS += SUPER_DEBUG_FLAGS;
 
             break;
         }
         case BuildType::BUILD_EDITOR: {
-            CXX_FLAGS += "-DDEBUG=1 -DEDITOR=1 ";
+            CXX_FLAGS += "-DDEBUG=1 -DEDITOR=1 -DVERBOSE=1";
             CXX_FLAGS += DEBUG_FLAGS;
-            CXX_FLAGS += SUPER_DEBUG_FLAGS;
+            if (pt == Platform::PLATFORM_LINUX) CXX_FLAGS += SUPER_DEBUG_FLAGS;
 
             break;
         }
@@ -286,8 +311,8 @@ uint8_t mcc::compiler::build_all(mcc::config::ConfigObject *cfg,BuildType type,P
         if (!s->enabled) continue;
 
         const fpath opath = "obj" / s->path.parent_path();
-        string name = s->path.stem();
-        string ofile = opath / (name + ".o");
+        string name = cbu::path_to_utf8(s->path.stem());
+        string ofile = cbu::path_to_utf8(opath / (name + ".o"));
         link_obj_files += std::format(" {}",ofile);
 
         mcc::config::SourceCompileTarget *tgt = new mcc::config::SourceCompileTarget{
@@ -335,14 +360,22 @@ uint8_t mcc::compiler::build_all(mcc::config::ConfigObject *cfg,BuildType type,P
         if (any_compiled) {
             string linker_output = "";
             string linker_cmd = std::format("{} {} {} -o {} {}",CXX,CXX_FLAGS,link_obj_files,
-                                            cbu::path_to_utf8(link_path),LINKER_FLAGS);;
+                                            cbu::path_to_utf8(link_path),LINKER_FLAGS);
+
             uint8_t linker_res = cbu::run_shell_command(build_path,linker_cmd,&linker_output);
             if (linker_res) {
                 cbu::log_warn(std::format("Linker returned {} with output {}",linker_res,linker_output));
                 return -1;
             }
 
+            if (cfg->model == mcc::config::ConfigModel::SINGLE_EXECUTABLE) {
+                linker_res = mcc::libs::copy_libs(build_path,link_path,cfg,pt);
+                if (linker_res) {
 
+                    cbu::log_warn(std::format("Copylibs failed"));
+                    return -1;
+                }
+            }
         }
     }
 
@@ -366,15 +399,21 @@ uint8_t mcc::compiler::build_all(mcc::config::ConfigObject *cfg,BuildType type,P
                                              build_path / std::format("{}{}",s->name,platform_shared[int(pt)])));
         }
 
+        link_path = build_path / std::format("launcher{}",platform_exe[int(pt)]);
+
         string linker_output = "";
         string linker_cmd = std::format("{} {} {} -o {} {} {}",CXX,CXX_FLAGS,link_obj_files,
-                                 cbu::path_to_utf8(
-                                     build_path / std::format("launcher{}",platform_exe[int(pt)])
-                                 ),LINKER_INCLUDES,LINKER_FLAGS);
+                                        cbu::path_to_utf8(link_path),LINKER_INCLUDES,LINKER_FLAGS);
 
         uint8_t linker_res = cbu::run_shell_command(build_path,linker_cmd,&linker_output);
         if (linker_res) {
             cbu::log_warn(std::format("Linker returned {} with output {}",linker_res,linker_output));
+            return -1;
+        }
+
+        linker_res = mcc::libs::copy_libs(build_path,link_path,cfg,pt);
+        if (linker_res) {
+            cbu::log_warn(std::format("Copylibs failed"));
             return -1;
         }
     }
@@ -382,4 +421,8 @@ uint8_t mcc::compiler::build_all(mcc::config::ConfigObject *cfg,BuildType type,P
     cbu::log_success("Linking succesful!");
 
     return 0;
+}
+uint8_t mcc::compiler::build_all(mcc::config::ConfigObject *cfg,BuildType type,Platform pt) {
+    fpath build_path = get_build_path(cfg,type,pt);
+    return build_absolute(build_path,cfg,type,pt);
 }

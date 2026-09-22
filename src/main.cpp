@@ -7,12 +7,19 @@
 #include "logger.hpp"
 #include "basic_commands.hpp"
 #include "workers.hpp"
+#include <filesystem>
+#include <format>
 
 static bool is_running = true;
 int standard_mode(int argc,char *argv[]) {
-    cbu::log_error(false,"Standard mode not implemented yet!");
+    string cmd = "";
+    for (int i = 1; i < argc; i ++) {
+        if (cmd.empty()) cmd += argv[i];
+        else cmd = std::format("{} {}",cmd,argv[i]);
+    }
+    cbu::log_verbose(std::format("CMD: '{}'",cmd));
 
-    return 0;
+    return mcc::run_command(cmd);
 }
 static void enter_interactive() {
     cbu::log_success("Entering interactive mode");
@@ -46,16 +53,20 @@ int main(int argc,char *argv[]) {
 
     if (argc <= 1) enter_interactive();
     else {
-        string arg1 = argv[1];
+        string arg1 = argv[argc - 1];
         fpath test = fpath(arg1);
-        if (test.is_absolute()) { // open file mode!
+/*
+        if (arg1 == "temp") {
+            cbu::log_info("Activating temporary config at CWD...");
+            mcc::config::set_file_current(test);
+        }
+        else */if (std::filesystem::exists(test)) { // open file mode!
             cbu::log_info("Activating config...");
             mcc::config::set_file_current(test);
-
-            enter_interactive();
-        } else { // standard mode
-            exit = standard_mode(argc,argv);
+            argc -= 1;
         }
+        if (argc <= 0) enter_interactive();
+        else exit = standard_mode(argc,argv);
     }
 
     mcc::end_background();

@@ -1,13 +1,18 @@
 #include "base_types.hpp"
 #include "config_file.hpp"
 #include "cli.hpp"
+#include "compiler.hpp"
 #include "file.hpp"
 #include "logger.hpp"
 #include "binary.hpp"
+#include "lsp_file.hpp"
 #include "state.hpp"
+#include <cstdint>
 #include <filesystem>
 #include <format>
 #include <queue>
+#include "vectormath.hpp"
+
 
 
 struct ConfigContainerDataBlock {
@@ -25,7 +30,6 @@ using cf = mcc::config::ConfigObject;
 static ConfigContainer *current_config = NULL;
 static bool activate_config(mcc::config::ConfigObject *obj);
 static void scan_config();
-static void update_config_src(cf *obj);
 
 
 class ConfigFileFormatV1 : public cbu::BinaryFileVersion {
@@ -42,7 +46,7 @@ public:
                 cf *c = (cf*) obj;
                 c->src_directory = value;
             },[](void *obj) -> string {
-                return ((cf*) obj)->src_directory;
+                return cbu::path_to_utf8(((cf*) obj)->src_directory);
             }),
             new cbu::U8BinarySection([](void *obj,auto value) { // model
                 cf *c = (cf*) obj;
@@ -69,7 +73,7 @@ public:
             },[](void *obj) -> uint8_t {
                 return (uint8_t) ((cf*) obj)->model;
             }),
-            new cbu::DataBinarySection([](void *obj,void *data) {
+            new cbu::DataBinarySection([](void *obj,void *data) { // main src object
                 auto *co = (mcc::config::SourceFileObject*) data;
                 auto *c = (cf*) obj;
 
@@ -88,7 +92,7 @@ public:
                     return "";
                 }),
             }),
-            new cbu::RepeatingBinarySection([](void *u,size_t *size,size_t *len) -> void* {
+            new cbu::RepeatingBinarySection([](void *u,size_t *size,size_t *len) -> void* { // source files
                 auto *obj = (cf*) u;
                 *len = obj->source_files.size();
                 *size = sizeof(mcc::config::SourceFileObject*);
@@ -116,7 +120,7 @@ public:
                     })
                 })
             },false),
-            new cbu::RepeatingBinarySection([](void *u,size_t *size,size_t *len) -> void* {
+            new cbu::RepeatingBinarySection([](void *u,size_t *size,size_t *len) -> void* { // external objects
                 auto *obj = (cf*) u;
                 *len = obj->external_objects.size();
                 *size = sizeof(mcc::config::ExternalObject*);
@@ -158,6 +162,24 @@ public:
 
                 return cbu::path_to_utf8(c->parent_directory);
             }),
+            new cbu::RepeatingBinarySection([](void *u,size_t *size,size_t *len) -> void* {
+                auto *obj = (cf*) u;
+                *len = obj->export_types.size();
+                *size = sizeof(mcc::config::ExportType);
+
+                if (*len == 0) return NULL;
+                return obj->export_types.data();
+            },[](void*) {},{
+                new cbu::U8BinarySection([](void *u,auto value) {
+                    auto *obj = (cf*) u;
+                    auto exp = mcc::config::ExportType(value);
+
+                    obj->export_types.push_back(exp);
+                },[](void *u) -> uint8_t {
+                    auto *v = (mcc::config::ExportType*) u;
+                    return uint8_t(*v);
+                })
+            },false)
         });
     }
 };
@@ -192,7 +214,7 @@ public:
                 for (size_t i = 0; i < obj->loaded_configs.size(); i ++) {
                     auto &cfg = obj->loaded_configs[i];
                     p[i].obj = cfg;
-                    p[i].fpath = cfg->directory / mcc::config::FNAME;
+                    p[i].fpath = cbu::path_to_utf8(cfg->directory / string(mcc::config::FNAME));
                 }
 
                 return p;
@@ -299,7 +321,7 @@ static void config_recurse_src_files(vector<cf*> &subconfigs,mcc::config::Source
         if (!std::filesystem::is_regular_file(s)) continue;
         string ext = s.extension().string();
         if (ext == ".cpp" || ext == ".c") {
-            string name = s.stem();
+            string name = cbu::path_to_utf8(s.stem());
             fpath p = std::filesystem::relative(s,root);
 
             cbu::log_debug(std::format("Found source file {} with name {}",cbu::path_to_utf8(p),name));
@@ -327,7 +349,7 @@ static void config_recurse_src_files(vector<cf*> &subconfigs,mcc::config::Source
             if (!no_match) continue;
             sourcefiles.push_back(new mcc::config::SourceFileObject{
                 .path = p,
-                .name = s.parent_path() / name
+                .name = cbu::path_to_utf8(s.parent_path() / name)
             });
 
             continue;
@@ -346,9 +368,21 @@ static void config_recurse_sub_projects(vector<cf*> &subconfigs,fpath path) {
         if (!std::filesystem::is_regular_file(s)) continue;
         if (s.filename() != mcc::config::FNAME) continue;
 
-        cbu::log_debug(std::format("Found {} at {}",mcc::config::FNAME,cbu::path_to_utf8(s)));
+        cbu::log_debug(std::format("Found subconfig {} at {}",mcc::config::FNAME,cbu::path_to_utf8(s)));
         auto fmt = ConfigFileFormat();
         cf *cfg = fmt.load_config(s);
+
+        bool found = false;
+        for (auto &o : subconfigs) {
+            if (o->name != cfg->name || o->directory != cfg->directory) continue;
+
+            cbu::log_debug("Subconfig already exists! Skipping...");
+            found = true;
+            delete cfg;
+            break;
+        }
+
+        if (found) continue;
         update_config_src(cfg);
 
         activate_config(cfg);
@@ -357,7 +391,7 @@ static void config_recurse_sub_projects(vector<cf*> &subconfigs,fpath path) {
         continue;
     }
 }
-static void update_config_src(cf *obj) {
+void mcc::config::update_config_src(cf *obj) {
     vector<cf*> subconfigs = obj->sub_projects;
     vector<mcc::config::SourceFileObject*> sourcefiles = obj->source_files;
 
@@ -366,10 +400,25 @@ static void update_config_src(cf *obj) {
     config_recurse_sub_projects(subconfigs,lpath);
     config_recurse_src_files(subconfigs,main,sourcefiles,lpath,lpath);
 
+    vector<mcc::config::SourceFileObject*> remove_queue{};
+    for (auto &s : sourcefiles) {
+        if (std::filesystem::exists(lpath / s->path)) continue;
+        remove_queue.push_back(s);
+    }
+    for (auto &s : subconfigs) update_config_src(s);
+    for (auto &s : remove_queue) {
+        cbu::vector_erase_value(sourcefiles,s);
+        delete s;
+    }
+
     obj->source_files = sourcefiles;
     obj->sub_projects = subconfigs;
 
     obj->main_source = main;
+    auto fmt = ConfigFileFormat();
+    fmt.save_config(obj);
+
+    mcc::lsp::generate_all_lsps_for_config(obj);
 }
 
 void mcc::config::init() {
@@ -401,7 +450,7 @@ uint8_t mcc::config::cmd() {
         bool has_new_project_prepath = false;
         fpath new_project_prepath;
         if (cmd == "h") {
-            cbu::cli_output("[l] list configs\n[n] new config\n[e] edit existing\n[a] link existing config\n[q] quit config utility\n[s] set config as the active one for other commands\n[x] add external library to config\n[p] add parent directory such as for a subproject dependent on a parent config.h file");
+            cbu::cli_output("[l] list configs\n[n] new config\n[e] edit existing\n[a] link existing config\n[q] quit config utility\n[s] set config as the active one for other commands\n[x] add external library to config\n[p] add parent directory such as for a subproject dependent on a parent config.h file\n[t] add export target to config");
             continue;
         } if (cmd == "q") {
             cbu::cli_output("Exiting config utility...");
@@ -482,6 +531,56 @@ uint8_t mcc::config::cmd() {
             fmt.save_config(cfg);
 
             cbu::log_success("Added parent directory succesfully!");
+            continue;
+        }  if (cmd == "t") {
+            string name;
+            fpath parentpath;
+
+            cbu::cli_input("Enter config name");
+            if (!cbu::cli_get_valid_string(&name)) {
+                cbu::log_error(false,"Name cannot be empty");
+                continue;
+            }
+            bool match = false;
+            cf *cfg;
+            for (auto &s : current_config->loaded_configs) {
+                if (s->name == name) {
+                    match = true;
+                    cfg = s;
+                    break;
+                }
+            }
+            if (!match) {
+                cbu::log_warn("Config does not exist or is not linked!");
+                continue;
+            }
+            cbu::cli_input("Enter export type\nDefault (0 default)");
+            int opt;
+            if (!cbu::cli_get_valid_int(&opt,0,0,true,0)) {
+                cbu::log_error(false,"Invalid value");
+                continue;
+            }
+            mcc::config::ExportType exp;
+            switch (opt) {
+                case 0: {
+                    exp = mcc::config::ExportType::EXPORT_DEFAULT;
+                    break;
+                }
+            }
+            match = false;
+            for (auto &s : cfg->export_types) {
+                if (s != exp) continue;
+
+                match = true;
+                break;
+            }
+            cbu::log_success("Added export type to config!");
+            if (match) continue;
+
+            cfg->export_types.push_back(exp);
+            auto fmt = ConfigFileFormat();
+            fmt.save_config(cfg);
+
             continue;
         } if (cmd == "x") {
             string include,link,name,mode;
