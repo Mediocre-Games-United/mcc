@@ -1,6 +1,9 @@
 #include "libs.hpp"
+#include "base_types.hpp"
+#include "file.hpp"
 #include "logger.hpp"
 #include "shell.hpp"
+#include <filesystem>
 #include <format>
 
 uint8_t mcc::libs::copy_libs(fpath build_path,fpath exe_file,mcc::config::ConfigObject *cfg,mcc::compiler::Platform pt) {
@@ -37,8 +40,22 @@ uint8_t mcc::libs::copy_libs(fpath build_path,fpath exe_file,mcc::config::Config
                     continue;
                 } if (c == '(') {
                     cbu::log_debug(std::format("Found name {} with path {}",name,path));
-
                     is_path = false;
+
+                    fpath npath = fpath(name);
+                    if (std::filesystem::exists(npath)) {
+                        cbu::log_verbose("name is a valid path");
+                        string nm = cbu::path_to_utf8(npath.filename());
+
+                        std::filesystem::copy_file(npath,build_path / nm,std::filesystem::copy_options::overwrite_existing);
+                        continue;
+                    }
+                    if (path.empty()) {
+                        cbu::log_verbose("Empty path, skipping");
+                        continue;
+                    }
+
+                    std::filesystem::copy_file(npath,build_path / name,std::filesystem::copy_options::overwrite_existing);
                     continue;
                 } if (c == ')') {
                     is_name = true;
