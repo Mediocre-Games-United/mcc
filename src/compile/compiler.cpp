@@ -77,17 +77,21 @@ static vector<fpath> parse_depfile(const string& depfile)
 const char *mcc::compiler::build_type_names[size_t(BuildType::BUILD_NONE)] = {
     "RELEASE","BETA","DEBUG","EDITOR"
 };
-const char *mcc::compiler::export_type_names[size_t(mcc::config::ExportType::EXPORT_NONE)] {
+const char *mcc::compiler::export_type_names[size_t(mcc::config::ExportType::EXPORT_NONE)] = {
     "DEFAULT", // "INSTALLER", "PORTABLE"
 };
 const char *mcc::compiler::platform_names[size_t(Platform::PLATFORM_NONE)] = {
     "WIN","LINUX"
 };
-const char *mcc::compiler::platform_shared[size_t(Platform::PLATFORM_NONE)] {
+const char *mcc::compiler::platform_shared[size_t(Platform::PLATFORM_NONE)] = {
     ".dll",".so"
 };
-const char *mcc::compiler::platform_exe[size_t(Platform::PLATFORM_NONE)] {
+const char *mcc::compiler::platform_exe[size_t(Platform::PLATFORM_NONE)] = {
     ".exe",""
+};
+
+static const char *platform_compilers[size_t(mcc::compiler::Platform::PLATFORM_NONE)] = {
+    "/usr/bin/x86_64-w64-mingw32-g++ ", "/usr/bin/g++ "
 };
 
 static std::mutex log_mutex;
@@ -247,12 +251,14 @@ uint8_t mcc::compiler::build_absolute(fpath build_path,mcc::config::ConfigObject
     }
 
     vector<std::optional<cbu::WorkObject>> work;
-    cbu::log_info(std::format("Build path: {}",cbu::path_to_utf8(build_path)));
+    cbu::log_info(std::format("Build path: {}, platform: {}",cbu::path_to_utf8(build_path),int(pt)));
 
     string flags = "";
     if (cfg->model != mcc::config::ConfigModel::SINGLE_EXECUTABLE) {
         flags = "-fPIC ";
     }
+
+    CXX = platform_compilers[int(pt)];
     CXX_FLAGS = "";
     switch (type) {
         case BuildType::BUILD_BETA: {
@@ -263,14 +269,14 @@ uint8_t mcc::compiler::build_absolute(fpath build_path,mcc::config::ConfigObject
         case BuildType::BUILD_DEBUG: {
             CXX_FLAGS += "-DDEBUG=1 ";
             CXX_FLAGS += DEBUG_FLAGS;
-            CXX_FLAGS += SUPER_DEBUG_FLAGS;
+            if (pt == Platform::PLATFORM_LINUX) CXX_FLAGS += SUPER_DEBUG_FLAGS;
 
             break;
         }
         case BuildType::BUILD_EDITOR: {
             CXX_FLAGS += "-DDEBUG=1 -DEDITOR=1 -DVERBOSE=1";
             CXX_FLAGS += DEBUG_FLAGS;
-            CXX_FLAGS += SUPER_DEBUG_FLAGS;
+            if (pt == Platform::PLATFORM_LINUX) CXX_FLAGS += SUPER_DEBUG_FLAGS;
 
             break;
         }

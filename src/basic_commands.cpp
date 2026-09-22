@@ -11,6 +11,7 @@
 #include "shell.hpp"
 #include <cstdint>
 #include <cstdlib>
+#include <filesystem>
 #include <format>
 #include <unordered_map>
 
@@ -27,6 +28,7 @@ static uint8_t run_program();
 static uint8_t list_all_commands();
 static uint8_t export_program();
 static uint8_t publish_program();
+static uint8_t clean_all();
 
 static std::unordered_map<cbu::StringName,mcc::compiler::BuildType> build_type_string_lookup;
 static std::unordered_map<cbu::StringName,mcc::compiler::Platform> build_platform_string_lookup;
@@ -41,6 +43,7 @@ void mcc::basic_commands::init() {
     mcc::add_command<>("run",&run_program,{},"Runs the package command with editor and current platform and starts the executable.");
     mcc::add_command<>("export",&export_program,{},"Builds the program and exports in the config's export format(s) and platform(s), ready to install/execute/publish.");
     mcc::add_command<>("publish",&publish_program,{},"Exports and publishes the program in the config's export format(s), shorthand for package, export, publish");
+    mcc::add_command<>("clean",&clean_all,{},"Remove all temporary build & export files");
 
     cbu::log_success("Initialized basic commands");
 
@@ -165,6 +168,24 @@ static uint8_t publish_program() {
         cbu::log_error(false,"Export failed");
         return res;
     }
+
+    return 0;
+}
+static uint8_t clean_all() {
+    if (!mcc::config::valid()) {
+        cbu::log_error(false,"No valid config found. Generate one with `config`");
+
+        return 1;
+    }
+
+
+    mcc::state::state_safe([]() {
+        log_config(mcc::state::active_config);
+
+        std::filesystem::remove_all(mcc::state::active_config->directory / "build");
+        std::filesystem::remove_all(mcc::state::active_config->directory / "export");
+    });
+    cbu::log_info("Succesfully cleaned");
 
     return 0;
 }
