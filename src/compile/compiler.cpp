@@ -2,6 +2,7 @@
 #include "base_types.hpp"
 #include "config/config_file.hpp"
 #include "file.hpp"
+#include "libs.hpp"
 #include "logger.hpp"
 #include "shell.hpp"
 #include "workers.hpp"
@@ -192,7 +193,7 @@ static uint8_t build_object(fpath src_path,fpath build_path,mcc::config::SourceC
 static void get_includes_recurse(string &output,fpath dir) {
     if (!std::filesystem::is_directory(dir)) return;
 
-    string stem = dir.stem();
+    string stem = cbu::path_to_utf8(dir.stem());
     if (stem == ".git" || stem == "build" || stem == "export") return;
     output += std::format(" -I{}",cbu::path_to_utf8(dir));
 
@@ -310,8 +311,8 @@ uint8_t mcc::compiler::build_absolute(fpath build_path,mcc::config::ConfigObject
         if (!s->enabled) continue;
 
         const fpath opath = "obj" / s->path.parent_path();
-        string name = s->path.stem();
-        string ofile = opath / (name + ".o");
+        string name = cbu::path_to_utf8(s->path.stem());
+        string ofile = cbu::path_to_utf8(opath / (name + ".o"));
         link_obj_files += std::format(" {}",ofile);
 
         mcc::config::SourceCompileTarget *tgt = new mcc::config::SourceCompileTarget{
@@ -359,14 +360,21 @@ uint8_t mcc::compiler::build_absolute(fpath build_path,mcc::config::ConfigObject
         if (any_compiled) {
             string linker_output = "";
             string linker_cmd = std::format("{} {} {} -o {} {}",CXX,CXX_FLAGS,link_obj_files,
-                                            cbu::path_to_utf8(link_path),LINKER_FLAGS);;
-                                            uint8_t linker_res = cbu::run_shell_command(build_path,linker_cmd,&linker_output);
-                                            if (linker_res) {
-                                                cbu::log_warn(std::format("Linker returned {} with output {}",linker_res,linker_output));
-                                                return -1;
-                                            }
+                                            cbu::path_to_utf8(link_path),LINKER_FLAGS);
 
+            uint8_t linker_res = cbu::run_shell_command(build_path,linker_cmd,&linker_output);
+            if (linker_res) {
+                cbu::log_warn(std::format("Linker returned {} with output {}",linker_res,linker_output));
+                return -1;
+            }
 
+            if (cfg->model == mcc::config::ConfigModel::SINGLE_EXECUTABLE) {
+                linker_res = mcc::libs::copy_libs(build_path,link_path,cfg,pt);
+                if (linker_res) {
+                    cbu::log_warn(std::format("Copylibs failed"));
+                    return -1;
+                }
+            }
         }
     }
 
@@ -390,15 +398,21 @@ uint8_t mcc::compiler::build_absolute(fpath build_path,mcc::config::ConfigObject
                                              build_path / std::format("{}{}",s->name,platform_shared[int(pt)])));
         }
 
+        link_path = build_path / std::format("launcher{}",platform_exe[int(pt)]);
+
         string linker_output = "";
         string linker_cmd = std::format("{} {} {} -o {} {} {}",CXX,CXX_FLAGS,link_obj_files,
-                                        cbu::path_to_utf8(
-                                            build_path / std::format("launcher{}",platform_exe[int(pt)])
-                                        ),LINKER_INCLUDES,LINKER_FLAGS);
+                                        cbu::path_to_utf8(link_path),LINKER_INCLUDES,LINKER_FLAGS);
 
         uint8_t linker_res = cbu::run_shell_command(build_path,linker_cmd,&linker_output);
         if (linker_res) {
             cbu::log_warn(std::format("Linker returned {} with output {}",linker_res,linker_output));
+            return -1;
+        }
+
+        linker_res = mcc::libs::copy_libs(build_path,link_path,cfg,pt);
+        if (linker_res) {
+            cbu::log_warn(std::format("Copylibs failed"));
             return -1;
         }
     }

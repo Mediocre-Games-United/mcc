@@ -181,6 +181,10 @@ static uint8_t clean_all() {
 
     mcc::state::state_safe([]() {
         log_config(mcc::state::active_config);
+        for (auto &s : mcc::state::active_config->sub_projects) {
+            std::filesystem::remove_all(s->directory / "build");
+            std::filesystem::remove_all(s->directory / "export");
+        }
 
         std::filesystem::remove_all(mcc::state::active_config->directory / "build");
         std::filesystem::remove_all(mcc::state::active_config->directory / "export");

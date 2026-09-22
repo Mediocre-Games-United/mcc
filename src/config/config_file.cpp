@@ -46,7 +46,7 @@ public:
                 cf *c = (cf*) obj;
                 c->src_directory = value;
             },[](void *obj) -> string {
-                return ((cf*) obj)->src_directory;
+                return cbu::path_to_utf8(((cf*) obj)->src_directory);
             }),
             new cbu::U8BinarySection([](void *obj,auto value) { // model
                 cf *c = (cf*) obj;
@@ -214,7 +214,7 @@ public:
                 for (size_t i = 0; i < obj->loaded_configs.size(); i ++) {
                     auto &cfg = obj->loaded_configs[i];
                     p[i].obj = cfg;
-                    p[i].fpath = cfg->directory / mcc::config::FNAME;
+                    p[i].fpath = cbu::path_to_utf8(cfg->directory / string(mcc::config::FNAME));
                 }
 
                 return p;
@@ -321,7 +321,7 @@ static void config_recurse_src_files(vector<cf*> &subconfigs,mcc::config::Source
         if (!std::filesystem::is_regular_file(s)) continue;
         string ext = s.extension().string();
         if (ext == ".cpp" || ext == ".c") {
-            string name = s.stem();
+            string name = cbu::path_to_utf8(s.stem());
             fpath p = std::filesystem::relative(s,root);
 
             cbu::log_debug(std::format("Found source file {} with name {}",cbu::path_to_utf8(p),name));
@@ -349,7 +349,7 @@ static void config_recurse_src_files(vector<cf*> &subconfigs,mcc::config::Source
             if (!no_match) continue;
             sourcefiles.push_back(new mcc::config::SourceFileObject{
                 .path = p,
-                .name = s.parent_path() / name
+                .name = cbu::path_to_utf8(s.parent_path() / name)
             });
 
             continue;

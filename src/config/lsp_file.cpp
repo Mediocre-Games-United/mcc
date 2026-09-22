@@ -6,7 +6,7 @@
 static void get_includes_recurse(string &output,fpath dir) {
     if (!std::filesystem::is_directory(dir)) return;
 
-    string stem = dir.stem();
+    string stem = cbu::path_to_utf8(dir.stem());
     if (stem == ".git" || stem == "build" || stem == "export") return;
     output += std::format("  - \"-I{}\"\n",cbu::path_to_utf8(dir));
 
