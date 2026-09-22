@@ -149,12 +149,15 @@ static uint8_t run_program() {
 }
 
 static uint8_t export_program() {
-    uint8_t res = create_package_optimized("beta","l");
-    if (res) {
-        cbu::log_error(false,"Package failed");
-        return res;
-    }
-    return 0;
+    uint8_t code;
+    mcc::state::state_safe([&code]() {
+        log_config(mcc::state::active_config);
+
+        mcc::config::update_config_src(mcc::state::active_config);
+        code = mcc::packager::export_all(mcc::state::active_config);
+    });
+
+    return code;
 }
 static uint8_t publish_program() {
     uint8_t res = export_program();
