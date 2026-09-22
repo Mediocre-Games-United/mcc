@@ -74,16 +74,16 @@ static vector<fpath> parse_depfile(const string& depfile)
     return dependencies;
 }
 
-const char *mcc::compiler::build_type_names[size_t(BuildType::BUILD_COUNT)] = {
+const char *mcc::compiler::build_type_names[size_t(BuildType::BUILD_NONE)] = {
     "RELEASE","BETA","DEBUG","EDITOR"
 };
-const char *mcc::compiler::platform_names[size_t(Platform::PLATFORM_COUNT)] = {
+const char *mcc::compiler::platform_names[size_t(Platform::PLATFORM_NONE)] = {
     "WIN","LINUX"
 };
-const char *mcc::compiler::platform_shared[size_t(Platform::PLATFORM_COUNT)] {
+const char *mcc::compiler::platform_shared[size_t(Platform::PLATFORM_NONE)] {
     ".dll",".so"
 };
-const char *mcc::compiler::platform_exe[size_t(Platform::PLATFORM_COUNT)] {
+const char *mcc::compiler::platform_exe[size_t(Platform::PLATFORM_NONE)] {
     ".exe",""
 };
 
@@ -195,6 +195,15 @@ static void get_includes_recurse(string &output,fpath dir) {
 }
 
 uint8_t mcc::compiler::build_all(mcc::config::ConfigObject *cfg,BuildType type,Platform pt) {
+    if (type == BuildType::BUILD_NONE) {
+        cbu::log_error(false,"BuildType has not been defined!");
+        return -1;
+    }
+    if (pt == Platform::PLATFORM_NONE) {
+        cbu::log_error(false,"Platform has not been defined!");
+        return -1;
+    }
+
     cbu::log_verbose(std::format("Building project {}",cfg->name));
     auto external = cfg->external_objects;
 
@@ -256,7 +265,7 @@ uint8_t mcc::compiler::build_all(mcc::config::ConfigObject *cfg,BuildType type,P
             break;
         }
         case BuildType::BUILD_EDITOR: {
-            CXX_FLAGS += "-DDEBUG=1 -DEDITOR=1 ";
+            CXX_FLAGS += "-DDEBUG=1 -DEDITOR=1 -DVERBOSE=1";
             CXX_FLAGS += DEBUG_FLAGS;
             CXX_FLAGS += SUPER_DEBUG_FLAGS;
 

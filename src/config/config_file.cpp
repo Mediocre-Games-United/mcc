@@ -1,6 +1,7 @@
 #include "base_types.hpp"
 #include "config_file.hpp"
 #include "cli.hpp"
+#include "compiler.hpp"
 #include "file.hpp"
 #include "logger.hpp"
 #include "binary.hpp"
@@ -10,6 +11,7 @@
 #include <format>
 #include <queue>
 #include "vectormath.hpp"
+
 
 
 struct ConfigContainerDataBlock {

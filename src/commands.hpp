@@ -40,6 +40,7 @@ namespace mcc {
         template<typename U>
         inline static string print_field() {
             if constexpr (std::is_same_v<U,int>) return "int";
+            if constexpr (std::is_same_v<U,string>) return "string";
 
             assert(!"Invalid type for commands");
         }
@@ -49,6 +50,12 @@ namespace mcc {
             if constexpr (std::is_same_v<U,int>) {
                 int i = atoi(vars[offset].c_str());
                 offset += 1;
+                cbu::log_verbose(std::format("Found int {}",i));
+                return i;
+            } if constexpr (std::is_same_v<U,string>) {
+                string i = vars[offset];
+                offset += 1;
+                cbu::log_verbose(std::format("Found string {}",i));
                 return i;
             }
 
