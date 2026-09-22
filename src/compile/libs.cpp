@@ -44,7 +44,7 @@ uint8_t mcc::libs::copy_libs(fpath build_path,fpath exe_file,mcc::config::Config
 
                     fpath npath = fpath(name);
                     if (std::filesystem::exists(npath)) {
-                        cbu::log_verbose("name is a valid path");
+                        cbu::log_verbose("Name is a valid path");
                         string nm = cbu::path_to_utf8(npath.filename());
 
                         std::filesystem::copy_file(npath,build_path / nm,std::filesystem::copy_options::overwrite_existing);
@@ -54,6 +54,10 @@ uint8_t mcc::libs::copy_libs(fpath build_path,fpath exe_file,mcc::config::Config
                         cbu::log_verbose("Empty path, skipping");
                         continue;
                     }
+                    // bandaid fix
+                    if (name.starts_with("/lib64")) continue;
+
+                    if (!std::filesystem::exists(path)) continue;
 
                     std::filesystem::copy_file(path,build_path / name,std::filesystem::copy_options::overwrite_existing);
                     continue;

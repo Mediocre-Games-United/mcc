@@ -371,6 +371,7 @@ uint8_t mcc::compiler::build_absolute(fpath build_path,mcc::config::ConfigObject
             if (cfg->model == mcc::config::ConfigModel::SINGLE_EXECUTABLE) {
                 linker_res = mcc::libs::copy_libs(build_path,link_path,cfg,pt);
                 if (linker_res) {
+
                     cbu::log_warn(std::format("Copylibs failed"));
                     return -1;
                 }
