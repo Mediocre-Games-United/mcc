@@ -7,6 +7,7 @@
 #include "binary.hpp"
 #include "lsp_file.hpp"
 #include "state.hpp"
+#include <cstdint>
 #include <filesystem>
 #include <format>
 #include <queue>
@@ -72,7 +73,7 @@ public:
             },[](void *obj) -> uint8_t {
                 return (uint8_t) ((cf*) obj)->model;
             }),
-            new cbu::DataBinarySection([](void *obj,void *data) {
+            new cbu::DataBinarySection([](void *obj,void *data) { // main src object
                 auto *co = (mcc::config::SourceFileObject*) data;
                 auto *c = (cf*) obj;
 
@@ -91,7 +92,7 @@ public:
                     return "";
                 }),
             }),
-            new cbu::RepeatingBinarySection([](void *u,size_t *size,size_t *len) -> void* {
+            new cbu::RepeatingBinarySection([](void *u,size_t *size,size_t *len) -> void* { // source files
                 auto *obj = (cf*) u;
                 *len = obj->source_files.size();
                 *size = sizeof(mcc::config::SourceFileObject*);
@@ -119,7 +120,7 @@ public:
                     })
                 })
             },false),
-            new cbu::RepeatingBinarySection([](void *u,size_t *size,size_t *len) -> void* {
+            new cbu::RepeatingBinarySection([](void *u,size_t *size,size_t *len) -> void* { // external objects
                 auto *obj = (cf*) u;
                 *len = obj->external_objects.size();
                 *size = sizeof(mcc::config::ExternalObject*);
@@ -161,6 +162,24 @@ public:
 
                 return cbu::path_to_utf8(c->parent_directory);
             }),
+            new cbu::RepeatingBinarySection([](void *u,size_t *size,size_t *len) -> void* {
+                auto *obj = (cf*) u;
+                *len = obj->export_types.size();
+                *size = sizeof(mcc::config::ExportType);
+
+                if (*len == 0) return NULL;
+                return obj->export_types.data();
+            },[](void*) {},{
+                new cbu::U8BinarySection([](void *u,auto value) {
+                    auto *obj = (cf*) u;
+                    auto exp = mcc::config::ExportType(value);
+
+                    obj->export_types.push_back(exp);
+                },[](void *u) -> uint8_t {
+                    auto *v = (mcc::config::ExportType*) u;
+                    return uint8_t(*v);
+                })
+            },false)
         });
     }
 };
@@ -431,7 +450,7 @@ uint8_t mcc::config::cmd() {
         bool has_new_project_prepath = false;
         fpath new_project_prepath;
         if (cmd == "h") {
-            cbu::cli_output("[l] list configs\n[n] new config\n[e] edit existing\n[a] link existing config\n[q] quit config utility\n[s] set config as the active one for other commands\n[x] add external library to config\n[p] add parent directory such as for a subproject dependent on a parent config.h file");
+            cbu::cli_output("[l] list configs\n[n] new config\n[e] edit existing\n[a] link existing config\n[q] quit config utility\n[s] set config as the active one for other commands\n[x] add external library to config\n[p] add parent directory such as for a subproject dependent on a parent config.h file\n[t] add export target to config");
             continue;
         } if (cmd == "q") {
             cbu::cli_output("Exiting config utility...");
@@ -512,6 +531,56 @@ uint8_t mcc::config::cmd() {
             fmt.save_config(cfg);
 
             cbu::log_success("Added parent directory succesfully!");
+            continue;
+        }  if (cmd == "t") {
+            string name;
+            fpath parentpath;
+
+            cbu::cli_input("Enter config name");
+            if (!cbu::cli_get_valid_string(&name)) {
+                cbu::log_error(false,"Name cannot be empty");
+                continue;
+            }
+            bool match = false;
+            cf *cfg;
+            for (auto &s : current_config->loaded_configs) {
+                if (s->name == name) {
+                    match = true;
+                    cfg = s;
+                    break;
+                }
+            }
+            if (!match) {
+                cbu::log_warn("Config does not exist or is not linked!");
+                continue;
+            }
+            cbu::cli_input("Enter export type\nDefault (0 default)");
+            int opt;
+            if (!cbu::cli_get_valid_int(&opt,0,0,true,0)) {
+                cbu::log_error(false,"Invalid value");
+                continue;
+            }
+            mcc::config::ExportType exp;
+            switch (opt) {
+                case 0: {
+                    exp = mcc::config::ExportType::EXPORT_DEFAULT;
+                    break;
+                }
+            }
+            match = false;
+            for (auto &s : cfg->export_types) {
+                if (s != exp) continue;
+
+                match = true;
+                break;
+            }
+            cbu::log_success("Added export type to config!");
+            if (match) continue;
+
+            cfg->export_types.push_back(exp);
+            auto fmt = ConfigFileFormat();
+            fmt.save_config(cfg);
+
             continue;
         } if (cmd == "x") {
             string include,link,name,mode;

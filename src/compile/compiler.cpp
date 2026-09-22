@@ -77,6 +77,9 @@ static vector<fpath> parse_depfile(const string& depfile)
 const char *mcc::compiler::build_type_names[size_t(BuildType::BUILD_NONE)] = {
     "RELEASE","BETA","DEBUG","EDITOR"
 };
+const char *mcc::compiler::export_type_names[size_t(mcc::config::ExportType::EXPORT_NONE)] {
+    "DEFAULT", // "INSTALLER", "PORTABLE"
+};
 const char *mcc::compiler::platform_names[size_t(Platform::PLATFORM_NONE)] = {
     "WIN","LINUX"
 };
@@ -194,7 +197,7 @@ static void get_includes_recurse(string &output,fpath dir) {
     }
 }
 
-uint8_t mcc::compiler::build_all(mcc::config::ConfigObject *cfg,BuildType type,Platform pt) {
+uint8_t mcc::compiler::build_absolute(fpath build_path,mcc::config::ConfigObject *cfg,BuildType type,Platform pt) {
     if (type == BuildType::BUILD_NONE) {
         cbu::log_error(false,"BuildType has not been defined!");
         return -1;
@@ -203,6 +206,7 @@ uint8_t mcc::compiler::build_all(mcc::config::ConfigObject *cfg,BuildType type,P
         cbu::log_error(false,"Platform has not been defined!");
         return -1;
     }
+
 
     cbu::log_verbose(std::format("Building project {}",cfg->name));
     auto external = cfg->external_objects;
@@ -243,7 +247,6 @@ uint8_t mcc::compiler::build_all(mcc::config::ConfigObject *cfg,BuildType type,P
     }
 
     vector<std::optional<cbu::WorkObject>> work;
-    fpath build_path = get_build_path(cfg,type,pt);
     cbu::log_info(std::format("Build path: {}",cbu::path_to_utf8(build_path)));
 
     string flags = "";
@@ -351,11 +354,11 @@ uint8_t mcc::compiler::build_all(mcc::config::ConfigObject *cfg,BuildType type,P
             string linker_output = "";
             string linker_cmd = std::format("{} {} {} -o {} {}",CXX,CXX_FLAGS,link_obj_files,
                                             cbu::path_to_utf8(link_path),LINKER_FLAGS);;
-            uint8_t linker_res = cbu::run_shell_command(build_path,linker_cmd,&linker_output);
-            if (linker_res) {
-                cbu::log_warn(std::format("Linker returned {} with output {}",linker_res,linker_output));
-                return -1;
-            }
+                                            uint8_t linker_res = cbu::run_shell_command(build_path,linker_cmd,&linker_output);
+                                            if (linker_res) {
+                                                cbu::log_warn(std::format("Linker returned {} with output {}",linker_res,linker_output));
+                                                return -1;
+                                            }
 
 
         }
@@ -383,9 +386,9 @@ uint8_t mcc::compiler::build_all(mcc::config::ConfigObject *cfg,BuildType type,P
 
         string linker_output = "";
         string linker_cmd = std::format("{} {} {} -o {} {} {}",CXX,CXX_FLAGS,link_obj_files,
-                                 cbu::path_to_utf8(
-                                     build_path / std::format("launcher{}",platform_exe[int(pt)])
-                                 ),LINKER_INCLUDES,LINKER_FLAGS);
+                                        cbu::path_to_utf8(
+                                            build_path / std::format("launcher{}",platform_exe[int(pt)])
+                                        ),LINKER_INCLUDES,LINKER_FLAGS);
 
         uint8_t linker_res = cbu::run_shell_command(build_path,linker_cmd,&linker_output);
         if (linker_res) {
@@ -397,4 +400,8 @@ uint8_t mcc::compiler::build_all(mcc::config::ConfigObject *cfg,BuildType type,P
     cbu::log_success("Linking succesful!");
 
     return 0;
+}
+uint8_t mcc::compiler::build_all(mcc::config::ConfigObject *cfg,BuildType type,Platform pt) {
+    fpath build_path = get_build_path(cfg,type,pt);
+    return build_absolute(build_path,cfg,type,pt);
 }

@@ -13,6 +13,7 @@ namespace mcc::compiler {
 
         BUILD_NONE
     };
+
     enum class Platform {
         PLATFORM_WINDOWS,
         PLATFORM_LINUX,
@@ -21,15 +22,23 @@ namespace mcc::compiler {
     };
 
     extern const char *build_type_names[size_t(BuildType::BUILD_NONE)];
+    extern const char *export_type_names[size_t(config::ExportType::EXPORT_NONE)];
     extern const char *platform_names[size_t(Platform::PLATFORM_NONE)];
     extern const char *platform_exe[size_t(Platform::PLATFORM_NONE)];
     extern const char *platform_shared[size_t(Platform::PLATFORM_NONE)];
     uint8_t build_all(mcc::config::ConfigObject *cfg,BuildType type,Platform pt);
+    uint8_t build_absolute(fpath build_path,mcc::config::ConfigObject *cfg,BuildType type,Platform pt);
 
     inline fpath get_build_path(mcc::config::ConfigObject *cfg,BuildType type,Platform pt) {
         assert(type != BuildType::BUILD_NONE);
         assert(pt != Platform::PLATFORM_NONE);
 
         return cfg->directory / "build" / std::format("{}{}",platform_names[int(pt)],build_type_names[int(type)]);
+    }
+    inline fpath get_export_path(mcc::config::ConfigObject *cfg,mcc::config::ExportType exp,BuildType type,Platform pt) {
+        assert(type != BuildType::BUILD_NONE);
+        assert(pt != Platform::PLATFORM_NONE);
+
+        return cfg->directory / "export" / std::format("{}/{}{}",export_type_names[int(exp)],platform_names[int(pt)],build_type_names[int(type)]);
     }
 };

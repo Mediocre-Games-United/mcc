@@ -25,6 +25,8 @@ static mcc::compiler::BuildType default_buildtype = mcc::compiler::BuildType::BU
 static uint8_t create_package_optimized(string tp,string pt);
 static uint8_t run_program();
 static uint8_t list_all_commands();
+static uint8_t export_program();
+static uint8_t publish_program();
 
 static std::unordered_map<cbu::StringName,mcc::compiler::BuildType> build_type_string_lookup;
 static std::unordered_map<cbu::StringName,mcc::compiler::Platform> build_platform_string_lookup;
@@ -37,6 +39,8 @@ void mcc::basic_commands::init() {
     mcc::add_command<>("reload",&mcc::config::reload,{},"Reload config settings & detect changes to files.");
     mcc::add_command<string,string>("package",&create_package_optimized,{"BuildType","Platform"},"Creates a ready to run & distribute package. Will skip as many steps as possible and not rebuild unless source files have changed");
     mcc::add_command<>("run",&run_program,{},"Runs the package command with editor and current platform and starts the executable.");
+    mcc::add_command<>("export",&export_program,{},"Builds the program and exports in the config's export format(s) and platform(s), ready to install/execute/publish.");
+    mcc::add_command<>("publish",&publish_program,{},"Exports and publishes the program in the config's export format(s), shorthand for package, export, publish");
 
     cbu::log_success("Initialized basic commands");
 
@@ -83,21 +87,7 @@ static void log_config(mcc::config::ConfigObject *obj) {
 static mcc::compiler::BuildType type = mcc::compiler::BuildType::BUILD_EDITOR;
 static mcc::compiler::Platform platform = mcc::compiler::Platform::PLATFORM_LINUX;
 
-
-static uint8_t create_package_optimized(string tp,string pt) {
-    if (!build_type_string_lookup.contains(tp)) {
-        cbu::log_error(false,std::format("Invalid BuildType '{}'",tp));
-
-        return -1;
-    }
-    if (!build_platform_string_lookup.contains(pt)) {
-        cbu::log_error(false,std::format("Invalid Platform '{}'",pt));
-
-        return -1;
-    }
-    type = build_type_string_lookup[tp];
-    platform = build_platform_string_lookup[pt];
-
+static uint8_t create_package() {
     if (!mcc::config::valid()) {
         cbu::log_error(false,"No valid config found. Generate one with `config`");
 
@@ -116,6 +106,22 @@ static uint8_t create_package_optimized(string tp,string pt) {
     });
 
     return code;
+}
+static uint8_t create_package_optimized(string tp,string pt) {
+    if (!build_type_string_lookup.contains(tp)) {
+        cbu::log_error(false,std::format("Invalid BuildType '{}'",tp));
+
+        return -1;
+    }
+    if (!build_platform_string_lookup.contains(pt)) {
+        cbu::log_error(false,std::format("Invalid Platform '{}'",pt));
+
+        return -1;
+    }
+    type = build_type_string_lookup[tp];
+    platform = build_platform_string_lookup[pt];
+
+    return create_package();
 }
 static uint8_t run_program() {
 #ifdef _WIN32
@@ -140,4 +146,22 @@ static uint8_t run_program() {
     } else cbu::log_success("Program exited with code 0!");
 
     return code;
+}
+
+static uint8_t export_program() {
+    uint8_t res = create_package_optimized("beta","l");
+    if (res) {
+        cbu::log_error(false,"Package failed");
+        return res;
+    }
+    return 0;
+}
+static uint8_t publish_program() {
+    uint8_t res = export_program();
+    if (res) {
+        cbu::log_error(false,"Export failed");
+        return res;
+    }
+
+    return 0;
 }

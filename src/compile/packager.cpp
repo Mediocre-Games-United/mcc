@@ -51,8 +51,7 @@ static void iterate_lang_srcs_recursive(fpath src_dir,fpath cdir,fpath tgt_dir) 
         }
     }
 }
-uint8_t mcc::packager::package_all(mcc::config::ConfigObject *cfg,mcc::compiler::BuildType type,mcc::compiler::Platform pt) {
-    fpath build_path = mcc::compiler::get_build_path(cfg,type,pt);
+static uint8_t package_absolute(fpath build_path,mcc::config::ConfigObject *cfg,mcc::compiler::BuildType type,mcc::compiler::Platform pt) {
     cbu::log_info(std::format("Build path: {}",cbu::path_to_utf8(build_path)));
 
     fpath res_path = build_path / "resources";
@@ -62,7 +61,7 @@ uint8_t mcc::packager::package_all(mcc::config::ConfigObject *cfg,mcc::compiler:
     fpath lang_src_path = cfg->directory / "lang";
 
     for (auto &s : cfg->sub_projects) {
-        package_all(s,type,pt);
+        mcc::packager::package_all(s,type,pt);
         fpath build_path = mcc::compiler::get_build_path(s,type,pt);
         fpath rpath = build_path / "resources";
         fpath lpath = build_path / "lang";
@@ -74,10 +73,57 @@ uint8_t mcc::packager::package_all(mcc::config::ConfigObject *cfg,mcc::compiler:
         }
     }
 
+
     if (std::filesystem::exists(res_src_path)) {
         iterate_res_srcs_recursive(res_src_path,res_src_path,res_path);
     } if (std::filesystem::exists(lang_src_path)) {
         iterate_res_srcs_recursive(lang_src_path,lang_src_path,lang_path);
+    }
+
+
+    return 0;
+}
+uint8_t mcc::packager::package_all(mcc::config::ConfigObject *cfg,mcc::compiler::BuildType type,mcc::compiler::Platform pt) {
+    fpath build_path = mcc::compiler::get_build_path(cfg,type,pt);
+    return package_absolute(build_path,cfg,type,pt);
+}
+
+static vector<mcc::compiler::Platform> export_platforms = {mcc::compiler::Platform::PLATFORM_LINUX,mcc::compiler::Platform::PLATFORM_WINDOWS};
+uint8_t mcc::packager::export_all(mcc::config::ConfigObject *cfg) {
+    if (cfg->export_types.empty()) {
+        cbu::log_error(false,"Config has no export types!");
+
+        return -1;
+    }
+
+    for (auto &exp : cfg->export_types) {
+        for (auto &pt : export_platforms) {
+            fpath export_path = mcc::compiler::get_export_path(cfg,exp,mcc::compiler::BuildType::BUILD_BETA,pt);
+
+            auto code = mcc::compiler::build_absolute(export_path,cfg,mcc::compiler::BuildType::BUILD_BETA,pt);
+            if (code) {
+                cbu::log_error(false,"Build failed");
+                return -1;
+            }
+            code = package_absolute(export_path,cfg,mcc::compiler::BuildType::BUILD_BETA,pt);
+            if (code) {
+                cbu::log_error(false,"Package failed");
+                return -1;
+            }
+        }
+    }
+
+    cbu::log_success("All packages OK");
+
+    for (auto &exp : cfg->export_types) {
+        for (auto &pt : export_platforms) {
+            switch (exp) {
+                default: {
+                    cbu::log_verbose("No further action needed for export type");
+                    break;
+                }
+            }
+        }
     }
 
     return 0;
