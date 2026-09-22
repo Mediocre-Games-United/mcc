@@ -54,13 +54,16 @@ int main(int argc,char *argv[]) {
     if (argc <= 1) enter_interactive();
     else {
         string arg1 = argv[argc - 1];
-        argc -= 1;
         fpath test = fpath(arg1);
-
-        if (std::filesystem::exists(test)) { // open file mode!
+/*
+        if (arg1 == "temp") {
+            cbu::log_info("Activating temporary config at CWD...");
+            mcc::config::set_file_current(test);
+        }
+        else */if (std::filesystem::exists(test)) { // open file mode!
             cbu::log_info("Activating config...");
             mcc::config::set_file_current(test);
-
+            argc -= 1;
         }
         if (argc <= 0) enter_interactive();
         else exit = standard_mode(argc,argv);

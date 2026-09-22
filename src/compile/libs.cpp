@@ -55,7 +55,7 @@ uint8_t mcc::libs::copy_libs(fpath build_path,fpath exe_file,mcc::config::Config
                         continue;
                     }
 
-                    std::filesystem::copy_file(npath,build_path / name,std::filesystem::copy_options::overwrite_existing);
+                    std::filesystem::copy_file(path,build_path / name,std::filesystem::copy_options::overwrite_existing);
                     continue;
                 } if (c == ')') {
                     is_name = true;
