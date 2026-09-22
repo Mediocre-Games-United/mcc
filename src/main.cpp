@@ -10,6 +10,7 @@
 #include <filesystem>
 #include <format>
 
+
 static bool is_running = true;
 int standard_mode(int argc,char *argv[]) {
     string cmd = "";
