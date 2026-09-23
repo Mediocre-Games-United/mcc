@@ -43,7 +43,7 @@ void mcc::basic_commands::init() {
     mcc::add_command<>("run",&run_program,{},"Runs the package command with editor and current platform and starts the executable.");
     mcc::add_command<>("export",&export_program,{},"Builds the program and exports in the config's export format(s) and platform(s), ready to install/execute/publish.");
     mcc::add_command<>("publish",&publish_program,{},"Exports and publishes the program in the config's export format(s), shorthand for package, export, publish");
-    mcc::add_command<>("clean",&clean_all,{},"Remove all temporary build & export files");
+    mcc::add_command<>("clean",&clean_all,{},"Remove all build & export files");
 
     cbu::log_success("Initialized basic commands");
 
@@ -184,10 +184,12 @@ static uint8_t clean_all() {
         for (auto &s : mcc::state::active_config->sub_projects) {
             std::filesystem::remove_all(s->directory / "build");
             std::filesystem::remove_all(s->directory / "export");
+            std::filesystem::remove_all(s->directory / ".mcc");
         }
 
         std::filesystem::remove_all(mcc::state::active_config->directory / "build");
         std::filesystem::remove_all(mcc::state::active_config->directory / "export");
+        std::filesystem::remove_all(mcc::state::active_config->directory / ".mcc");
     });
     cbu::log_info("Succesfully cleaned");
 

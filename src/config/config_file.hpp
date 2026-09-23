@@ -38,26 +38,24 @@ namespace mcc::config {
         }
     };
     struct ExternalBinary { // package to be downloaded with curl
-        string name = ""; // if empty, is blank
-        string download_url; // url to download from
+        string download_url; // url to download from, if empty is blank
 
         string include_path; // relative path to the archive to be included with -I[path]
         string bin_name; // name for the .dll / .so file so [name].dll/.so, will be recursively searched as well as lib[name].dll.a for windows
 
         inline operator bool() const {
-            return !name.empty() && !download_url.empty();
+            return !download_url.empty();
         }
     };
     struct ExternalObject {
         string name;
 
         ExternalPackage linux_package{}; // package name from package manager
-        ExternalPackage apt_package{}; // package override for apt
-        ExternalPackage pacman_package{}; // package override for pacman
         ExternalBinary linux_ext_binary{}; // used if no package exists
 
         ExternalBinary win_ext_binary{}; // used for windows, if empty is skipped
     };
+
 
     enum class ConfigModel : uint8_t {
         SINGLE_EXECUTABLE =      0, // compiles all files to a single executable file and ignores all subprojects. useful for simple or small projects without many dependencies
@@ -86,10 +84,10 @@ namespace mcc::config {
         fpath parent_directory;
         bool autodetect_source = true;
         ConfigModel model;
-        std::vector<ExportType> export_types;
-        std::vector<ConfigObject*> sub_projects;
-        std::vector<SourceFileObject*> source_files; // should not include main_source
-        std::vector<ExternalObject*> external_objects; // libraries that are linked and included when compiling
+        vector<ExportType> export_types;
+        vector<ConfigObject*> sub_projects;
+        vector<SourceFileObject*> source_files; // should not include main_source
+        vector<ExternalObject*> external_objects; // libraries that are linked and included when compiling
         SourceFileObject *main_source; // used as main for mode 2, otherwise ignored. optionally compiled multiple times
 
         // other executables only used by mode 2
@@ -108,5 +106,5 @@ namespace mcc::config {
     bool set_file_current(fpath path);
     bool set_name_current(string name);
 
-    void update_config_src(ConfigObject *obj);
+    void update_config(ConfigObject *obj);
 }

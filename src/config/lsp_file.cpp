@@ -1,4 +1,5 @@
 #include "lsp_file.hpp"
+#include "compiler.hpp"
 #include "config/config_file.hpp"
 #include <format>
 #include "file.hpp"
@@ -7,7 +8,7 @@ static void get_includes_recurse(string &output,fpath dir) {
     if (!std::filesystem::is_directory(dir)) return;
 
     string stem = cbu::path_to_utf8(dir.stem());
-    if (stem == ".git" || stem == "build" || stem == "export") return;
+    if (stem == ".git" || stem == "build" || stem == "export" || stem == ".mcc") return;
     output += std::format("  - \"-I{}\"\n",cbu::path_to_utf8(dir));
 
     for (auto &s : cbu::iterate_dir(dir)) {
@@ -24,7 +25,8 @@ static void generate_clangd_lsp(mcc::config::ConfigObject *cfg) {
         }
     }
     for (auto &s : external) {
-        cont += std::format("  - \"-I{}\"\n",cbu::path_to_utf8(s->include_path));
+        if (s->linux_package) cont += std::format("  - \"-I{}\"\n",cbu::path_to_utf8(s->linux_package.include_path));
+        if (s->linux_ext_binary) cont += std::format("  - \"-I{}\"\n",cbu::path_to_utf8(mcc::compiler::get_external_binary_path(cfg,s->name,mcc::compiler::Platform::PLATFORM_LINUX) / s->linux_ext_binary.include_path));
     }
 
     fpath cpath = cfg->directory / ".clangd";

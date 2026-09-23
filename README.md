@@ -8,6 +8,8 @@ Follow the instructions at https://github.com/Mediocre-Games-United/mcc-build
 
 To use, simply type mcc in any terminal for interactive mode.
 
+Build and export files are saved in ./.mcc/ relative to project.mcc. If using git, add .mcc to .gitignore.
+
 ## MODES
 
 ### INTERACTIVE

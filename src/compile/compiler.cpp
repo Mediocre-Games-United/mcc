@@ -2,6 +2,7 @@
 #include "base_types.hpp"
 #include "config/config_file.hpp"
 #include "file.hpp"
+#include "installer.hpp"
 #include "libs.hpp"
 #include "logger.hpp"
 #include "shell.hpp"
@@ -194,7 +195,7 @@ static void get_includes_recurse(string &output,fpath dir) {
     if (!std::filesystem::is_directory(dir)) return;
 
     string stem = cbu::path_to_utf8(dir.stem());
-    if (stem == ".git" || stem == "build" || stem == "export") return;
+    if (stem == ".git" || stem == "build" || stem == "export" || stem == ".mcc") return;
     output += std::format(" -I{}",cbu::path_to_utf8(dir));
 
     for (auto &s : cbu::iterate_dir(dir)) {
@@ -211,6 +212,7 @@ uint8_t mcc::compiler::build_absolute(fpath build_path,mcc::config::ConfigObject
         cbu::log_error(false,"Platform has not been defined!");
         return -1;
     }
+    mcc::installer::install_all(cfg);
 
 
     cbu::log_verbose(std::format("Building project {}",cfg->name));
@@ -292,9 +294,9 @@ uint8_t mcc::compiler::build_absolute(fpath build_path,mcc::config::ConfigObject
 
     LINKER_INCLUDES = "";
     for (auto s : external) {
-        flags += std::format("-I{} ",cbu::path_to_utf8(s->include_path));
-        if (s->link_name.empty()) continue;
-        LINKER_INCLUDES += std::format("-l{} ",s->link_name);
+        // flags += std::format("-I{} ",cbu::path_to_utf8(s->include_path));
+        // if (s->link_name.empty()) continue;
+        // LINKER_INCLUDES += std::format("-l{} ",s->link_name);
     }
 
     fpath src_path = cfg->directory / cfg->src_directory;
