@@ -3,6 +3,7 @@
 #include "stringmath.hpp"
 #include <cstdint>
 #include <vector>
+#include <optional>
 
 namespace mcc::config {
     static const char *FNAME = "project.mcc";
@@ -26,9 +27,36 @@ namespace mcc::config {
         string name;
         bool enabled = true;
     };
+
+    struct ExternalPackage { // package from a package manager distribution
+        string name = ""; // if empty, is blank
+        string include_path; // absolute path included with -I[path]
+        string link_name; // name linked with -l[name]
+
+        inline operator bool() const {
+            return !name.empty();
+        }
+    };
+    struct ExternalBinary { // package to be downloaded with curl
+        string name = ""; // if empty, is blank
+        string download_url; // url to download from
+
+        string include_path; // relative path to the archive to be included with -I[path]
+        string bin_name; // name for the .dll / .so file so [name].dll/.so, will be recursively searched as well as lib[name].dll.a for windows
+
+        inline operator bool() const {
+            return !name.empty() && !download_url.empty();
+        }
+    };
     struct ExternalObject {
-        fpath include_path; // added in -I[path] to compiler
-        string link_name = ""; // added in -l[name] to linker if non-empty
+        string name;
+
+        ExternalPackage linux_package{}; // package name from package manager
+        ExternalPackage apt_package{}; // package override for apt
+        ExternalPackage pacman_package{}; // package override for pacman
+        ExternalBinary linux_ext_binary{}; // used if no package exists
+
+        ExternalBinary win_ext_binary{}; // used for windows, if empty is skipped
     };
 
     enum class ConfigModel : uint8_t {
