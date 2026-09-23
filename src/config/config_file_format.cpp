@@ -1,4 +1,5 @@
 #include "config_file.hpp"
+#include "logger.hpp"
 #include "config_file_format.hpp"
 
 
@@ -101,6 +102,8 @@ cbu::BinaryFileSection *ConfigFileFormatV2::get_sections() {
             new cbu::DataBinarySection([](void *obj, void *data) {
                 auto *co = (mcc::config::ExternalObject*) data;
                 auto *c = (cf*) obj;
+
+                if (co->name.empty()) return;
 
                 c->external_objects.push_back(new mcc::config::ExternalObject(*co));
             },[]() -> void* { return new mcc::config::ExternalObject(); },[](void *obj) { delete (mcc::config::ExternalObject*) obj; },{

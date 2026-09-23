@@ -4,6 +4,7 @@
 #include "compile/packager.hpp"
 #include "config/config_file.hpp"
 #include "file.hpp"
+#include "installer.hpp"
 #include "logger.hpp"
 #include "commands.hpp"
 #include "state.hpp"
@@ -29,6 +30,7 @@ static uint8_t list_all_commands();
 static uint8_t export_program();
 static uint8_t publish_program();
 static uint8_t clean_all();
+static uint8_t install();
 
 static std::unordered_map<cbu::StringName,mcc::compiler::BuildType> build_type_string_lookup;
 static std::unordered_map<cbu::StringName,mcc::compiler::Platform> build_platform_string_lookup;
@@ -43,6 +45,7 @@ void mcc::basic_commands::init() {
     mcc::add_command<>("run",&run_program,{},"Runs the package command with editor and current platform and starts the executable.");
     mcc::add_command<>("export",&export_program,{},"Builds the program and exports in the config's export format(s) and platform(s), ready to install/execute/publish.");
     mcc::add_command<>("publish",&publish_program,{},"Exports and publishes the program in the config's export format(s), shorthand for package, export, publish");
+    mcc::add_command<>("install",&install,{},"Install required dependencies");
     mcc::add_command<>("clean",&clean_all,{},"Remove all build & export files");
 
     cbu::log_success("Initialized basic commands");
@@ -102,7 +105,7 @@ static uint8_t create_package() {
     mcc::state::state_safe([&code]() {
         log_config(mcc::state::active_config);
 
-        mcc::config::update_config_src(mcc::state::active_config);
+        mcc::config::update_config(mcc::state::active_config);
         code = mcc::compiler::build_all(mcc::state::active_config,type,platform);
         if (code) return;
         code = mcc::packager::package_all(mcc::state::active_config,type,platform);
@@ -156,7 +159,7 @@ static uint8_t export_program() {
     mcc::state::state_safe([&code]() {
         log_config(mcc::state::active_config);
 
-        mcc::config::update_config_src(mcc::state::active_config);
+        mcc::config::update_config(mcc::state::active_config);
         code = mcc::packager::export_all(mcc::state::active_config);
     });
 
@@ -170,6 +173,17 @@ static uint8_t publish_program() {
     }
 
     return 0;
+}
+static uint8_t install() {
+    uint8_t code;
+    mcc::state::state_safe([&code]() {
+        log_config(mcc::state::active_config);
+
+        mcc::config::update_config(mcc::state::active_config);
+        code = mcc::installer::install_all(mcc::state::active_config);
+    });
+
+    return code;
 }
 static uint8_t clean_all() {
     if (!mcc::config::valid()) {

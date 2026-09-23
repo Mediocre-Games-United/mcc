@@ -445,6 +445,7 @@ uint8_t mcc::config::cmd() {
                 continue;
             }
             ExternalObject obj{};
+            obj.name = name;
 
             cbu::cli_input("Package name in linux package managers (leave empty for none)");
             string pkg = cbu::cli_get_string();
@@ -602,9 +603,9 @@ uint8_t mcc::config::cmd() {
             bool edit_running = true;
             while (edit_running) {
                 cbu::cli_output("Welcome to the config edit utility");
-                cbu::cli_input("What to edit?\nExit edit utility (0)\nName (1 default)\nSrc Directory (2)\nModel (3)\nExternal Objects (4)");
+                cbu::cli_input("What to edit?\nExit edit utility (0)\nName (1 default)\nSrc Directory (2)\nExternal Objects (3)");
                 int opt;
-                cbu::cli_get_valid_int(&opt,0,4,true,1);
+                cbu::cli_get_valid_int(&opt,0,3,true,1);
                 switch (opt) {
                     case 0: {
                         edit_running = false;
@@ -631,6 +632,104 @@ uint8_t mcc::config::cmd() {
                         }
                         cfg->src_directory = std::filesystem::relative(dir,cfg->directory);
                         update_config(cfg);
+
+                        break;
+                    }
+                    case 3: {
+                        bool ext_running = true;
+                        while (ext_running) { // make it work first, then make it work good
+                            cbu::cli_output("Welcome to the external object edit utility");
+                            cbu::cli_input("Enter command (h for help");
+                            string cmd = cbu::cli_get_string();
+
+                            if (cmd == "h") {
+                                cbu::cli_output("[h] print this list\n[l] list external objects\n[p] edit linux package\n[w] edit windows binary\n[q] exit this utility");
+                                continue;
+                            } if (cmd == "q") {
+                                ext_running = false;
+                                continue;
+                            } if (cmd == "l") {
+                                for (auto &s : cfg->external_objects) {
+                                    cbu::cli_output(std::format("---\n{}",s->name));
+                                }
+
+                                continue;
+                            } if (cmd == "p") {
+                                string name;
+                                cbu::cli_input("Enter object name");
+                                if (!cbu::cli_get_valid_string(&name)) {
+                                    cbu::log_error(false,"Name cannot be empty");
+                                    continue;
+                                }
+                                bool match = false;
+                                ExternalObject *obj;
+                                for (auto &s : cfg->external_objects) {
+                                    if (s->name != name) continue;
+
+                                    match = true;
+                                    obj = s;
+                                    break;
+                                }
+                                if (!match) {
+                                    cbu::log_warn("No object found");
+                                    continue;
+                                }
+                                string inc,bin;
+
+                                cbu::cli_input("Enter new name (leave blank to not change)");
+                                if (!cbu::cli_get_valid_string(&name)) {
+                                    name = obj->linux_package.name;
+                                }
+                                cbu::cli_input("Enter new include path (leave blank to not change)");
+                                if (!cbu::cli_get_valid_string(&inc)) {
+                                    inc = obj->linux_package.include_path;
+                                }
+                                cbu::cli_input("Enter new binary name (leave blank for header only)");
+                                bin = cbu::cli_get_string();
+
+                                obj->linux_package.name = name;
+                                obj->linux_package.link_name = bin;
+                                obj->linux_package.include_path = inc;
+
+                                continue;
+                            } if (cmd == "w") {
+                                string name;
+                                cbu::cli_input("Enter object name");
+                                if (!cbu::cli_get_valid_string(&name)) {
+                                    cbu::log_error(false,"Name cannot be empty");
+                                    continue;
+                                }
+                                bool match = false;
+                                ExternalObject *obj;
+                                for (auto &s : cfg->external_objects) {
+                                    if (s->name != name) continue;
+
+                                    match = true;
+                                    obj = s;
+                                    break;
+                                }
+                                if (!match) {
+                                    cbu::log_warn("No object found");
+                                    continue;
+                                }
+                                string bin;
+
+                                cbu::cli_input("Enter new download url (leave blank to not change)");
+                                if (!cbu::cli_get_valid_string(&name)) {
+                                    name = obj->win_ext_binary.download_url;
+                                }
+                                cbu::cli_input("Enter new binary name (leave blank for header only)");
+                                bin = cbu::cli_get_string();
+
+                                obj->win_ext_binary.download_url = name;
+                                obj->win_ext_binary.bin_name = bin;
+
+
+                                continue;
+                            }
+
+                            cbu::log_warn("Unknown command");
+                        }
 
                         break;
                     }

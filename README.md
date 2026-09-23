@@ -2,6 +2,8 @@
 
 Simple all-in-one command line build system for C++ projects
 
+Currently only for Linux. Windows may work (probably won't) but is very untested.
+
 ## INSTALLATION & USAGE
 
 Follow the instructions at https://github.com/Mediocre-Games-United/mcc-build
@@ -34,13 +36,15 @@ Standard mode is not implemented yet, but in standard mode mcc will execute a co
 - Resource and lang packaging
 - Runtime wrapper
 - Config files for LSPs
-
-## FUTURE FEATURES
-
-- Compiling to windows
+- Cross Compiling to windows
 - Copying dependent shared libraries
 - Automatically installing dependencies from package managers
 - Automatically installing dependencies from other sources
+
+## FUTURE FEATURES
+
+- Exporting full packages
+- Distributing exported versions to providers such as itch.io
 - Support for C with gcc and not g++
 - Support for custom toolchains such as arm
 

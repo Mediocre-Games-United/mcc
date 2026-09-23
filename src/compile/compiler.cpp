@@ -293,10 +293,21 @@ uint8_t mcc::compiler::build_absolute(fpath build_path,mcc::config::ConfigObject
     }
 
     LINKER_INCLUDES = "";
-    for (auto s : external) {
-        // flags += std::format("-I{} ",cbu::path_to_utf8(s->include_path));
-        // if (s->link_name.empty()) continue;
-        // LINKER_INCLUDES += std::format("-l{} ",s->link_name);
+
+    if (pt == Platform::PLATFORM_LINUX) {
+        for (auto s : external) {
+            if (!s->linux_package) continue;
+            flags += std::format("-I{} ",s->linux_package.include_path);
+            if (s->linux_package.link_name.empty()) continue;
+            LINKER_INCLUDES += std::format("-l{} ",s->linux_package.link_name);
+        }
+    } else {
+        for (auto &s : external) {
+            if (!s->win_ext_binary) continue;
+            flags += std::format("-I{} ",cbu::path_to_utf8(mcc::compiler::get_external_binary_path(cfg,s->name,pt) / s->win_ext_binary.include_path));
+
+
+        }
     }
 
     fpath src_path = cfg->directory / cfg->src_directory;
