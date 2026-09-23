@@ -45,12 +45,14 @@ uint8_t mcc::libs::copy_libs(fpath build_path,fpath exe_file,mcc::config::Config
                     cbu::log_debug(std::format("Found name {} with path {}",name,path));
                     is_path = false;
 
+                    std::error_code ec;
                     fpath npath = fpath(name);
                     string nm = cbu::path_to_utf8(npath.filename());
                     if (std::filesystem::exists(npath)) {
                         cbu::log_verbose("Name is a valid path");
 
-                        std::filesystem::copy_file(npath,build_path / nm,std::filesystem::copy_options::overwrite_existing);
+                        std::filesystem::copy_file(npath,build_path / nm,std::filesystem::copy_options::overwrite_existing,ec);
+                        if (ec) cbu::log_warn(ec.message());
                         continue;
                     }
                     if (path.empty()) {
@@ -59,7 +61,8 @@ uint8_t mcc::libs::copy_libs(fpath build_path,fpath exe_file,mcc::config::Config
                     }
                     if (!std::filesystem::exists(path)) continue;
 
-                    std::filesystem::copy_file(path,build_path / nm,std::filesystem::copy_options::overwrite_existing);
+                    std::filesystem::copy_file(path,build_path / nm,std::filesystem::copy_options::overwrite_existing,ec);
+                    if (ec) cbu::log_warn(ec.message());
                     continue;
                 } if (c == ')') {
                     is_name = true;
