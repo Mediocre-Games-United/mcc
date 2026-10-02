@@ -3,7 +3,7 @@
 #include "cli.hpp"
 #include "command_parser.hpp"
 #include "commands.hpp"
-#include "config/config_file.hpp"
+#include "config_file.hpp"
 #include "init.hpp"
 #include "logger.hpp"
 #include "basic_commands.hpp"
@@ -35,9 +35,15 @@ static void enter_interactive() {
     cbu::log_info("Gracefully closing program");
 }
 static int handle_parser_output(cbu::parser_output pout) {
+    if (pout.flags.contains('n')) {
+
+    }
+
     if (pout.cmd.empty()) {
         enter_interactive();
         return 0;
+    } else {
+        return standard_mode(pout.cmd);
     }
 
     return 0;
@@ -58,9 +64,10 @@ int main(int argc,char *argv[]) {
 
     cbu::parser_output pout = cbu::parse_args(argc,argv,{
         cbu::parser_flag('t',"temp","Generates a temporary config for monolithic executables that require no linking steps"),
-        cbu::parser_flag('c',"config","Sets the current config, if not present the current working directory will be used instead")
+        cbu::parser_flag('c',"config","Sets the current config filepath, if not present the current working directory will be used instead"),
     },{
-
+        cbu::parser_val(cbu::parser_flag('n',"config-name","Same as --config but set the config by name rather than filepath")),
+        cbu::parser_val(cbu::parser_flag('c',"config","Sets the current config filepath, if not present the current working directory will be used instead")),
     });
     cbu::log_verbose(std::format("Parser returned {}",pout));
 
