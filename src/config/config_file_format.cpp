@@ -307,19 +307,20 @@ cbu::BinaryFileSection *ConfigFileFormatV1::get_sections() {
                 auto *co = (mcc::config::ExternalObject*) data;
                 auto *c = (cf*) obj;
 
-                // c->external_objects.push_back(new mcc::config::ExternalObject(*co));
+                c->external_objects.push_back(new mcc::config::ExternalObject(*co));
             },[]() -> void* { return new mcc::config::ExternalObject(); },[](void *obj) { delete (mcc::config::ExternalObject*) obj; },{
                 new cbu::StringBinarySection([](void *obj,auto value) { // link name
                     auto *c = (mcc::config::ExternalObject*) obj;
-                    c->name = value;
+                    c->linux_package.link_name = value;
                 },[](void *obj) -> string {
-                    return cbu::path_to_utf8((*(mcc::config::ExternalObject**) obj)->name);
+                    return cbu::path_to_utf8((*(mcc::config::ExternalObject**) obj)->linux_package.link_name);
                 }),
                 new cbu::StringBinarySection([](void *obj,auto value) { // include path
                     auto *c = (mcc::config::ExternalObject*) obj;
-                    c->name = value;
+                    c->linux_package.name = value;
+                    c->linux_package.include_path = value;
                 },[](void *obj) -> string {
-                    return cbu::path_to_utf8((*(mcc::config::ExternalObject**) obj)->name);
+                    return cbu::path_to_utf8((*(mcc::config::ExternalObject**) obj)->linux_package.include_path);
                 })
             })
         },false),
