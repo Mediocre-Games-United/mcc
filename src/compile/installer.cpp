@@ -1,4 +1,5 @@
 #include "installer.hpp"
+#include "commands.hpp"
 #include "config_file.hpp"
 #include "logger.hpp"
 #include "shell.hpp"
@@ -53,6 +54,7 @@ uint8_t mcc::installer::install_all(mcc::config::ConfigObject *cfg) {
     for (auto &ext : cfg->external_objects) {
         if (ext->linux_package) {
             code = install_linux_package(ext->linux_package);
+            if (mcc::consume_interrupt()) return -1;
             if (code) return code;
         } else {
             cbu::log_error(false,"Not implemented");

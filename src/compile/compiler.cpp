@@ -1,5 +1,6 @@
 #include "compiler.hpp"
 #include "base_types.hpp"
+#include "commands.hpp"
 #include "config/config_file.hpp"
 #include "file.hpp"
 #include "installer.hpp"
@@ -277,7 +278,7 @@ uint8_t mcc::compiler::build_absolute(fpath build_path,mcc::config::ConfigObject
             break;
         }
         case BuildType::BUILD_EDITOR: {
-            CXX_FLAGS += "-DDEBUG=1 -DEDITOR=1 -DVERBOSE=1";
+            CXX_FLAGS += "-DDEBUG=1 -DEDITOR=1 -DVERBOSE=1 ";
             CXX_FLAGS += DEBUG_FLAGS;
             if (pt == Platform::PLATFORM_LINUX) CXX_FLAGS += SUPER_DEBUG_FLAGS;
 
@@ -335,8 +336,11 @@ uint8_t mcc::compiler::build_absolute(fpath build_path,mcc::config::ConfigObject
         };
         work.push_back(cbu::WorkObject{
             .call = [tgt,&succesful,&src_path,&build_path,&flags,&any_compiled]() {
+                if (!succesful) return;
+
                 bool did_compile;
                 uint8_t code = build_object(src_path,build_path,*tgt,&did_compile,flags);
+                if (mcc::consume_interrupt()) code = -1;
                 delete tgt;
 
                 log_progress();

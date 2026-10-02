@@ -4,6 +4,7 @@
 #include "command_parser.hpp"
 #include "commands.hpp"
 #include "config_file.hpp"
+#include "handlers.hpp"
 #include "init.hpp"
 #include "logger.hpp"
 #include "basic_commands.hpp"
@@ -11,6 +12,8 @@
 #include <filesystem>
 #include <format>
 
+volatile size_t mcc::interrupt_count = 0;
+std::mutex mcc::interrupt_mutex{};
 
 static bool is_running = true;
 int standard_mode(string cmd) {
@@ -31,6 +34,7 @@ static void enter_interactive() {
             cbu::log_debug("Quit signal received");
             is_running = false;
         }
+        if (mcc::consume_interrupt()) is_running = false;
     }
     cbu::log_info("Gracefully closing program");
 }
@@ -51,6 +55,8 @@ static int handle_parser_output(cbu::parser_output pout) {
 
 int main(int argc,char *argv[]) {
     int exit = 0;
+    cbu::set_interrupt_handler(mcc::interrupt_count);
+
     cbu::log_debug(std::format("argc: {}",argc));
     for (int i = 0; i < argc; i ++) {
         cbu::log_debug(std::format("argv[{}]: '{}'",i,argv[i]));

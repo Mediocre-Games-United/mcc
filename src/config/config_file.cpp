@@ -3,7 +3,10 @@
 #include "base_types.hpp"
 #include "config_file.hpp"
 #include "cli.hpp"
+#include "commands.hpp"
 #include "compiler.hpp"
+#include "config_commands_generic.hpp"
+#include "config_commands_special.hpp"
 #include "config_file_format.hpp"
 #include "file.hpp"
 #include "installer.hpp"
@@ -18,22 +21,11 @@
 #include <queue>
 #include "vectormath.hpp"
 
+using namespace mcc::config;
 
+ConfigContainer *mcc::config::current_config = NULL;
 
-struct ConfigContainerDataBlock {
-    string fpath;
-    mcc::config::ConfigObject *obj = NULL;
-};
-struct ConfigContainer {
-    ~ConfigContainer() { for (auto &s : loaded_configs) delete s; }
-    std::vector<mcc::config::ConfigObject*> loaded_configs;
-    std::queue<ConfigContainerDataBlock*> pending_datablocks;
-};
-
-
-using cf = mcc::config::ConfigObject;
-static ConfigContainer *current_config = NULL;
-static bool link_config(mcc::config::ConfigObject *obj);
+using cf = ConfigObject;
 static void scan_config();
 
 
@@ -50,7 +42,7 @@ public:
                 for (size_t i = 0; i < obj->loaded_configs.size(); i ++) {
                     auto &cfg = obj->loaded_configs[i];
                     p[i].obj = cfg;
-                    p[i].fpath = cbu::path_to_utf8(cfg->directory / string(mcc::config::FNAME));
+                    p[i].fpath = cbu::path_to_utf8(cfg->directory / string(FNAME));
                 }
 
                 return p;
@@ -117,7 +109,7 @@ static void scan_config() {
     fmt.load_configs();
 }
 
-static bool link_config(mcc::config::ConfigObject *obj) {
+bool mcc::config::link_config(ConfigObject *obj) {
     if (!current_config) return false;
 
     bool exists = false;
@@ -138,7 +130,7 @@ static bool link_config(mcc::config::ConfigObject *obj) {
     return true;
 }
 
-static void config_recurse_src_files(vector<cf*> &subconfigs,mcc::config::SourceFileObject *&main,vector<mcc::config::SourceFileObject*> &sourcefiles,fpath root,fpath path,bool parent_no_match = true) {
+static void config_recurse_src_files(vector<cf*> &subconfigs,SourceFileObject *&main,vector<SourceFileObject*> &sourcefiles,fpath root,fpath path,bool parent_no_match = true) {
     bool no_match = parent_no_match;
     if (no_match) {
         for (auto &s : subconfigs) {
@@ -176,14 +168,14 @@ static void config_recurse_src_files(vector<cf*> &subconfigs,mcc::config::Source
                 if (main) continue;
 
                 cbu::log_verbose(std::format("Found main at {}",cbu::path_to_utf8(s)));
-                main = new mcc::config::SourceFileObject{
+                main = new SourceFileObject{
                     .path = p,
                     .name = name
                 };
                 continue;
             }
             if (!no_match) continue;
-            sourcefiles.push_back(new mcc::config::SourceFileObject{
+            sourcefiles.push_back(new SourceFileObject{
                 .path = p,
                 .name = cbu::path_to_utf8(s.parent_path() / name)
             });
@@ -202,9 +194,9 @@ static void config_recurse_sub_projects(vector<cf*> &subconfigs,fpath path) {
             continue;
         }
         if (!std::filesystem::is_regular_file(s)) continue;
-        if (s.filename() != mcc::config::FNAME) continue;
+        if (s.filename() != FNAME) continue;
 
-        cbu::log_debug(std::format("Found subconfig {} at {}",mcc::config::FNAME,cbu::path_to_utf8(s)));
+        cbu::log_debug(std::format("Found subconfig {} at {}",FNAME,cbu::path_to_utf8(s)));
         auto fmt = ConfigFileFormat();
         cf *cfg = fmt.load_config(s);
 
@@ -229,14 +221,14 @@ static void config_recurse_sub_projects(vector<cf*> &subconfigs,fpath path) {
 }
 void mcc::config::update_config(cf *obj) {
     vector<cf*> subconfigs = obj->sub_projects;
-    vector<mcc::config::SourceFileObject*> sourcefiles = obj->source_files;
+    vector<SourceFileObject*> sourcefiles = obj->source_files;
 
-    mcc::config::SourceFileObject *main = NULL;
+    SourceFileObject *main = NULL;
     auto lpath = obj->directory / obj->src_directory;
     config_recurse_sub_projects(subconfigs,lpath);
     config_recurse_src_files(subconfigs,main,sourcefiles,lpath,lpath);
 
-    vector<mcc::config::SourceFileObject*> remove_queue{};
+    vector<SourceFileObject*> remove_queue{};
     for (auto &s : sourcefiles) {
         if (std::filesystem::exists(lpath / s->path)) continue;
         remove_queue.push_back(s);
@@ -280,6 +272,8 @@ uint8_t mcc::config::cmd() {
     cbu::cli_output("Welcome to the config utility!");
     string cmd;
     while (true) {
+        if (mcc::consume_interrupt()) return -1;
+
         cbu::cli_input("CONFIG: Enter command (h for help)");
         cmd = cbu::cli_get_string();
 
@@ -292,283 +286,27 @@ uint8_t mcc::config::cmd() {
             cbu::cli_output("Exiting config utility...");
             break;
         } if (cmd == "l") {
-            if (!current_config or current_config->loaded_configs.empty()) {
-                cbu::log_warn("No configs found! Add some with a or create a new one with n");
-                continue;
-            }
-            for (auto &s : current_config->loaded_configs) {
-                cbu::cli_output(std::format("---\n{} at {}",s->name,cbu::path_to_utf8(s->directory)));
-            }
+            mcc::config_commands::list_configs_cmd();
 
             continue;
         } if (cmd == "a") {
-            fpath path;
-            cbu::cli_input("Enter the project path to link");
-            if (!cbu::cli_get_valid_dirpath(&path)) {
-                cbu::log_error(false,"Cancelled");
-                continue;
-            }
+            mcc::config_commands::link_config_cmd();
 
-            fpath ppath = path / mcc::config::FNAME;
-            if (!std::filesystem::exists(ppath)) {
-                cbu::log_warn("Project has no config file!");
-                cbu::cli_input("Create a new one?");
-                bool res;
-                bool valid = cbu::cli_get_valid_bool(&res);
-                if (!valid || !res) continue;
-
-                cmd = "n";
-                has_new_project_prepath = true;
-                new_project_prepath = path;
-            } else {
-                if (!std::filesystem::is_regular_file(ppath)) {
-                    cbu::log_warn("Project is not a file");
-                    continue;
-                }
-                link_file(ppath);
-
-                continue;
-            }
+            continue;
         } if (cmd == "p") {
-            string name;
-            fpath parentpath;
+            mcc::config_commands::config_parent_dir_cmd();
 
-            cbu::cli_input("Enter config name");
-            if (!cbu::cli_get_valid_string(&name)) {
-                cbu::log_error(false,"Name cannot be empty");
-                continue;
-            }
-            bool match = false;
-            cf *cfg;
-            for (auto &s : current_config->loaded_configs) {
-                if (s->name == name) {
-                    match = true;
-                    cfg = s;
-                    break;
-                }
-            }
-            if (!match) {
-                cbu::log_warn("Config does not exist or is not linked!");
-                continue;
-            }
-            cbu::cli_input("Enter parent path");
-            if (!cbu::cli_get_valid_dirpath(&parentpath,cfg->directory)) {
-                cbu::log_error(false,"Cancelled");
-                continue;
-            }
-
-            fpath relpath = std::filesystem::relative(parentpath,cfg->directory);
-            cbu::log_debug(std::format("Relative path: {}",cbu::path_to_utf8(relpath)));
-
-            cfg->has_parent_directory = true;
-            cfg->parent_directory = relpath;
-
-            auto fmt = ConfigFileFormat();
-            fmt.save_config(cfg);
-
-            cbu::log_success("Added parent directory succesfully!");
             continue;
         }  if (cmd == "t") {
-            string name;
-            fpath parentpath;
-
-            cbu::cli_input("Enter config name");
-            if (!cbu::cli_get_valid_string(&name)) {
-                cbu::log_error(false,"Name cannot be empty");
-                continue;
-            }
-            bool match = false;
-            cf *cfg;
-            for (auto &s : current_config->loaded_configs) {
-                if (s->name == name) {
-                    match = true;
-                    cfg = s;
-                    break;
-                }
-            }
-            if (!match) {
-                cbu::log_warn("Config does not exist or is not linked!");
-                continue;
-            }
-            cbu::cli_input("Enter export type\nDefault (0 default)");
-            int opt;
-            if (!cbu::cli_get_valid_int(&opt,0,0,true,0)) {
-                cbu::log_error(false,"Invalid value");
-                continue;
-            }
-            mcc::config::ExportType exp;
-            switch (opt) {
-                case 0: {
-                    exp = mcc::config::ExportType::EXPORT_DEFAULT;
-                    break;
-                }
-            }
-            match = false;
-            for (auto &s : cfg->export_types) {
-                if (s != exp) continue;
-
-                match = true;
-                break;
-            }
-            cbu::log_success("Added export type to config!");
-            if (match) continue;
-
-            cfg->export_types.push_back(exp);
-            auto fmt = ConfigFileFormat();
-            fmt.save_config(cfg);
+            mcc::config_commands::config_parent_dir_cmd();
 
             continue;
         } if (cmd == "x") {
-            string name;
-            cbu::cli_input("Enter config name");
-            if (!cbu::cli_get_valid_string(&name)) {
-                cbu::log_error(false,"Name cannot be empty");
-                continue;
-            }
-            bool match = false;
-            cf *cfg;
-            for (auto &s : current_config->loaded_configs) {
-                if (s->name == name) {
-                    match = true;
-                    cfg = s;
-                    break;
-                }
-            }
-            if (!match) {
-                cbu::log_warn("Config does not exist or is not linked!");
-                continue;
-            }
-
-            cbu::cli_input("Enter package name");
-            if (!cbu::cli_get_valid_string(&name)) {
-                cbu::log_error(false,"Name cannot be empty");
-                continue;
-            }
-            ExternalObject obj{};
-            obj.name = name;
-
-            cbu::cli_input("Package name in linux package managers (leave empty for none)");
-            string pkg = cbu::cli_get_string();
-            if (pkg.empty()) {
-                cbu::log_error(false,"Not implemented");
-
-                continue;
-            } else {
-                obj.linux_package.name = pkg;
-                cbu::cli_input("Enter the shared library name (leave empty for header only)");
-                obj.linux_package.link_name = cbu::cli_get_string();
-                cbu::cli_input("Enter the include path");
-                string inc;
-                if (!cbu::cli_get_valid_string(&inc)) {
-                    cbu::log_error(false,"Empty include path, using /usr/include as a default...");
-                    inc = "/usr/include";
-                }
-                obj.linux_package.include_path = inc;
-            }
-            cbu::cli_input("URL for the mingw tar.gz download for windows, such as a github release (leave blank for none)");
-            string win_url = cbu::cli_get_string();
-
-            obj.win_ext_binary.download_url = win_url;
-            if (obj.win_ext_binary) {
-                cbu::cli_input("Enter the dll name (leave empty for header only)");
-                obj.win_ext_binary.bin_name = cbu::cli_get_string();
-
-                cbu::cli_output("Downloading archive...");
-                uint8_t code = cbu::run_shell_command(mcc::compiler::get_temp_path(cfg),std::format("curl --fail --location --output archive.tar.gz {}",win_url),NULL);
-
-                if (code) {
-                    cbu::log_error(false,"Downloading archive failed, is the link invalid?");
-
-                    continue;
-                }
-
-                cbu::cli_output("Extracting archive...");
-
-                fpath apath = mcc::compiler::get_temp_path(cfg) / "archive";
-                std::filesystem::create_directories(apath);
-                code = cbu::run_shell_command(mcc::compiler::get_temp_path(cfg),"tar -xzf archive.tar.gz -C archive",NULL);
-                if (code) {
-                    cbu::log_error(false,"Extracting archive failed (for some reason)");
-
-                    continue;
-                }
-
-                fpath p;
-                cbu::cli_input("Select the include path");
-                if (!cbu::cli_get_valid_dirpath(&p,apath)) {
-                    cbu::log_warn("Cancelled");
-
-                    continue;
-                }
-                p = std::filesystem::relative(p,apath);
-
-                obj.win_ext_binary.include_path = p;
-            }
-
-            cfg->external_objects.push_back(new ExternalObject(obj));
-            mcc::installer::install_all(cfg);
-            update_config(cfg);
+            mcc::config_commands::config_add_external_cmd();
 
             continue;
         } if (cmd == "n") {
-            string name;
-            mcc::config::ConfigModel model;
-            fpath project_path;
-            fpath src_path;
-
-            cbu::cli_input("Enter config name");
-            if (!cbu::cli_get_valid_string(&name)) {
-                cbu::log_error(false,"Name cannot be empty");
-                continue;
-            }
-            int mi;
-            cbu::cli_input("---\nEnter config mode\nGeneric executable (0 default)\nShared library (1)\nExecutable with subprojects (2)\nEnter value");
-            if (!cbu::cli_get_valid_int(&mi,0,2,true,0)) {
-                cbu::log_error(false,"Invalid value");
-                continue;
-            }
-            switch (mi) {
-                case 0: {
-                    model = mcc::config::ConfigModel::SINGLE_EXECUTABLE;
-                    break;
-                } case 1: {
-                    model = mcc::config::ConfigModel::SINGLE_SHARED;
-                    break;
-                } case 2: {
-                    model = mcc::config::ConfigModel::EXECUTABLES_WITH_SHARED;
-                    break;
-                }
-            }
-
-            if (has_new_project_prepath) {
-                project_path = new_project_prepath;
-            } else {
-                cbu::cli_output("---\nEnter the project path");
-                if (!cbu::cli_get_valid_dirpath(&project_path)) {
-                    cbu::log_error(false,"Cancelled");
-                    continue;
-                }
-            }
-            cbu::cli_output("---\nEnter the path for source files");
-            if (!cbu::cli_get_valid_dirpath(&src_path,project_path)) {
-                cbu::log_error(false,"Cancelled");
-                continue;
-            }
-            src_path = std::filesystem::relative(src_path,project_path);
-
-            config::ConfigObject *cfg = new config::ConfigObject();
-            cbu::log_debug(std::format("Creating config {} at path {} with src {}",
-                                       name,
-                                       cbu::path_to_utf8(project_path),
-                                       cbu::path_to_utf8(src_path)));
-            cfg->name = name;
-            cfg->directory = project_path;
-            cfg->src_directory = src_path;
-            cfg->model = model;
-            update_config(cfg);
-
-            link_config(cfg);
-            cbu::log_success("Config created and linked succesfully!");
+            mcc::config_commands::new_config_cmd();
 
             continue;
         } if (cmd == "s") {
@@ -580,161 +318,7 @@ uint8_t mcc::config::cmd() {
 
             continue;
         } if (cmd == "e") {
-            string name;
-            cbu::cli_input("Enter config name");
-            if (!cbu::cli_get_valid_string(&name)) {
-                cbu::log_error(false,"Name cannot be empty");
-                continue;
-            }
-            bool match = false;
-            cf *cfg;
-            for (auto &s : current_config->loaded_configs) {
-                if (s->name == name) {
-                    match = true;
-                    cfg = s;
-                    break;
-                }
-            }
-            if (!match) {
-                cbu::log_warn("Config does not exist or is not linked!");
-                continue;
-            }
-
-            bool edit_running = true;
-            while (edit_running) {
-                cbu::cli_output("Welcome to the config edit utility");
-                cbu::cli_input("What to edit?\nExit edit utility (0)\nName (1 default)\nSrc Directory (2)\nExternal Objects (3)");
-                int opt;
-                cbu::cli_get_valid_int(&opt,0,3,true,1);
-                switch (opt) {
-                    case 0: {
-                        edit_running = false;
-                        break;
-                    }
-                    case 1: {
-                        string name;
-                        cbu::cli_input("Enter new name");
-                        if (!cbu::cli_get_valid_string(&name)) {
-                            cbu::log_warn("Name cannot be empty");
-                            break;
-                        }
-                        cfg->name = name;
-                        update_config(cfg);
-
-                        break;
-                    }
-                    case 2: {
-                        fpath dir;
-                        cbu::cli_input("Enter source directory");
-                        if (!cbu::cli_get_valid_dirpath(&dir,cfg->directory)) {
-                            cbu::log_warn("Canceled");
-                            break;
-                        }
-                        cfg->src_directory = std::filesystem::relative(dir,cfg->directory);
-                        update_config(cfg);
-
-                        break;
-                    }
-                    case 3: {
-                        bool ext_running = true;
-                        while (ext_running) { // make it work first, then make it work good
-                            cbu::cli_output("Welcome to the external object edit utility");
-                            cbu::cli_input("Enter command (h for help");
-                            string cmd = cbu::cli_get_string();
-
-                            if (cmd == "h") {
-                                cbu::cli_output("[h] print this list\n[l] list external objects\n[p] edit linux package\n[w] edit windows binary\n[q] exit this utility");
-                                continue;
-                            } if (cmd == "q") {
-                                ext_running = false;
-                                continue;
-                            } if (cmd == "l") {
-                                for (auto &s : cfg->external_objects) {
-                                    cbu::cli_output(std::format("---\n{}",s->name));
-                                }
-
-                                continue;
-                            } if (cmd == "p") {
-                                string name;
-                                cbu::cli_input("Enter object name");
-                                if (!cbu::cli_get_valid_string(&name)) {
-                                    cbu::log_error(false,"Name cannot be empty");
-                                    continue;
-                                }
-                                bool match = false;
-                                ExternalObject *obj;
-                                for (auto &s : cfg->external_objects) {
-                                    if (s->name != name) continue;
-
-                                    match = true;
-                                    obj = s;
-                                    break;
-                                }
-                                if (!match) {
-                                    cbu::log_warn("No object found");
-                                    continue;
-                                }
-                                string inc,bin;
-
-                                cbu::cli_input("Enter new name (leave blank to not change)");
-                                if (!cbu::cli_get_valid_string(&name)) {
-                                    name = obj->linux_package.name;
-                                }
-                                cbu::cli_input("Enter new include path (leave blank to not change)");
-                                if (!cbu::cli_get_valid_string(&inc)) {
-                                    inc = obj->linux_package.include_path;
-                                }
-                                cbu::cli_input("Enter new binary name (leave blank for header only)");
-                                bin = cbu::cli_get_string();
-
-                                obj->linux_package.name = name;
-                                obj->linux_package.link_name = bin;
-                                obj->linux_package.include_path = inc;
-
-                                continue;
-                            } if (cmd == "w") {
-                                string name;
-                                cbu::cli_input("Enter object name");
-                                if (!cbu::cli_get_valid_string(&name)) {
-                                    cbu::log_error(false,"Name cannot be empty");
-                                    continue;
-                                }
-                                bool match = false;
-                                ExternalObject *obj;
-                                for (auto &s : cfg->external_objects) {
-                                    if (s->name != name) continue;
-
-                                    match = true;
-                                    obj = s;
-                                    break;
-                                }
-                                if (!match) {
-                                    cbu::log_warn("No object found");
-                                    continue;
-                                }
-                                string bin;
-
-                                cbu::cli_input("Enter new download url (leave blank to not change)");
-                                if (!cbu::cli_get_valid_string(&name)) {
-                                    name = obj->win_ext_binary.download_url;
-                                }
-                                cbu::cli_input("Enter new binary name (leave blank for header only)");
-                                bin = cbu::cli_get_string();
-
-                                obj->win_ext_binary.download_url = name;
-                                obj->win_ext_binary.bin_name = bin;
-
-
-                                continue;
-                            }
-
-                            cbu::log_warn("Unknown command");
-                        }
-
-                        break;
-                    }
-                }
-            }
+            mcc::config_commands::edit_config_cmd();
 
             continue;
         }
@@ -755,7 +339,7 @@ bool mcc::config::valid() {
 
 
 static string last_config_name;
-bool mcc::config::link_file(fpath path) {
+bool mcc::config::link_config_by_file(fpath path) {
     if (!std::filesystem::exists(path)) {
         cbu::log_error(false,"File does not exist");
         return false;
@@ -777,27 +361,32 @@ bool mcc::config::link_file(fpath path) {
     return true;
 }
 bool mcc::config::set_file_current(fpath ppath) {
-    bool s = link_file(ppath);
+    bool s = link_config_by_file(ppath);
     if (!s) return false;
 
     return set_name_current(last_config_name);
 }
 bool mcc::config::set_name_current(string name) {
-    bool match = false;
-    for (auto &s : current_config->loaded_configs) {
-        if (s->name == name) {
-            mcc::state::state_safe([s]() {
-                mcc::state::active_config = s;
-                mcc::state::current_project = s->directory;
-            });
-
-            cbu::log_success(std::format("Project {} at {} is now current",name,cbu::path_to_utf8(s->directory)));
-            match = true;
-            break;
-        }
+    auto obj = find_config_by_name(name);
+    if (!obj) {
+        cbu::log_warn(std::format("Project {} does not exist or is unlinked",name));
+        return false;
     }
-    if (match) return true;
-    cbu::log_warn(std::format("Project {} does not exist or is unlinked",name));
 
-    return false;
+
+    mcc::state::state_safe([obj]() {
+        mcc::state::active_config = obj;
+        mcc::state::current_project = obj->directory;
+    });
+
+    cbu::log_success(std::format("Project {} at {} is now current",name,cbu::path_to_utf8(obj->directory)));
+    return true;
+}
+ConfigObject *mcc::config::find_config_by_name(string name) {
+    for (auto &s : current_config->loaded_configs) {
+        if (s->name != name) continue;
+
+        return s;
+    }
+    return NULL;
 }

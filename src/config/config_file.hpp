@@ -2,6 +2,7 @@
 #include "base_types.hpp"
 #include "stringmath.hpp"
 #include <cstdint>
+#include <queue>
 #include <vector>
 #include <optional>
 
@@ -40,6 +41,7 @@ namespace mcc::config {
     struct ExternalBinary { // package to be downloaded with curl
         string download_url; // url to download from, if empty is blank
 
+        string install_cmd = ""; // if non empty, is executed
         string include_path; // relative path to the archive to be included with -I[path]
         string bin_name; // name for the .dll / .so file so [name].dll/.so, will be recursively searched as well as lib[name].dll.a for windows
 
@@ -102,9 +104,23 @@ namespace mcc::config {
     uint8_t reload();
     uint8_t cmd();
 
-    bool link_file(fpath path);
+    bool link_config(ConfigObject *obj);
+    bool link_config_by_file(fpath path);
     bool set_file_current(fpath path);
     bool set_name_current(string name);
 
     void update_config(ConfigObject *obj);
+    ConfigObject *find_config_by_name(string name);
+
+
+    struct ConfigContainerDataBlock {
+        string fpath;
+        ConfigObject *obj = NULL;
+    };
+    struct ConfigContainer {
+        ~ConfigContainer() { for (auto &s : loaded_configs) delete s; }
+        vector<ConfigObject*> loaded_configs;
+        std::queue<ConfigContainerDataBlock*> pending_datablocks;
+    };
+    extern ConfigContainer *current_config;
 }

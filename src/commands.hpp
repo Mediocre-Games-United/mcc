@@ -11,8 +11,21 @@
 #include <format>
 #include <tuple>
 #include <functional>
+#include <mutex>
 
 namespace mcc {
+    extern volatile size_t interrupt_count;
+    extern std::mutex interrupt_mutex;
+    inline bool consume_interrupt() {
+        interrupt_mutex.lock();
+        if (interrupt_count <= 0) { interrupt_mutex.unlock(); return false; }
+
+        cbu::log_warn("Interrupt caught!");
+        interrupt_count -= 1;
+        interrupt_mutex.unlock();
+        return true;
+    }
+
     struct cmdinfo {
         string help_example;
         string name;
