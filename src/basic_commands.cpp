@@ -7,6 +7,7 @@
 #include "installer.hpp"
 #include "logger.hpp"
 #include "commands.hpp"
+#include "publish/publish.hpp"
 #include "state.hpp"
 #include "stringmath.hpp"
 #include "shell.hpp"
@@ -31,6 +32,8 @@ static uint8_t export_program();
 static uint8_t publish_program();
 static uint8_t clean_all();
 static uint8_t install();
+
+static string version = "v0-1-0";
 
 static std::unordered_map<cbu::StringName,mcc::compiler::BuildType> build_type_string_lookup;
 static std::unordered_map<cbu::StringName,mcc::compiler::Platform> build_platform_string_lookup;
@@ -93,13 +96,17 @@ static void log_config(mcc::config::ConfigObject *obj) {
 static mcc::compiler::BuildType type = mcc::compiler::BuildType::BUILD_EDITOR;
 static mcc::compiler::Platform platform = mcc::compiler::Platform::PLATFORM_LINUX;
 
-static uint8_t create_package() {
+static uint8_t check_config() {
     if (!mcc::config::valid()) {
         cbu::log_error(false,"No valid config found. Generate one with `config`");
 
         return 1;
     }
 
+    return 0;
+}
+static uint8_t create_package() {
+    if (check_config()) return 1;
 
     uint8_t code;
     mcc::state::state_safe([&code]() {
@@ -155,20 +162,30 @@ static uint8_t run_program() {
 }
 
 static uint8_t export_program() {
+    if (check_config()) return 1;
+
     uint8_t code;
     mcc::state::state_safe([&code]() {
         log_config(mcc::state::active_config);
 
         mcc::config::update_config(mcc::state::active_config);
-        code = mcc::packager::export_all(mcc::state::active_config);
+        code = mcc::packager::export_all(mcc::state::active_config,version);
     });
 
     return code;
 }
 static uint8_t publish_program() {
-    uint8_t res = export_program();
+    if (check_config()) return 1;
+
+    uint8_t res;
+    mcc::state::state_safe([&res]() {
+        log_config(mcc::state::active_config);
+
+        mcc::config::update_config(mcc::state::active_config);
+        res = mcc::publisher::publish_all(mcc::state::active_config,version,true);
+    });
     if (res) {
-        cbu::log_error(false,"Export failed");
+        cbu::log_error(false,"Publish failed");
         return res;
     }
 

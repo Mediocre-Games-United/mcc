@@ -70,6 +70,7 @@ namespace mcc::config {
     };
     enum class ExportType : uint8_t {
         EXPORT_DEFAULT, // Builds and does nothing else on top of it
+        EXPORT_ITCHIO, // Builds with some itchio definitions and files and pushes to itchio
         // EXPORT_INSTALLER, // builds and wraps the program in a simple installer (not implemented yet)
         // EXPORT_PORTABLE, // build into a portable zip/tar.gz file (not implemented yet)
 
@@ -106,6 +107,9 @@ namespace mcc::config {
         // other executables only used by mode 2
         bool generate_launcher_wrapper = false; // if true, compile main_source into [main]_app.o -> app(.exe) and [main]_launcher.o -> launcher(.exe) and make the launcher executable a wrapper that handles the app executable
         bool generate_crash_handler = false; // if launcher is set, also generate a crash handler from [main]_crash_handler.o -> crash_handler(.exe)
+
+        string itchio_username;
+        string itchio_project;
     };
     struct ExternalWrapper {
         ExternalObject *obj;
