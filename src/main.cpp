@@ -69,8 +69,7 @@ int main(int argc,char *argv[]) {
     mcc::start_background();
 
     cbu::parser_output pout = cbu::parse_args(argc,argv,{
-        cbu::parser_flag('t',"temp","Generates a temporary config for monolithic executables that require no linking steps"),
-        cbu::parser_flag('c',"config","Sets the current config filepath, if not present the current working directory will be used instead"),
+        cbu::parser_flag('t',"temp","Generates a temporary config in the current working directory for monolithic executables that require no linking steps"),
     },{
         cbu::parser_val(cbu::parser_flag('n',"config-name","Same as --config but set the config by name rather than filepath")),
         cbu::parser_val(cbu::parser_flag('c',"config","Sets the current config filepath, if not present the current working directory will be used instead")),

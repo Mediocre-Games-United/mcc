@@ -91,9 +91,12 @@ void mcc::config_commands::edit_config_cmd() {
                 bool remove;
                 cbu::cli_input("Remove all external objects? (default false)");
                 if (!cbu::cli_get_valid_bool(&remove,true,false)) {
+                    cbu::log_warn("Canceled");
                     break;
                 }
-                cfg->external_objects.clear();
+                if (!remove) break;
+                cbu::log_warn("Removing all ext objects!");
+                cfg->external_objects = {};
                 update_config(cfg);
 
                 break;

@@ -4,7 +4,9 @@
 #include "compiler.hpp"
 #include "config_file.hpp"
 #include "installer.hpp"
+#include "logger.hpp"
 #include "shell.hpp"
+#include <format>
 
 using namespace mcc::config;
 
@@ -37,259 +39,6 @@ void mcc::config_commands::config_parent_dir_cmd() {
     update_config(cfg);
 
     cbu::log_success("Added parent directory succesfully!");
-}
-void mcc::config_commands::config_add_external_cmd() {
-    string config_name;
-    cbu::cli_input("Enter config name");
-
-    if (!cbu::cli_get_valid_string(&config_name)) {
-        cbu::log_error(false, "Name cannot be empty");
-        return;
-    }
-
-    ConfigObject *cfg = find_config_by_name(config_name);
-    if (!cfg) {
-        cbu::log_warn("Config does not exist or is not linked!");
-        return;
-    }
-
-    ExternalObject obj{};
-
-    cbu::cli_input("Enter external package name");
-    if (!cbu::cli_get_valid_string(&obj.name)) {
-        cbu::log_error(false, "Name cannot be empty");
-        return;
-    }
-
-    /*
-     * Linux package-manager configuration.
-     *
-     * If no package name is supplied, a downloadable Linux archive can be
-     * configured below instead.
-     */
-    cbu::cli_input(
-        "Package name in Linux package managers "
-        "(leave empty if unavailable)"
-    );
-
-    obj.linux_package.name = cbu::cli_get_string();
-
-    if (!obj.linux_package.name.empty()) {
-        cbu::cli_input(
-            "Enter the shared library name "
-            "(leave empty for header-only)"
-        );
-        obj.linux_package.link_name = cbu::cli_get_string();
-
-        cbu::cli_input("Enter the include path");
-        if (!cbu::cli_get_valid_string(&obj.linux_package.include_path)) {
-            cbu::log_warn(
-                "Empty include path, using /usr/include as a default..."
-            );
-            obj.linux_package.include_path = "/usr/include";
-        }
-    } else {
-        /*
-         * Linux binary fallback.
-         */
-        cbu::cli_input(
-            "URL for the Linux tar.gz download "
-            "(leave empty if unavailable)"
-        );
-        obj.linux_ext_binary.download_url = cbu::cli_get_string();
-
-        if (!obj.linux_ext_binary.download_url.empty()) {
-            cbu::cli_input(
-                "Enter the shared library name "
-                "(leave empty for header-only)"
-            );
-            obj.linux_ext_binary.bin_name = cbu::cli_get_string();
-
-            cbu::cli_input(
-                "Optional install command to run after extraction "
-                "(leave empty for none)"
-            );
-            obj.linux_ext_binary.install_cmd = cbu::cli_get_string();
-
-            cbu::cli_output("Downloading Linux archive...");
-
-            const fpath temp_path =
-            mcc::compiler::get_temp_path(cfg);
-
-            const fpath archive_path =
-            temp_path / "linux_external_archive.tar.gz";
-
-            const fpath extract_path =
-            temp_path / "linux_external_archive";
-
-            std::filesystem::remove(archive_path);
-            std::filesystem::remove_all(extract_path);
-            std::filesystem::create_directories(extract_path);
-
-            const uint8_t code = cbu::run_shell_command(
-                temp_path,
-                std::format(
-                    "curl --fail --location --output {} {}",
-                    archive_path.string(),
-                            obj.linux_ext_binary.download_url
-                ),
-                nullptr
-            );
-
-            if (code != 0) {
-                cbu::log_error(
-                    false,
-                    "Downloading Linux archive failed, is the link invalid?"
-                );
-                return;
-            }
-
-            cbu::cli_output("Extracting Linux archive...");
-
-            if (cbu::run_shell_command(
-                temp_path,
-                std::format(
-                    "tar -xzf {} -C {}",
-                    archive_path.string(),
-                            extract_path.string()
-                ),
-                nullptr
-            ) != 0) {
-                cbu::log_error(
-                    false,
-                    "Extracting Linux archive failed"
-                );
-                return;
-            }
-
-            fpath selected_include_path;
-            cbu::cli_input("Select the Linux include path");
-
-            if (!cbu::cli_get_valid_dirpath(
-                &selected_include_path,
-                extract_path
-            )) {
-                cbu::log_warn("Cancelled");
-                return;
-            }
-
-            obj.linux_ext_binary.include_path =
-            std::filesystem::relative(
-                selected_include_path,
-                extract_path
-            ).string();
-        }
-    }
-
-    /*
-     * Windows binary configuration.
-     */
-    cbu::cli_input(
-        "URL for the MinGW tar.gz download for Windows "
-        "(such as a GitHub release; leave empty for none)"
-    );
-
-    obj.win_ext_binary.download_url = cbu::cli_get_string();
-
-    if (!obj.win_ext_binary.download_url.empty()) {
-        cbu::cli_input(
-            "Enter the DLL name "
-            "(leave empty for header-only)"
-        );
-        obj.win_ext_binary.bin_name = cbu::cli_get_string();
-
-        cbu::cli_output("Downloading Windows archive...");
-
-        const fpath temp_path =
-        mcc::compiler::get_temp_path(cfg);
-
-        const fpath archive_path =
-        temp_path / "windows_external_archive.tar.gz";
-
-        const fpath extract_path =
-        temp_path / "windows_external_archive";
-
-        std::filesystem::remove(archive_path);
-        std::filesystem::remove_all(extract_path);
-        std::filesystem::create_directories(extract_path);
-
-        const uint8_t code = cbu::run_shell_command(
-            temp_path,
-            std::format(
-                "curl --fail --location --output {} {}",
-                archive_path.string(),
-                        obj.win_ext_binary.download_url
-            ),
-            nullptr
-        );
-
-        if (code != 0) {
-            cbu::log_error(
-                false,
-                "Downloading Windows archive failed, is the link invalid?"
-            );
-            return;
-        }
-
-        cbu::cli_output("Extracting Windows archive...");
-
-        if (cbu::run_shell_command(
-            temp_path,
-            std::format(
-                "tar -xzf {} -C {}",
-                archive_path.string(),
-                        extract_path.string()
-            ),
-            nullptr
-        ) != 0) {
-            cbu::log_error(
-                false,
-                "Extracting Windows archive failed"
-            );
-            return;
-        }
-
-        fpath selected_include_path;
-        cbu::cli_input("Select the Windows include path");
-
-        if (!cbu::cli_get_valid_dirpath(
-            &selected_include_path,
-            extract_path
-        )) {
-            cbu::log_warn("Cancelled");
-            return;
-        }
-
-        obj.win_ext_binary.include_path =
-        std::filesystem::relative(
-            selected_include_path,
-            extract_path
-        ).string();
-    }
-
-    /*
-     * At least one usable backend must be configured:
-     *
-     * - Linux package
-     * - Linux downloadable archive
-     * - Windows downloadable archive
-     */
-    if (!obj.linux_package &&
-        !obj.linux_ext_binary &&
-        !obj.win_ext_binary) {
-        cbu::log_error(
-            false,
-            "No Linux package, Linux archive, or Windows archive was configured"
-        );
-    return;
-        }
-
-        cfg->external_objects.push_back(
-            new ExternalObject(std::move(obj))
-        );
-
-        mcc::installer::install_all(cfg);
-        update_config(cfg);
 }
 
 void mcc::config_commands::config_add_export_cmd() {
@@ -331,4 +80,296 @@ void mcc::config_commands::config_add_export_cmd() {
 
     cfg->export_types.push_back(exp);
     update_config(cfg);
+}
+
+
+
+struct BinarySetup {
+    const char *platform_name;
+    const char *archive_name;
+    const char *archive_url_prompt;
+    const char *binary_name_prompt;
+};
+
+bool download_and_extract_binary(
+    ConfigObject *cfg,
+    const std::string &platform_name,
+    const std::string &archive_name,
+    const std::string &url,
+    ExternalBinary *binary
+) {
+    const fpath temp_path =
+    mcc::compiler::get_temp_path(cfg);
+
+    const fpath archive_path =
+    temp_path / archive_name;
+
+    const fpath extract_path =
+    temp_path / (platform_name + "_external_archive");
+
+    std::filesystem::remove(archive_path);
+    std::filesystem::remove_all(extract_path);
+    std::filesystem::create_directories(extract_path);
+
+    cbu::cli_output(
+        std::format("Downloading {} archive...", platform_name)
+    );
+
+    const uint8_t download_code = cbu::run_shell_command(
+        temp_path,
+        std::format(
+            "curl --fail --location --output \"{}\" \"{}\"",
+            archive_path.string(),
+                    url
+        ),
+        nullptr
+    );
+
+    if (download_code != 0) {
+        cbu::log_error(
+            false,
+            std::format(
+                "Downloading {} archive failed, is the link invalid?",
+                platform_name
+            )
+        );
+        return false;
+    }
+
+    cbu::cli_output(
+        std::format("Extracting {} archive...", platform_name)
+    );
+
+    const uint8_t extract_code = cbu::run_shell_command(
+        temp_path,
+        std::format(
+            "tar -xzf \"{}\" -C \"{}\"",
+            archive_path.string(),
+                    extract_path.string()
+        ),
+        nullptr
+    );
+
+    if (extract_code != 0) {
+        cbu::log_error(
+            false,
+            std::format(
+                "Extracting {} archive failed",
+                platform_name
+            )
+        );
+        return false;
+    }
+
+    /*
+     * tld is the directory containing include/, lib/, and/or bin/.
+     *
+     * For example, if the archive extracts to:
+     *
+     *   package-1.2.3/include/foo.h
+     *   package-1.2.3/lib/libfoo.so
+     *
+     * the user should select package-1.2.3, and tld becomes:
+     *
+     *   package-1.2.3
+     */
+    fpath selected_tld;
+
+    cbu::cli_input(
+        std::format(
+            "Select the {} package top-level directory",
+            platform_name
+        )
+    );
+
+    if (!cbu::cli_get_valid_dirpath(
+        &selected_tld,
+        extract_path
+    )) {
+        cbu::log_warn("Cancelled");
+        return false;
+    }
+
+    binary->tld =
+    std::filesystem::relative(
+        selected_tld,
+        extract_path
+    ).generic_string();
+
+    if (binary->tld.empty()) {
+        binary->tld = "./";
+    }
+
+    return true;
+}
+
+bool configure_linux_package(ExternalObject *obj) {
+    cbu::cli_input(
+        "Package name in Linux package managers "
+        "(leave empty if unavailable)"
+    );
+
+    obj->linux_package.name = cbu::cli_get_string();
+
+    if (obj->linux_package.name.empty()) {
+        return true;
+    }
+
+    cbu::cli_input(
+        "Enter the shared library name "
+        "(leave empty for header-only)"
+    );
+
+    obj->linux_package.link_name = cbu::cli_get_string();
+
+    cbu::log_info(std::format("Package name {}, link {}",obj->linux_package.name,obj->linux_package.link_name));
+
+    return true;
+}
+
+bool configure_linux_binary(
+    ConfigObject *cfg,
+    ExternalObject *obj
+) {
+    cbu::cli_input(
+        "URL for the Linux tar.gz download "
+        "(leave empty if unavailable)"
+    );
+
+    obj->linux_ext_binary.download_url =
+    cbu::cli_get_string();
+
+    if (!obj->linux_ext_binary) {
+        return true;
+    }
+
+    cbu::cli_input(
+        "Enter the shared library name "
+        "(leave empty for header-only)"
+    );
+
+    obj->linux_ext_binary.bin_name =
+    cbu::cli_get_string();
+
+    cbu::cli_input(
+        "Optional install command to run after extraction "
+        "(leave empty for none)"
+    );
+
+    obj->linux_ext_binary.install_cmd =
+    cbu::cli_get_string();
+
+    return download_and_extract_binary(
+        cfg,
+        "Linux",
+        "linux_external_archive.tar.gz",
+        obj->linux_ext_binary.download_url,
+        &obj->linux_ext_binary
+    );
+}
+bool configure_windows_binary(
+    ConfigObject *cfg,
+    ExternalObject *obj
+) {
+    cbu::cli_input(
+        "URL for the MinGW tar.gz download for Windows "
+        "(such as a GitHub release; leave empty for none)"
+    );
+
+    obj->win_ext_binary.download_url =
+    cbu::cli_get_string();
+
+    if (!obj->win_ext_binary) {
+        return true;
+    }
+
+    cbu::cli_input(
+        "Enter the DLL name "
+        "(leave empty for header-only)"
+    );
+
+    obj->win_ext_binary.bin_name =
+    cbu::cli_get_string();
+
+    cbu::cli_input(
+        "Optional install command to run after extraction "
+        "(executed in the package top-level directory; "
+        "leave empty for none)"
+    );
+
+    obj->win_ext_binary.install_cmd =
+    cbu::cli_get_string();
+
+    return download_and_extract_binary(
+        cfg,
+        "Windows",
+        "windows_external_archive.tar.gz",
+        obj->win_ext_binary.download_url,
+        &obj->win_ext_binary
+    );
+}
+
+void mcc::config_commands::config_add_external_cmd() {
+    string config_name;
+
+    cbu::cli_input("Enter config name");
+
+    if (!cbu::cli_get_valid_string(&config_name)) {
+        cbu::log_error(false, "Name cannot be empty");
+        return;
+    }
+
+    ConfigObject *cfg =
+    find_config_by_name(config_name);
+
+    if (!cfg) {
+        cbu::log_warn(
+            "Config does not exist or is not linked!"
+        );
+        return;
+    }
+
+    ExternalObject obj{};
+
+    cbu::cli_input("Enter external package name");
+
+    if (!cbu::cli_get_valid_string(&obj.name)) {
+        cbu::log_error(false, "Name cannot be empty");
+        return;
+    }
+
+    /*
+     * Prefer a Linux package-manager package. Only ask for a
+     * downloadable Linux binary when no package was supplied.
+     */
+    configure_linux_package(&obj);
+
+    if (!obj.linux_package) {
+        if (!configure_linux_binary(cfg, &obj)) {
+            return;
+        }
+    }
+
+    if (!configure_windows_binary(cfg, &obj)) {
+        return;
+    }
+
+    if (!obj.linux_package &&
+        !obj.linux_ext_binary &&
+        !obj.win_ext_binary) {
+        cbu::log_error(
+            false,
+            "No Linux package, Linux archive, or Windows archive "
+            "was configured"
+        );
+    return;
+        }
+
+        cbu::log_info("External object adding, trying to install it...");
+        cfg->external_objects.push_back(
+            new ExternalObject(std::move(obj))
+        );
+
+        update_config(cfg);
+        mcc::installer::install_all(cfg);
 }

@@ -1,5 +1,7 @@
 #include "config_file.hpp"
 #include "logger.hpp"
+#include "stringmath.hpp"
+#include <format>
 #include "config_file_format.hpp"
 
 
@@ -80,6 +82,7 @@ cbu::BinaryFileSection *ConfigFileFormatV2::get_sections() {
                 new cbu::StringBinarySection([](void *obj,auto value) { // src path
                     auto *c = (mcc::config::SourceFileObject*) obj;
                     c->path = value;
+                    c->name = cbu::path_to_utf8(fpath(value).stem());
                 },[](void *obj) -> string {
                     return cbu::path_to_utf8((*(mcc::config::SourceFileObject**) obj)->path);
                 }),
@@ -119,12 +122,6 @@ cbu::BinaryFileSection *ConfigFileFormatV2::get_sections() {
                 },[](void *obj) -> string {
                     return (*(mcc::config::ExternalObject**) obj)->linux_package.name;
                 }),
-                new cbu::StringBinarySection([](void *obj,auto value) { // linux package include path
-                    auto *c = (mcc::config::ExternalObject*) obj;
-                    c->linux_package.include_path = value;
-                },[](void *obj) -> string {
-                    return (*(mcc::config::ExternalObject**) obj)->linux_package.include_path;
-                }),
                 new cbu::StringBinarySection([](void *obj,auto value) { // linux package link name
                     auto *c = (mcc::config::ExternalObject*) obj;
                     c->linux_package.link_name = value;
@@ -138,11 +135,17 @@ cbu::BinaryFileSection *ConfigFileFormatV2::get_sections() {
                 },[](void *obj) -> string {
                     return (*(mcc::config::ExternalObject**) obj)->linux_ext_binary.download_url;
                 }),
-                new cbu::StringBinarySection([](void *obj,auto value) { // linux bin include path
+                new cbu::StringBinarySection([](void *obj,auto value) { // linux bin tld
                     auto *c = (mcc::config::ExternalObject*) obj;
-                    c->linux_ext_binary.include_path = value;
+                    c->linux_ext_binary.tld = value;
                 },[](void *obj) -> string {
-                    return (*(mcc::config::ExternalObject**) obj)->linux_ext_binary.include_path;
+                    return (*(mcc::config::ExternalObject**) obj)->linux_ext_binary.tld;
+                }),
+                new cbu::StringBinarySection([](void *obj,auto value) { // linux bin install cmd
+                    auto *c = (mcc::config::ExternalObject*) obj;
+                    c->linux_ext_binary.install_cmd = value;
+                },[](void *obj) -> string {
+                    return (*(mcc::config::ExternalObject**) obj)->linux_ext_binary.install_cmd;
                 }),
                 new cbu::StringBinarySection([](void *obj,auto value) { // linux bin name
                     auto *c = (mcc::config::ExternalObject*) obj;
@@ -157,11 +160,17 @@ cbu::BinaryFileSection *ConfigFileFormatV2::get_sections() {
                 },[](void *obj) -> string {
                     return (*(mcc::config::ExternalObject**) obj)->win_ext_binary.download_url;
                 }),
-                new cbu::StringBinarySection([](void *obj,auto value) { // win bin include path
+                new cbu::StringBinarySection([](void *obj,auto value) { // win bin tld
                     auto *c = (mcc::config::ExternalObject*) obj;
-                    c->win_ext_binary.include_path = value;
+                    c->win_ext_binary.tld = value;
                 },[](void *obj) -> string {
-                    return (*(mcc::config::ExternalObject**) obj)->win_ext_binary.include_path;
+                    return (*(mcc::config::ExternalObject**) obj)->win_ext_binary.tld;
+                }),
+                new cbu::StringBinarySection([](void *obj,auto value) { // win bin install cmd
+                    auto *c = (mcc::config::ExternalObject*) obj;
+                    c->win_ext_binary.install_cmd = value;
+                },[](void *obj) -> string {
+                    return (*(mcc::config::ExternalObject**) obj)->win_ext_binary.install_cmd;
                 }),
                 new cbu::StringBinarySection([](void *obj,auto value) { // win bin name
                     auto *c = (mcc::config::ExternalObject*) obj;
@@ -318,9 +327,8 @@ cbu::BinaryFileSection *ConfigFileFormatV1::get_sections() {
                 new cbu::StringBinarySection([](void *obj,auto value) { // include path
                     auto *c = (mcc::config::ExternalObject*) obj;
                     c->linux_package.name = value;
-                    c->linux_package.include_path = value;
                 },[](void *obj) -> string {
-                    return cbu::path_to_utf8((*(mcc::config::ExternalObject**) obj)->linux_package.include_path);
+                    return cbu::path_to_utf8((*(mcc::config::ExternalObject**) obj)->linux_package.name);
                 })
             })
         },false),
@@ -369,5 +377,5 @@ cf *ConfigFileFormat::load_config(fpath path) {
 }
 void ConfigFileFormat::save_config(cf *obj) {
     load_object_to_buffer(obj);
-    save_buffer_to_file(obj->directory / mcc::config::FNAME);
+    save_buffer_to_file(obj->directory / FNAME);
 }

@@ -82,6 +82,14 @@ public:
 
             if (std::filesystem::exists(ref->fpath)) {
                 cf *cfg = fmt.load_config(ref->fpath);
+                auto ex = find_config_by_name(cfg->name);
+                if (ex) {
+                    cbu::log_verbose("Config exists!");
+                    delete cfg;
+
+                    continue;
+                }
+
                 update_config(cfg);
                 link_config(cfg);
             }
@@ -130,6 +138,18 @@ bool mcc::config::link_config(ConfigObject *obj) {
     return true;
 }
 
+static bool subprojects_have_src_file(SourceFileObject *&src,vector<cf*> &subconfigs) {
+    for (auto &s : subconfigs) {
+        for (auto &sr : s->source_files) {
+            if (sr->name != src->name) continue;
+
+            cbu::log_verbose(std::format("Subproject {} src {} matches with t {}",s->name,sr->name,src->name));
+            return true;
+        }
+    }
+
+    return false;
+}
 static void config_recurse_src_files(vector<cf*> &subconfigs,SourceFileObject *&main,vector<SourceFileObject*> &sourcefiles,fpath root,fpath path,bool parent_no_match = true) {
     bool no_match = parent_no_match;
     if (no_match) {
@@ -143,6 +163,9 @@ static void config_recurse_src_files(vector<cf*> &subconfigs,SourceFileObject *&
 
     for (auto &s : cbu::iterate_dir(path)) {
         if (std::filesystem::is_directory(s)) {
+            string name = cbu::path_to_utf8(s.filename());
+            if (name == ".mcc" || name == ".git") continue;
+
             config_recurse_src_files(subconfigs,main,sourcefiles,root,s,no_match);
             continue;
         }
@@ -152,7 +175,7 @@ static void config_recurse_src_files(vector<cf*> &subconfigs,SourceFileObject *&
             string name = cbu::path_to_utf8(s.stem());
             fpath p = std::filesystem::relative(s,root);
 
-            cbu::log_debug(std::format("Found source file {} with name {}",cbu::path_to_utf8(p),name));
+            // cbu::log_debug(std::format("Found source file {} with name {}",cbu::path_to_utf8(p),name));
             bool file_exists = false;
             for (auto &sr : sourcefiles) {
                 if (sr->path == p) {
@@ -161,7 +184,7 @@ static void config_recurse_src_files(vector<cf*> &subconfigs,SourceFileObject *&
                 }
             }
             if (file_exists) {
-                cbu::log_debug("File already exists! Skipping...");
+                // cbu::log_debug("File already exists! Skipping...");
                 continue;
             }
             if (name == "main") {
@@ -177,12 +200,12 @@ static void config_recurse_src_files(vector<cf*> &subconfigs,SourceFileObject *&
             if (!no_match) continue;
             sourcefiles.push_back(new SourceFileObject{
                 .path = p,
-                .name = cbu::path_to_utf8(s.parent_path() / name)
+                .name = name
             });
 
             continue;
         } if (ext == ".hpp" || ext == ".h") {
-            cbu::log_debug(std::format("Found header file {}",cbu::path_to_utf8(s)));
+            // cbu::log_debug(std::format("Found header file {}",cbu::path_to_utf8(s)));
             continue;
         }
     }
@@ -204,13 +227,21 @@ static void config_recurse_sub_projects(vector<cf*> &subconfigs,fpath path) {
         for (auto &o : subconfigs) {
             if (o->name != cfg->name || o->directory != cfg->directory) continue;
 
-            cbu::log_debug("Subconfig already exists! Skipping...");
+            cbu::log_verbose("Subconfig already exists! Skipping...");
             found = true;
             delete cfg;
             break;
         }
 
         if (found) continue;
+
+        auto ex = find_config_by_path(cfg->directory);
+        if (ex) {
+            cbu::log_verbose("Subconfig is already linked! Skipping...");
+            delete cfg;
+
+            cfg = ex;
+        }
         update_config(cfg);
 
         link_config(cfg);
@@ -229,11 +260,11 @@ void mcc::config::update_config(cf *obj) {
     config_recurse_src_files(subconfigs,main,sourcefiles,lpath,lpath);
 
     vector<SourceFileObject*> remove_queue{};
+    for (auto &s : subconfigs) update_config(s);
     for (auto &s : sourcefiles) {
-        if (std::filesystem::exists(lpath / s->path)) continue;
+        if (std::filesystem::exists(lpath / s->path) and !subprojects_have_src_file(s,subconfigs)) continue;
         remove_queue.push_back(s);
     }
-    for (auto &s : subconfigs) update_config(s);
     for (auto &s : remove_queue) {
         cbu::vector_erase_value(sourcefiles,s);
         delete s;
@@ -298,7 +329,7 @@ uint8_t mcc::config::cmd() {
 
             continue;
         }  if (cmd == "t") {
-            mcc::config_commands::config_parent_dir_cmd();
+            mcc::config_commands::config_add_export_cmd();
 
             continue;
         } if (cmd == "x") {
@@ -343,6 +374,8 @@ bool mcc::config::link_config_by_file(fpath path) {
     if (!std::filesystem::exists(path)) {
         cbu::log_error(false,"File does not exist");
         return false;
+    } if (std::filesystem::is_directory(path)) {
+        path = path / FNAME;
     } if (!std::filesystem::is_regular_file(path)) {
         cbu::log_error(false,"Path is not a file!");
         return false;
@@ -385,6 +418,14 @@ bool mcc::config::set_name_current(string name) {
 ConfigObject *mcc::config::find_config_by_name(string name) {
     for (auto &s : current_config->loaded_configs) {
         if (s->name != name) continue;
+
+        return s;
+    }
+    return NULL;
+}
+ConfigObject *mcc::config::find_config_by_path(fpath path) {
+    for (auto &s : current_config->loaded_configs) {
+        if (s->directory != path) continue;
 
         return s;
     }

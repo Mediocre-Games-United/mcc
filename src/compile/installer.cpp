@@ -1,12 +1,15 @@
 #include "installer.hpp"
 #include "commands.hpp"
+#include "compiler.hpp"
 #include "config_file.hpp"
 #include "logger.hpp"
 #include "shell.hpp"
 #include <filesystem>
 #include <format>
+#include <fstream>
 
-static uint8_t install_linux_package(mcc::config::ExternalPackage pck) {
+using namespace mcc::config;
+static uint8_t install_linux_package(ExternalPackage pck) {
     uint8_t code;
     string output;
 
@@ -21,7 +24,7 @@ static uint8_t install_linux_package(mcc::config::ExternalPackage pck) {
             "grep -q '^install ok installed$'",
             pck.name
         );
-        install_cmd = std::format("sudo pacman -Sy {}",pck.name);
+        install_cmd = std::format("sudo apt-get {}",pck.name);
     }
 
     if (test_cmd.empty()) {
@@ -42,7 +45,49 @@ static uint8_t install_linux_package(mcc::config::ExternalPackage pck) {
     return 0;
 }
 
-uint8_t mcc::installer::install_all(mcc::config::ConfigObject *cfg) {
+static uint8_t install_binary_package(ConfigObject *cfg,ExternalBinary bin,mcc::compiler::Platform pt) {
+    fpath root = mcc::compiler::get_external_binary_path(cfg,bin.download_url,pt);
+    fpath apath = root / "archive.tar.gz";
+    fpath dpath = root / "extracted";
+    fpath tldpath = dpath / bin.tld;
+    uint8_t code;
+    if (!std::filesystem::exists(apath)) {
+        cbu::log_info("Downloading archive");
+        code = cbu::run_shell_command(root,std::format("curl --fail --location --output {} {}",cbu::path_to_utf8(apath),bin.download_url),NULL);
+        if (code) {
+            cbu::log_error(false,"Failed to download archive!");
+            return -1;
+        }
+    }
+    if (!std::filesystem::exists(dpath)) {
+        cbu::log_info("Extracting archive");
+        std::filesystem::create_directories(dpath);
+        code = cbu::run_shell_command(root,std::format("tar -xzf {} -C {}",cbu::path_to_utf8(apath),cbu::path_to_utf8(dpath)),NULL);
+        if (code) {
+            cbu::log_error(false,"Failed to extract archive for some reason, maybe an issue with permissions?");
+            return -1;
+        }
+    }
+    if (!std::filesystem::exists(tldpath)) {
+        cbu::log_error(false,std::format("TLD Path is invalid! {}",cbu::path_to_utf8(tldpath)));
+
+        return -1;
+    }
+    if (std::filesystem::exists(tldpath / ".cmd_ran")) {
+        cbu::log_verbose("Install cmd already ran!");
+    } else if (!bin.install_cmd.empty()) {
+        code = cbu::run_shell_command(tldpath,bin.install_cmd,NULL);
+        if (code) {
+            cbu::log_error(false,"Install command failed");
+            return -1;
+        }
+
+        std::ofstream(tldpath / ".cmd_ran").close();
+    }
+
+    return 0;
+}
+uint8_t mcc::installer::install_all(ConfigObject *cfg) {
     cbu::log_info("Installing config...");
     uint8_t code;
 
@@ -58,6 +103,10 @@ uint8_t mcc::installer::install_all(mcc::config::ConfigObject *cfg) {
             if (code) return code;
         } else {
             cbu::log_error(false,"Not implemented");
+        }
+        if (ext->win_ext_binary) {
+            code = install_binary_package(cfg,ext->win_ext_binary,mcc::compiler::Platform::PLATFORM_WINDOWS);
+            if (code) return code;
         }
     }
 

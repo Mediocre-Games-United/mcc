@@ -1,13 +1,15 @@
 #pragma once
 #include "base_types.hpp"
+#include "logger.hpp"
 #include "stringmath.hpp"
 #include <cstdint>
+#include <format>
 #include <queue>
 #include <vector>
 #include <optional>
 
+#define FNAME "project.mcc"
 namespace mcc::config {
-    static const char *FNAME = "project.mcc";
 
     struct SourceCompileTarget {
         fpath src_path;
@@ -31,7 +33,6 @@ namespace mcc::config {
 
     struct ExternalPackage { // package from a package manager distribution
         string name = ""; // if empty, is blank
-        string include_path; // absolute path included with -I[path]
         string link_name; // name linked with -l[name]
 
         inline operator bool() const {
@@ -41,10 +42,13 @@ namespace mcc::config {
     struct ExternalBinary { // package to be downloaded with curl
         string download_url; // url to download from, if empty is blank
 
-        string install_cmd = ""; // if non empty, is executed
-        string include_path; // relative path to the archive to be included with -I[path]
-        string bin_name; // name for the .dll / .so file so [name].dll/.so, will be recursively searched as well as lib[name].dll.a for windows
+        string tld = "./"; // when extracting the package, skip through possible padding, [tld]/include will be included with -I
+        string install_cmd = ""; // if non empty, is executed in the tld
+        string bin_name; // name for the .dll / .so file so [name].dll/[name].so, will be linked from either [tld]/lib or [tld]/bin as well as lib[name].dll.a for windows
 
+        inline fpath include_path(fpath apath) {
+            return apath / tld / "include";
+        }
         inline operator bool() const {
             return !download_url.empty();
         }
@@ -55,7 +59,7 @@ namespace mcc::config {
         ExternalPackage linux_package{}; // package name from package manager
         ExternalBinary linux_ext_binary{}; // used if no package exists
 
-        ExternalBinary win_ext_binary{}; // used for windows, if empty is skipped
+        ExternalBinary win_ext_binary{}; // used for windows, if empty is skipped (such as a windows built-in)
     };
 
 
@@ -74,10 +78,15 @@ namespace mcc::config {
 
     struct ConfigObject { // a template object that can be used to generate compile targets, should not have any functionality, only an object describing the project
         ~ConfigObject() {
+            cbu::log_verbose(std::format("ConfigObject destroyed at page {}",(void*) this));
+
             for (auto &s : source_files) {
                 delete s;
             }
             if (main_source) delete main_source;
+        }
+        ConfigObject() {
+            cbu::log_verbose(std::format("ConfigObject created at page {}",(void*) this));
         }
         string name;
         fpath directory;
@@ -86,15 +95,19 @@ namespace mcc::config {
         fpath parent_directory;
         bool autodetect_source = true;
         ConfigModel model;
-        vector<ExportType> export_types;
-        vector<ConfigObject*> sub_projects;
-        vector<SourceFileObject*> source_files; // should not include main_source
-        vector<ExternalObject*> external_objects; // libraries that are linked and included when compiling
-        SourceFileObject *main_source; // used as main for mode 2, otherwise ignored. optionally compiled multiple times
+        vector<ExportType> export_types{};
+        vector<ConfigObject*> sub_projects{};
+        vector<SourceFileObject*> source_files{}; // should not include main_source
+        vector<ExternalObject*> external_objects{}; // libraries that are linked and included when compiling
+        SourceFileObject *main_source = NULL; // used as main for mode 2, otherwise ignored. optionally compiled multiple times
 
         // other executables only used by mode 2
         bool generate_launcher_wrapper = false; // if true, compile main_source into [main]_app.o -> app(.exe) and [main]_launcher.o -> launcher(.exe) and make the launcher executable a wrapper that handles the app executable
         bool generate_crash_handler = false; // if launcher is set, also generate a crash handler from [main]_crash_handler.o -> crash_handler(.exe)
+    };
+    struct ExternalWrapper {
+        ExternalObject *obj;
+        ConfigObject *cfg;
     };
 
     void init();
@@ -111,6 +124,7 @@ namespace mcc::config {
 
     void update_config(ConfigObject *obj);
     ConfigObject *find_config_by_name(string name);
+    ConfigObject *find_config_by_path(fpath path);
 
 
     struct ConfigContainerDataBlock {

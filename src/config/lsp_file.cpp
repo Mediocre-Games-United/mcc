@@ -16,7 +16,7 @@ static void get_includes_recurse(string &output,fpath dir) {
     }
 }
 static void generate_clangd_lsp(mcc::config::ConfigObject *cfg) {
-    string cont = "CompileFlags:\n Add:\n  - \"-std=c++20\"\n  - \"-DEDITOR=1\"\n  - \"-I/usr/include\"\n";
+    string cont = "CompileFlags:\n Add:\n  - \"-std=c++20\"\n  - \"-DEDITOR=1\"\n"; //  - \"-I/usr/include\"\n";
     get_includes_recurse(cont,cfg->directory);
     auto external = cfg->external_objects;
     for (auto &s : cfg->sub_projects) {
@@ -25,8 +25,7 @@ static void generate_clangd_lsp(mcc::config::ConfigObject *cfg) {
         }
     }
     for (auto &s : external) {
-        if (s->linux_package) cont += std::format("  - \"-I{}\"\n",cbu::path_to_utf8(s->linux_package.include_path));
-        if (s->linux_ext_binary) cont += std::format("  - \"-I{}\"\n",cbu::path_to_utf8(mcc::compiler::get_external_binary_path(cfg,s->name,mcc::compiler::Platform::PLATFORM_LINUX) / s->linux_ext_binary.include_path));
+        // if (s->linux_ext_binary) cont += std::format("  - \"-I{}\"\n",cbu::path_to_utf8(mcc::compiler::get_external_binary_path(cfg,s->name,mcc::compiler::Platform::PLATFORM_LINUX) / s->linux_ext_binary.include_path()));
     }
 
     fpath cpath = cfg->directory / ".clangd";
