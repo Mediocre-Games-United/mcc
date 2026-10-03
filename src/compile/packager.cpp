@@ -1,5 +1,6 @@
 #include "packager.hpp"
 #include "compile/compiler.hpp"
+#include "config_file.hpp"
 #include "logger.hpp"
 #include <filesystem>
 #include <format>
@@ -91,9 +92,7 @@ uint8_t mcc::packager::package_all(mcc::config::ConfigObject *cfg,mcc::compiler:
 
 static vector<mcc::compiler::Platform> export_platforms = {mcc::compiler::Platform::PLATFORM_LINUX,mcc::compiler::Platform::PLATFORM_WINDOWS};
 static vector<mcc::compiler::BuildType> export_types = {mcc::compiler::BuildType::BUILD_BETA,mcc::compiler::BuildType::BUILD_RELEASE};
-uint8_t mcc::packager::export_all(mcc::config::ConfigObject *cfg) {
-    string version_string = "v0-1-0";
-
+uint8_t mcc::packager::export_all(mcc::config::ConfigObject *cfg,string version) {
     if (cfg->export_types.empty()) {
         cbu::log_error(false,"Config has no export types!");
 
@@ -130,9 +129,12 @@ uint8_t mcc::packager::export_all(mcc::config::ConfigObject *cfg) {
             for (auto &tp : export_types) {
                 fpath export_path = mcc::compiler::get_export_path(cfg,exp,tp,pt);
                 fpath ppath = export_path.parent_path();
-                string name = std::format("{}_{}_{}_{}.zip",cfg->name,mcc::compiler::platform_names[int(pt)],mcc::compiler::build_type_names[int(tp)],version_string);
+                string name = std::format("{}_{}_{}_{}.zip",cfg->name,mcc::compiler::platform_names[int(pt)],mcc::compiler::build_type_names[int(tp)],version);
 
                 switch (exp) {
+                    case mcc::config::ExportType::EXPORT_ITCHIO: {
+                        break;
+                    }
                     default: {
                         cbu::run_shell_command(ppath,std::format("zip -r {} {}/",name,cbu::path_to_utf8(export_path)),NULL);
                         break;

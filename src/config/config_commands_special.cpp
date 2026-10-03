@@ -55,9 +55,9 @@ void mcc::config_commands::config_add_export_cmd() {
         cbu::log_warn("Config does not exist or is not linked!");
         return;
     }
-    cbu::cli_input("Enter export type\nDefault (0 default)");
+    cbu::cli_input("Enter export type\nDefault (0 default)\nItch.io (1)");
     int opt;
-    if (!cbu::cli_get_valid_int(&opt,0,0,true,0)) {
+    if (!cbu::cli_get_valid_int(&opt,0,1,true,0)) {
         cbu::log_error(false,"Invalid value");
         return;
     }
@@ -65,6 +65,26 @@ void mcc::config_commands::config_add_export_cmd() {
     switch (opt) {
         case 0: {
             exp = ExportType::EXPORT_DEFAULT;
+            break;
+        } case 1: {
+            exp = ExportType::EXPORT_ITCHIO;
+
+            string username,project;
+            cbu::cli_input("Enter Itch.io username");
+            if (!cbu::cli_get_valid_string(&username)) {
+                cbu::log_error(false,"Username cannot be empty");
+                return;
+            }
+            cbu::cli_input("Enter Itch.io project name");
+            if (!cbu::cli_get_valid_string(&project)) {
+                cbu::log_error(false,"Project cannot be empty");
+                return;
+            }
+
+            cfg->itchio_username = username;
+            cfg->itchio_project = project;
+            update_config(cfg);
+
             break;
         }
     }

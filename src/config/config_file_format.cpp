@@ -211,7 +211,21 @@ cbu::BinaryFileSection *ConfigFileFormatV2::get_sections() {
                 auto *v = (mcc::config::ExportType*) u;
                 return uint8_t(*v);
             })
-        },false)
+        },false),
+        new cbu::StringBinarySection([](void *obj,auto value) { // itchio username
+            cf *c = (cf*) obj;
+            c->itchio_username = value;
+        },[](void *obj) -> string {
+            cf *c = (cf*) obj;
+            return c->itchio_username;
+        }),
+        new cbu::StringBinarySection([](void *obj,auto value) { // itchio project
+            cf *c = (cf*) obj;
+            c->itchio_project = value;
+        },[](void *obj) -> string {
+            cf *c = (cf*) obj;
+            return c->itchio_project;
+        }),
     });
 }
 
