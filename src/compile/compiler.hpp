@@ -1,6 +1,6 @@
 #pragma once
 
-#include "config/config_file.hpp"
+#include "config_file.hpp"
 #include <cassert>
 #include <filesystem>
 #include <format>
