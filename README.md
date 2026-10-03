@@ -18,9 +18,15 @@ Build and export files are saved in ./.mcc/ relative to project.mcc. If using gi
 
 In interactive mode, the program will guide the user in configuring, building and packaging. No need to learn build file syntax or troubleshoot it.
 
+To use interactive mode, type `mcc` in a terminal. To create a temporary project, type `mcc -t`. To activate/open a file, type `mcc <filepath>`.
+
 ### STANDARD
 
-Standard mode is not implemented yet, but in standard mode mcc will execute a command and quit, like a standard cli tool. For those who don't like the interactive mode or for automated systems that cannot interact.
+Standard mode will execute a command and quit, ideal for automated systems. To use standard mode, simply type mcc \{command\}, such as `mcc -t run`, which will create a temporary project (-t) at current working directory and compile them all into a single executable and then runs it (run). To select a specific config, use `mcc --config <filepath> <command>` or `mcc --config-name <config name such as mcc> <command>`. To export project called "mcc", command `mcc --config-name mcc export` would be used.
+
+Special commands that will instantly return are:
+- `mcc -h` or `mcc --help` which will print the available --args and quit.
+- `mcc --version` which will print the program version and quit.
 
 ## FEATURES
 
