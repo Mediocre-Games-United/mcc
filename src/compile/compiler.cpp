@@ -78,13 +78,13 @@ static vector<fpath> parse_depfile(const string& depfile)
 }
 
 const char *mcc::compiler::build_type_names[size_t(BuildType::BUILD_NONE)] = {
-    "RELEASE","BETA","DEBUG","EDITOR"
+    "release","beta","debug","editor"
 };
 const char *mcc::compiler::export_type_names[size_t(mcc::config::ExportType::EXPORT_NONE)] = {
-    "DEFAULT", // "INSTALLER", "PORTABLE"
+    "default", // "installer", "portable"
 };
 const char *mcc::compiler::platform_names[size_t(Platform::PLATFORM_NONE)] = {
-    "WIN","LINUX"
+    "win","linux"
 };
 const char *mcc::compiler::platform_shared[size_t(Platform::PLATFORM_NONE)] = {
     ".dll",".so"

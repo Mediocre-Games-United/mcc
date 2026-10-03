@@ -88,11 +88,13 @@ namespace mcc::config {
         ConfigObject() {
             cbu::log_verbose(std::format("ConfigObject created at page {}",(void*) this));
         }
+        bool is_temp = false;
+
         string name;
         fpath directory;
         fpath src_directory;
         bool has_parent_directory = false;
-        fpath parent_directory;
+        fpath parent_directory = "";
         bool autodetect_source = true;
         ConfigModel model;
         vector<ExportType> export_types{};

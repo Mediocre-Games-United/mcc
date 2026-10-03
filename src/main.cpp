@@ -8,6 +8,7 @@
 #include "init.hpp"
 #include "logger.hpp"
 #include "basic_commands.hpp"
+#include "state.hpp"
 #include "workers.hpp"
 #include <filesystem>
 #include <format>
@@ -39,8 +40,41 @@ static void enter_interactive() {
     cbu::log_info("Gracefully closing program");
 }
 static int handle_parser_output(cbu::parser_output pout) {
-    if (pout.flags.contains('n')) {
+    if (pout.values.contains('n')) {
+        bool r = mcc::config::set_name_current(pout.values['n']);
+        if (!r) {
+            cbu::log_error(false,"Name not found!");
+            return -1;
+        }
+    } else if (pout.values.contains('c')) {
+        bool r = mcc::config::set_file_current(pout.values['c']);
+        if (!r) {
+            cbu::log_error(false,"File not found!");
+            return -1;
+        }
+    } else if (pout.flags.contains('t')) {
+        auto temp = new mcc::config::ConfigObject();
+        temp->is_temp = true;
 
+        temp->directory = std::filesystem::current_path();
+        temp->src_directory = "src";
+        temp->model = mcc::config::ConfigModel::SINGLE_EXECUTABLE;
+        temp->name = "temp";
+        temp->export_types.push_back(mcc::config::ExportType::EXPORT_DEFAULT);
+
+        mcc::config::update_config(temp);
+        mcc::state::state_safe([temp]() {
+            mcc::state::active_config = temp;
+            mcc::state::current_project = temp->directory;
+        });
+    } else {
+        if (std::filesystem::exists(pout.cmd)) {
+            if (!mcc::config::set_file_current(pout.cmd)) {
+                cbu::log_error(false,"Could not activate file!");
+                return -1;
+            }
+            pout.cmd = "";
+        }
     }
 
     if (pout.cmd.empty()) {

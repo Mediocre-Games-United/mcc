@@ -376,6 +376,8 @@ cf *ConfigFileFormat::load_config(fpath path) {
     return obj;
 }
 void ConfigFileFormat::save_config(cf *obj) {
+    if (obj->is_temp) return;
+
     load_object_to_buffer(obj);
     save_buffer_to_file(obj->directory / FNAME);
 }

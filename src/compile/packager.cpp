@@ -4,6 +4,7 @@
 #include <filesystem>
 #include <format>
 #include "file.hpp"
+#include "shell.hpp"
 
 
 static void iterate_res_srcs_recursive(fpath src_dir,fpath cdir,fpath tgt_dir) {
@@ -89,7 +90,10 @@ uint8_t mcc::packager::package_all(mcc::config::ConfigObject *cfg,mcc::compiler:
 }
 
 static vector<mcc::compiler::Platform> export_platforms = {mcc::compiler::Platform::PLATFORM_LINUX,mcc::compiler::Platform::PLATFORM_WINDOWS};
+static vector<mcc::compiler::BuildType> export_types = {mcc::compiler::BuildType::BUILD_BETA,mcc::compiler::BuildType::BUILD_RELEASE};
 uint8_t mcc::packager::export_all(mcc::config::ConfigObject *cfg) {
+    string version_string = "v0-1-0";
+
     if (cfg->export_types.empty()) {
         cbu::log_error(false,"Config has no export types!");
 
@@ -98,17 +102,23 @@ uint8_t mcc::packager::export_all(mcc::config::ConfigObject *cfg) {
 
     for (auto &exp : cfg->export_types) {
         for (auto &pt : export_platforms) {
-            fpath export_path = mcc::compiler::get_export_path(cfg,exp,mcc::compiler::BuildType::BUILD_BETA,pt);
+            for (auto &tp : export_types) {
+                fpath export_path = mcc::compiler::get_export_path(cfg,exp,tp,pt);
 
-            auto code = mcc::compiler::build_absolute(export_path,cfg,mcc::compiler::BuildType::BUILD_BETA,pt);
-            if (code) {
-                cbu::log_error(false,"Build failed");
-                return -1;
-            }
-            code = package_absolute(export_path,cfg,mcc::compiler::BuildType::BUILD_BETA,pt);
-            if (code) {
-                cbu::log_error(false,"Package failed");
-                return -1;
+                std::error_code ec;
+                std::filesystem::remove_all(export_path,ec);
+                auto code = mcc::compiler::build_absolute(export_path,cfg,tp,pt);
+                if (code) {
+                    cbu::log_error(false,"Build failed");
+                    return -1;
+                }
+                code = package_absolute(export_path,cfg,tp,pt);
+                if (code) {
+                    cbu::log_error(false,"Package failed");
+                    return -1;
+                }
+
+                std::filesystem::remove_all(export_path / "obj",ec);
             }
         }
     }
@@ -117,10 +127,16 @@ uint8_t mcc::packager::export_all(mcc::config::ConfigObject *cfg) {
 
     for (auto &exp : cfg->export_types) {
         for (auto &pt : export_platforms) {
-            switch (exp) {
-                default: {
-                    cbu::log_verbose("No further action needed for export type");
-                    break;
+            for (auto &tp : export_types) {
+                fpath export_path = mcc::compiler::get_export_path(cfg,exp,tp,pt);
+                fpath ppath = export_path.parent_path();
+                string name = std::format("{}_{}_{}_{}.zip",cfg->name,mcc::compiler::platform_names[int(pt)],mcc::compiler::build_type_names[int(tp)],version_string);
+
+                switch (exp) {
+                    default: {
+                        cbu::run_shell_command(ppath,std::format("zip -r {} {}/",name,cbu::path_to_utf8(export_path)),NULL);
+                        break;
+                    }
                 }
             }
         }
