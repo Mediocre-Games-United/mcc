@@ -235,6 +235,20 @@ cbu::BinaryFileSection *ConfigFileFormatV2::get_sections() {
             cf *c = (cf*) obj;
             return c->version.major;
         }),
+        new cbu::U32BinarySection([](void *obj,auto value) { // version minor
+            auto *c = (cf*) obj;
+            c->version.minor = value;
+        },[](void *obj) -> U32 {
+            cf *c = (cf*) obj;
+            return c->version.minor;
+        }),
+        new cbu::U32BinarySection([](void *obj,auto value) { // version patch
+            auto *c = (cf*) obj;
+            c->version.patch = value;
+        },[](void *obj) -> U32 {
+            cf *c = (cf*) obj;
+            return c->version.patch;
+        }),
     });
 }
 

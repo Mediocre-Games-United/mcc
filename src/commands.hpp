@@ -74,7 +74,7 @@ namespace mcc {
 
             assert(!"Invalid type for commands");
         }
-        inline I8 static decode_impl(std::tuple<T...> *target,std::vector<string> vars) {
+        inline U8 static decode_impl(std::tuple<T...> *target,std::vector<string> vars) {
             size_t offset = 0;
             try {
                 auto t = std::tuple<T...>{
