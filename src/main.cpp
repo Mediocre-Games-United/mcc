@@ -15,6 +15,7 @@
 
 volatile size_t mcc::interrupt_count = 0;
 std::mutex mcc::interrupt_mutex{};
+std::mutex cbu::cli_mutex;
 
 static bool is_running = true;
 int standard_mode(string cmd) {
