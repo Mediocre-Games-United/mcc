@@ -1,5 +1,6 @@
 #include "compiler.hpp"
 #include "base_types.hpp"
+#include "cli.hpp"
 #include "commands.hpp"
 #include "config/config_file.hpp"
 #include "file.hpp"
@@ -174,6 +175,9 @@ static U8 build_object(fpath src_path,fpath build_path,mcc::config::SourceCompil
         }
     }
 
+    // cbu::cli_input("Press Enter to proceed with obj");
+    // cbu::cli_get_string();
+
     *did_compile = false;
     if (!should_compile) return 0;
     *did_compile = true;
@@ -207,7 +211,9 @@ static void get_includes_recurse(string &output,fpath dir) {
 }
 
 using namespace mcc::config;
-U8 mcc::compiler::build_absolute(fpath build_path,mcc::config::ConfigObject *cfg,BuildType type,Platform pt,mcc::version::Version version) {
+U8 mcc::compiler::build_all(mcc::config::ConfigObject *cfg,BuildType type,Platform pt,mcc::version::Version version,mcc::config::ExportType exp) {
+    fpath build_path = get_build_path(cfg,type,pt,exp);
+
     if (type == BuildType::BUILD_NONE) {
         cbu::log_error(false,"BuildType has not been defined!");
         return -1;
@@ -245,7 +251,7 @@ U8 mcc::compiler::build_absolute(fpath build_path,mcc::config::ConfigObject *cfg
             }
 
 
-            auto code = build_all(s,type,pt,version);
+            auto code = build_all(s,type,pt,version,exp);
             if (code) {
                 cbu::log_error(false,"Building subproject failed");
                 return -1;
@@ -327,7 +333,7 @@ U8 mcc::compiler::build_absolute(fpath build_path,mcc::config::ConfigObject *cfg
             if (!s->win_ext_binary) continue;
 
             cbu::log_info(std::format("Adding {} to flags",s->win_ext_binary.download_url));
-            fpath tld = get_external_binary_path(cfg,s->win_ext_binary.download_url,Platform::PLATFORM_WINDOWS) / "extracted" / s->win_ext_binary.tld;
+            fpath tld = get_external_binary_path(cfg,s->name,Platform::PLATFORM_WINDOWS) / "extracted" / s->win_ext_binary.tld;
             INCLUDES += std::format(" -I{} ",cbu::path_to_utf8(tld / "include"));
             LINKER_INCLUDES += std::format(" -L{} -L{} -l{} ",cbu::path_to_utf8(tld / "bin"),cbu::path_to_utf8(tld / "lib"),s->win_ext_binary.bin_name);
         }
@@ -378,13 +384,13 @@ U8 mcc::compiler::build_absolute(fpath build_path,mcc::config::ConfigObject *cfg
 
         if (cfg->model == mcc::config::ConfigModel::EXECUTABLES_WITH_SHARED) {
             for (auto &s: cfg->sub_projects) {
-                fpath build_path = get_build_path(s,type,pt);
+                fpath build_path = get_build_path(s,type,pt,exp);
                 if (pt == Platform::PLATFORM_WINDOWS) {
                     link_obj_files = std::format("{} {}/lib{}.dll.a",link_obj_files,cbu::path_to_utf8(build_path),s->name);
                 }
                 else link_obj_files = std::format("{} {}",link_obj_files,
-                                                 cbu::path_to_utf8(
-                                                     build_path / std::format("{}{}",s->name,platform_shared[int(pt)])));
+                    cbu::path_to_utf8(
+                        build_path / std::format("{}{}",s->name,platform_shared[int(pt)])));
             }
         }
     } else {
@@ -423,7 +429,7 @@ U8 mcc::compiler::build_absolute(fpath build_path,mcc::config::ConfigObject *cfg
             }
 
             if (cfg->model == mcc::config::ConfigModel::SINGLE_EXECUTABLE) {
-                linker_res = mcc::libs::copy_libs(build_path,link_path,cfg,type,pt);
+                linker_res = mcc::libs::copy_libs(link_path,cfg,type,pt,exp);
                 if (linker_res) {
 
                     cbu::log_warn(std::format("Copylibs failed"));
@@ -451,7 +457,7 @@ U8 mcc::compiler::build_absolute(fpath build_path,mcc::config::ConfigObject *cfg
         link_obj_files = std::format("obj/main.o {} ",cbu::path_to_utf8(link_path));
         for (auto s : cfg->sub_projects) {
             cbu::log_info(std::format("Including subproject dll {}",s->name));
-            fpath build_path = get_build_path(s,type,pt);
+            fpath build_path = get_build_path(s,type,pt,exp);
             if (pt == Platform::PLATFORM_WINDOWS) {
                 link_obj_files = std::format("{} {}/lib{}.dll.a",link_obj_files,cbu::path_to_utf8(build_path),s->name);
             }
@@ -472,7 +478,7 @@ U8 mcc::compiler::build_absolute(fpath build_path,mcc::config::ConfigObject *cfg
             return -1;
         }
 
-        linker_res = mcc::libs::copy_libs(build_path,link_path,cfg,type,pt);
+        linker_res = mcc::libs::copy_libs(link_path,cfg,type,pt,exp);
         if (linker_res) {
             cbu::log_warn(std::format("Copylibs failed"));
             return -1;
@@ -482,8 +488,4 @@ U8 mcc::compiler::build_absolute(fpath build_path,mcc::config::ConfigObject *cfg
     cbu::log_success("Linking succesful!");
 
     return 0;
-}
-U8 mcc::compiler::build_all(mcc::config::ConfigObject *cfg,BuildType type,Platform pt,mcc::version::Version version) {
-    fpath build_path = get_build_path(cfg,type,pt);
-    return build_absolute(build_path,cfg,type,pt,version);
 }

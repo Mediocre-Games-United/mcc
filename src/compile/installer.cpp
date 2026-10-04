@@ -45,8 +45,8 @@ static U8 install_linux_package(ExternalPackage pck) {
     return 0;
 }
 
-static U8 install_binary_package(ConfigObject *cfg,ExternalBinary bin,mcc::compiler::Platform pt) {
-    fpath root = mcc::compiler::get_external_binary_path(cfg,bin.download_url,pt);
+static U8 install_binary_package(ConfigObject *cfg,string name,ExternalBinary bin,mcc::compiler::Platform pt) {
+    fpath root = mcc::compiler::get_external_binary_path(cfg,name,pt);
     fpath apath = root / "archive.tar.gz";
     fpath dpath = root / "extracted";
     fpath tldpath = dpath / bin.tld;
@@ -105,7 +105,7 @@ U8 mcc::installer::install_all(ConfigObject *cfg) {
             cbu::log_error(false,"Not implemented");
         }
         if (ext->win_ext_binary) {
-            code = install_binary_package(cfg,ext->win_ext_binary,mcc::compiler::Platform::PLATFORM_WINDOWS);
+            code = install_binary_package(cfg,ext->name,ext->win_ext_binary,mcc::compiler::Platform::PLATFORM_WINDOWS);
             if (code) return code;
         }
     }

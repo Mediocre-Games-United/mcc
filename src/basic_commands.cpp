@@ -111,9 +111,9 @@ static U8 create_package() {
         log_config(mcc::state::active_config);
 
         mcc::config::update_config(mcc::state::active_config);
-        code = mcc::compiler::build_all(mcc::state::active_config,type,platform,mcc::state::active_config->version);
+        code = mcc::compiler::build_all(mcc::state::active_config,type,platform,mcc::state::active_config->version,mcc::config::ExportType::EXPORT_NONE);
         if (code) return;
-        code = mcc::packager::package_all(mcc::state::active_config,type,platform);
+        code = mcc::packager::package_all(mcc::state::active_config,type,platform,mcc::config::ExportType::EXPORT_NONE);
     });
 
     return code;
@@ -147,7 +147,7 @@ static U8 run_program() {
 
     fpath build_path;
     mcc::state::state_safe([&build_path]() {
-        build_path = mcc::compiler::get_build_path(mcc::state::active_config,type,platform);
+        build_path = mcc::compiler::get_build_path(mcc::state::active_config,type,platform,mcc::config::ExportType::EXPORT_NONE);
     });
 
     cbu::log_info("Starting program...");

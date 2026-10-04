@@ -6,13 +6,24 @@
 #include <format>
 #include "file.hpp"
 #include "shell.hpp"
+#include "vectormath.hpp"
 #include "version.hpp"
+
+static vector<string> banned_extensions = {".flp"};
 
 
 static void iterate_res_srcs_recursive(fpath src_dir,fpath cdir,fpath tgt_dir) {
     for (auto &s : cbu::iterate_dir(cdir)) {
         if (std::filesystem::is_directory(s)) {
             iterate_res_srcs_recursive(src_dir,s,tgt_dir);
+            continue;
+        }
+
+        string ext = cbu::path_to_utf8(s.extension());
+        // cbu::log_info(std::format("File {} has extension {}",cbu::path_to_utf8(s),ext));
+        if (cbu::vector_has_value(banned_extensions,ext)) {
+            cbu::log_info(std::format("Skipped copying {} due to banned extension {}",cbu::path_to_utf8(s),ext));
+
             continue;
         }
 
@@ -51,10 +62,13 @@ static void iterate_lang_srcs_recursive(fpath src_dir,fpath cdir,fpath tgt_dir) 
         if (ec) {
             cbu::log_error(false,std::format("Failed to copy '{}' to '{}' with message '{}'",
                                              cbu::path_to_utf8(s),cbu::path_to_utf8(tgt),ec.message()));
-        }
+        } else cbu::log_success(std::format("Copied '{}' to '{}'",
+            cbu::path_to_utf8(s),cbu::path_to_utf8(tgt)));
     }
 }
-static U8 package_absolute(fpath build_path,mcc::config::ConfigObject *cfg,mcc::compiler::BuildType type,mcc::compiler::Platform pt) {
+U8 mcc::packager::package_all(mcc::config::ConfigObject *cfg,mcc::compiler::BuildType type,mcc::compiler::Platform pt,mcc::config::ExportType exp) {
+    fpath build_path = mcc::compiler::get_build_path(cfg,type,pt,exp);
+
     cbu::log_info(std::format("Build path: {}",cbu::path_to_utf8(build_path)));
 
     fpath res_path = build_path / "resources";
@@ -64,31 +78,27 @@ static U8 package_absolute(fpath build_path,mcc::config::ConfigObject *cfg,mcc::
     fpath lang_src_path = cfg->directory / "lang";
 
     for (auto &s : cfg->sub_projects) {
-        mcc::packager::package_all(s,type,pt);
-        fpath build_path = mcc::compiler::get_build_path(s,type,pt);
+        mcc::packager::package_all(s,type,pt,exp);
+        fpath build_path = mcc::compiler::get_build_path(s,type,pt,exp);
         fpath rpath = build_path / "resources";
         fpath lpath = build_path / "lang";
 
-        if (std::filesystem::exists(rpath)) {
+        // if (std::filesystem::exists(rpath)) {
             iterate_res_srcs_recursive(rpath,rpath,res_path);
-        } if (std::filesystem::exists(lpath)) {
-            iterate_res_srcs_recursive(lpath,lpath,lang_path);
-        }
+        // } if (std::filesystem::exists(lpath)) {
+            iterate_lang_srcs_recursive(lpath,lpath,lang_path);
+        // }
     }
 
 
-    if (std::filesystem::exists(res_src_path)) {
+    // if (std::filesystem::exists(res_src_path)) {
         iterate_res_srcs_recursive(res_src_path,res_src_path,res_path);
-    } if (std::filesystem::exists(lang_src_path)) {
-        iterate_res_srcs_recursive(lang_src_path,lang_src_path,lang_path);
-    }
+    // } if (std::filesystem::exists(lang_src_path)) {
+        iterate_lang_srcs_recursive(lang_src_path,lang_src_path,lang_path);
+    // }
 
 
     return 0;
-}
-U8 mcc::packager::package_all(mcc::config::ConfigObject *cfg,mcc::compiler::BuildType type,mcc::compiler::Platform pt) {
-    fpath build_path = mcc::compiler::get_build_path(cfg,type,pt);
-    return package_absolute(build_path,cfg,type,pt);
 }
 
 static vector<mcc::compiler::Platform> export_platforms = {mcc::compiler::Platform::PLATFORM_LINUX,mcc::compiler::Platform::PLATFORM_WINDOWS};
@@ -106,19 +116,19 @@ U8 mcc::packager::export_all(mcc::config::ConfigObject *cfg,mcc::version::Versio
                 fpath export_path = mcc::compiler::get_export_path(cfg,exp,tp,pt);
 
                 std::error_code ec;
-                std::filesystem::remove_all(export_path,ec);
-                auto code = mcc::compiler::build_absolute(export_path,cfg,tp,pt,version);
+                // std::filesystem::remove_all(export_path,ec);
+                auto code = mcc::compiler::build_all(cfg,tp,pt,version,exp);
                 if (code) {
                     cbu::log_error(false,"Build failed");
                     return -1;
                 }
-                code = package_absolute(export_path,cfg,tp,pt);
+                code = package_all(cfg,tp,pt,exp);
                 if (code) {
                     cbu::log_error(false,"Package failed");
                     return -1;
                 }
 
-                std::filesystem::remove_all(export_path / "obj",ec);
+                // std::filesystem::remove_all(export_path / "obj",ec);
             }
         }
     }
@@ -137,7 +147,7 @@ U8 mcc::packager::export_all(mcc::config::ConfigObject *cfg,mcc::version::Versio
                         break;
                     }
                     default: {
-                        cbu::run_shell_command(ppath,std::format("zip -r {} {}/",name,cbu::path_to_utf8(export_path)),NULL);
+                        // cbu::run_shell_command(ppath,std::format("zip -r {} {}/",name,cbu::path_to_utf8(export_path)),NULL);
                         break;
                     }
                 }
