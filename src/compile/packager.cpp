@@ -62,8 +62,7 @@ static void iterate_lang_srcs_recursive(fpath src_dir,fpath cdir,fpath tgt_dir) 
         if (ec) {
             cbu::log_error(false,std::format("Failed to copy '{}' to '{}' with message '{}'",
                                              cbu::path_to_utf8(s),cbu::path_to_utf8(tgt),ec.message()));
-        } else cbu::log_success(std::format("Copied '{}' to '{}'",
-            cbu::path_to_utf8(s),cbu::path_to_utf8(tgt)));
+        }
     }
 }
 U8 mcc::packager::package_all(mcc::config::ConfigObject *cfg,mcc::compiler::BuildType type,mcc::compiler::Platform pt,mcc::config::ExportType exp) {
@@ -101,6 +100,31 @@ U8 mcc::packager::package_all(mcc::config::ConfigObject *cfg,mcc::compiler::Buil
     return 0;
 }
 
+static void copy_all_packaged_recursive(fpath root,fpath cdir,fpath target) {
+    for (auto &s : cbu::iterate_dir(cdir)) {
+        if (std::filesystem::is_directory(s)) {
+            cbu::log_verbose(std::format("Recurse {}",cbu::path_to_utf8(s)));
+            copy_all_packaged_recursive(root,s,target);
+            continue;
+        }
+        string name = cbu::path_to_utf8(s.filename());
+
+        if (name.ends_with(".dll.a")) continue;
+        if (name.ends_with(".o") || name.ends_with(".d")) continue;
+
+        fpath rel = std::filesystem::relative(s,root);
+        fpath tgt = target / rel;
+        std::filesystem::create_directories(tgt.parent_path());
+
+        std::error_code ec;
+        std::filesystem::copy_file(s,tgt,std::filesystem::copy_options::overwrite_existing,ec);
+        if (ec) {
+            cbu::log_error(false,std::format("Failed to copy '{}' to '{}' with message '{}'",
+                                             cbu::path_to_utf8(s),cbu::path_to_utf8(tgt),ec.message()));
+        }
+    }
+}
+
 static vector<mcc::compiler::Platform> export_platforms = {mcc::compiler::Platform::PLATFORM_LINUX,mcc::compiler::Platform::PLATFORM_WINDOWS};
 static vector<mcc::compiler::BuildType> export_types = {mcc::compiler::BuildType::BUILD_BETA,mcc::compiler::BuildType::BUILD_RELEASE};
 U8 mcc::packager::export_all(mcc::config::ConfigObject *cfg,mcc::version::Version version) {
@@ -116,7 +140,6 @@ U8 mcc::packager::export_all(mcc::config::ConfigObject *cfg,mcc::version::Versio
                 fpath export_path = mcc::compiler::get_export_path(cfg,exp,tp,pt);
 
                 std::error_code ec;
-                // std::filesystem::remove_all(export_path,ec);
                 auto code = mcc::compiler::build_all(cfg,tp,pt,version,exp);
                 if (code) {
                     cbu::log_error(false,"Build failed");
@@ -128,7 +151,11 @@ U8 mcc::packager::export_all(mcc::config::ConfigObject *cfg,mcc::version::Versio
                     return -1;
                 }
 
-                // std::filesystem::remove_all(export_path / "obj",ec);
+                fpath rpath = export_path / "build";
+                fpath tpath = export_path / "export";
+                cbu::log_info(std::format("Export Path: {} rpath {}",cbu::path_to_utf8(export_path),cbu::path_to_utf8(rpath)));
+                std::filesystem::remove_all(tpath,ec);
+                copy_all_packaged_recursive(rpath,rpath,tpath);
             }
         }
     }
