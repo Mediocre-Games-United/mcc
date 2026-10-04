@@ -2,6 +2,7 @@
 #include "base_types.hpp"
 #include "logger.hpp"
 #include "stringmath.hpp"
+#include "version.hpp"
 #include <cstdint>
 #include <format>
 #include <queue>
@@ -10,7 +11,6 @@
 
 #define FNAME "project.mcc"
 namespace mcc::config {
-
     struct SourceCompileTarget {
         fpath src_path;
         fpath obj_path;
@@ -63,12 +63,12 @@ namespace mcc::config {
     };
 
 
-    enum class ConfigModel : uint8_t {
+    enum class ConfigModel : U8 {
         SINGLE_EXECUTABLE =      0, // compiles all files to a single executable file and ignores all subprojects. useful for simple or small projects without many dependencies
         SINGLE_SHARED =          1, // compiles all files to a single shared object.
         EXECUTABLES_WITH_SHARED = 2 // compiles subprojects into shared objects and links to them in the executables generated from mains
     };
-    enum class ExportType : uint8_t {
+    enum class ExportType : U8 {
         EXPORT_DEFAULT, // Builds and does nothing else on top of it
         EXPORT_ITCHIO, // Builds with some itchio definitions and files and pushes to itchio
         // EXPORT_INSTALLER, // builds and wraps the program in a simple installer (not implemented yet)
@@ -108,6 +108,8 @@ namespace mcc::config {
         bool generate_launcher_wrapper = false; // if true, compile main_source into [main]_app.o -> app(.exe) and [main]_launcher.o -> launcher(.exe) and make the launcher executable a wrapper that handles the app executable
         bool generate_crash_handler = false; // if launcher is set, also generate a crash handler from [main]_crash_handler.o -> crash_handler(.exe)
 
+        mcc::version::Version version = {0,1,0};
+
         string itchio_username;
         string itchio_project;
     };
@@ -120,8 +122,8 @@ namespace mcc::config {
     void background();
     bool valid();
 
-    uint8_t reload();
-    uint8_t cmd();
+    U8 reload();
+    U8 cmd();
 
     bool link_config(ConfigObject *obj);
     bool link_config_by_file(fpath path);

@@ -283,7 +283,7 @@ void mcc::config::update_config(cf *obj) {
 void mcc::config::init() {
     scan_config();
 }
-uint8_t mcc::config::reload() {
+U8 mcc::config::reload() {
     scan_config();
 
     return 0;
@@ -299,7 +299,7 @@ void mcc::config::background() {
 }
 
 
-uint8_t mcc::config::cmd() {
+U8 mcc::config::cmd() {
     cbu::cli_output("Welcome to the config utility!");
     string cmd;
     while (true) {

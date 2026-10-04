@@ -10,7 +10,7 @@ static size_t check_countdown;
 
 static void thread_main() {
     while (true) {
-        std::this_thread::sleep_for(std::chrono::duration<double>(0.1));
+        std::this_thread::sleep_for(std::chrono::duration<F64>(0.1));
         if (!running) break;
 
         if (check_countdown <= 0) {
