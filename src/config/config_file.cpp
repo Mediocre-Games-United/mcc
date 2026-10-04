@@ -311,7 +311,7 @@ U8 mcc::config::cmd() {
         bool has_new_project_prepath = false;
         fpath new_project_prepath;
         if (cmd == "h") {
-            cbu::cli_output("[l] list configs\n[n] new config\n[e] edit existing\n[a] link existing config\n[q] quit config utility\n[s] set config as the active one for other commands\n[x] add external library to config\n[p] add parent directory such as for a subproject dependent on a parent config.h file\n[t] add export target to config");
+            cbu::cli_output("[l] list configs\n[n] new config\n[e] edit existing\n[a] link existing config\n[q] quit config utility\n[s] set config as the active one for other commands\n[x] add external library to config\n[p] add parent directory such as for a subproject dependent on a parent config.h file\n[t] add export target to config\n[v] set config version");
             continue;
         } if (cmd == "q") {
             cbu::cli_output("Exiting config utility...");
@@ -350,6 +350,10 @@ U8 mcc::config::cmd() {
             continue;
         } if (cmd == "e") {
             mcc::config_commands::edit_config_cmd();
+
+            continue;
+        } if (cmd == "v") {
+            mcc::config_commands::set_config_version_cmd();
 
             continue;
         }
