@@ -135,7 +135,7 @@ bool download_and_extract_binary(
         std::format("Downloading {} archive...", platform_name)
     );
 
-    const uint8_t download_code = cbu::run_shell_command(
+    const U8 download_code = cbu::run_shell_command(
         temp_path,
         std::format(
             "curl --fail --location --output \"{}\" \"{}\"",
@@ -160,7 +160,7 @@ bool download_and_extract_binary(
         std::format("Extracting {} archive...", platform_name)
     );
 
-    const uint8_t extract_code = cbu::run_shell_command(
+    const U8 extract_code = cbu::run_shell_command(
         temp_path,
         std::format(
             "tar -xzf \"{}\" -C \"{}\"",

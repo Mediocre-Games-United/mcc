@@ -30,7 +30,7 @@ static void enter_interactive() {
         cbu::cli_input("Enter command (help for help)");
         cmd = cbu::cli_get_string();
 
-        uint8_t code = mcc::run_command(cmd);
+        U8 code = mcc::run_command(cmd);
         if (code == 137) {
             cbu::log_debug("Quit signal received");
             is_running = false;

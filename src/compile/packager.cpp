@@ -6,6 +6,7 @@
 #include <format>
 #include "file.hpp"
 #include "shell.hpp"
+#include "version.hpp"
 
 
 static void iterate_res_srcs_recursive(fpath src_dir,fpath cdir,fpath tgt_dir) {
@@ -53,7 +54,7 @@ static void iterate_lang_srcs_recursive(fpath src_dir,fpath cdir,fpath tgt_dir) 
         }
     }
 }
-static uint8_t package_absolute(fpath build_path,mcc::config::ConfigObject *cfg,mcc::compiler::BuildType type,mcc::compiler::Platform pt) {
+static U8 package_absolute(fpath build_path,mcc::config::ConfigObject *cfg,mcc::compiler::BuildType type,mcc::compiler::Platform pt) {
     cbu::log_info(std::format("Build path: {}",cbu::path_to_utf8(build_path)));
 
     fpath res_path = build_path / "resources";
@@ -85,14 +86,14 @@ static uint8_t package_absolute(fpath build_path,mcc::config::ConfigObject *cfg,
 
     return 0;
 }
-uint8_t mcc::packager::package_all(mcc::config::ConfigObject *cfg,mcc::compiler::BuildType type,mcc::compiler::Platform pt) {
+U8 mcc::packager::package_all(mcc::config::ConfigObject *cfg,mcc::compiler::BuildType type,mcc::compiler::Platform pt) {
     fpath build_path = mcc::compiler::get_build_path(cfg,type,pt);
     return package_absolute(build_path,cfg,type,pt);
 }
 
 static vector<mcc::compiler::Platform> export_platforms = {mcc::compiler::Platform::PLATFORM_LINUX,mcc::compiler::Platform::PLATFORM_WINDOWS};
 static vector<mcc::compiler::BuildType> export_types = {mcc::compiler::BuildType::BUILD_BETA,mcc::compiler::BuildType::BUILD_RELEASE};
-uint8_t mcc::packager::export_all(mcc::config::ConfigObject *cfg,string version) {
+U8 mcc::packager::export_all(mcc::config::ConfigObject *cfg,mcc::version::Version version) {
     if (cfg->export_types.empty()) {
         cbu::log_error(false,"Config has no export types!");
 
@@ -106,7 +107,7 @@ uint8_t mcc::packager::export_all(mcc::config::ConfigObject *cfg,string version)
 
                 std::error_code ec;
                 std::filesystem::remove_all(export_path,ec);
-                auto code = mcc::compiler::build_absolute(export_path,cfg,tp,pt);
+                auto code = mcc::compiler::build_absolute(export_path,cfg,tp,pt,version);
                 if (code) {
                     cbu::log_error(false,"Build failed");
                     return -1;
@@ -129,7 +130,7 @@ uint8_t mcc::packager::export_all(mcc::config::ConfigObject *cfg,string version)
             for (auto &tp : export_types) {
                 fpath export_path = mcc::compiler::get_export_path(cfg,exp,tp,pt);
                 fpath ppath = export_path.parent_path();
-                string name = std::format("{}_{}_{}_{}.zip",cfg->name,mcc::compiler::platform_names[int(pt)],mcc::compiler::build_type_names[int(tp)],version);
+                string name = std::format("{}_{}_{}_{}.zip",cfg->name,mcc::compiler::platform_names[int(pt)],mcc::compiler::build_type_names[int(tp)],mcc::version::get_version_string(version,"-"));
 
                 switch (exp) {
                     case mcc::config::ExportType::EXPORT_ITCHIO: {

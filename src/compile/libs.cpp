@@ -14,11 +14,11 @@ using namespace mcc::config;
 static string get_extract_cmd_win(fpath exe_file) {
     return std::format("/usr/bin/x86_64-w64-mingw32-objdump -p {} | awk \'$1 == \"DLL\" && $2 == \"Name:\" {{ print $3 }}\'",cbu::path_to_utf8(exe_file));
 }
-uint8_t mcc::libs::copy_libs(fpath build_path,fpath exe_file,mcc::config::ConfigObject *cfg,mcc::compiler::BuildType tp,mcc::compiler::Platform pt) {
+U8 mcc::libs::copy_libs(fpath build_path,fpath exe_file,mcc::config::ConfigObject *cfg,mcc::compiler::BuildType tp,mcc::compiler::Platform pt) {
     cbu::log_info("Copying libs...");
 
     string output = "";
-    uint8_t code = 0;
+    U8 code = 0;
     switch (pt) {
         case mcc::compiler::Platform::PLATFORM_LINUX: {
             code = cbu::run_shell_command(build_path,std::format("/usr/bin/ldd {}",cbu::path_to_utf8(exe_file)),&output);

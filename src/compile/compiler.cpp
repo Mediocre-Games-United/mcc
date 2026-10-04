@@ -103,7 +103,7 @@ static size_t progress_max = 0;
 static void log_progress() {
     log_mutex.lock();
     progress_index += 1;
-    cbu::log_info(std::format("Progress: {}/{} ({}%)",progress_index,progress_max,double(progress_index) / double(progress_max) * 100));
+    cbu::log_info(std::format("Progress: {}/{} ({}%)",progress_index,progress_max,F64(progress_index) / F64(progress_max) * 100));
 
     log_mutex.unlock();
 }
@@ -118,7 +118,10 @@ static const string DEBUG_FLAGS = "-g -O0 -fno-omit-frame-pointer ";
 static const string SUPER_DEBUG_FLAGS = "-fsanitize=address,undefined ";
 static const string RELEASE_FLAGS = "-O3 -DNDEBUG ";
 
-static uint8_t build_object(fpath src_path,fpath build_path,mcc::config::SourceCompileTarget tgt,bool *did_compile,string flags = "") {
+static string get_version_defines(mcc::version::Version version) {
+    return std::format("-DVERSION_MAJOR={} -DVERSION_MINOR={} -DVERSION_PATCH={}",version.major,version.minor,version.patch);
+}
+static U8 build_object(fpath src_path,fpath build_path,mcc::config::SourceCompileTarget tgt,bool *did_compile,mcc::version::Version version,string flags = "") {
     fpath abs_src_path = src_path / tgt.src_path;
     fpath abs_obj_path = build_path / tgt.obj_path;
     fpath abs_dep_path = build_path / tgt.dep_path;
@@ -178,8 +181,8 @@ static uint8_t build_object(fpath src_path,fpath build_path,mcc::config::SourceC
     std::filesystem::create_directories(abs_obj_path.parent_path());
 
     string output;
-    string cmd = std::format("{} -MMD -MP {} {} {} {} -c {} -o {}",
-                             CXX,CXX_FLAGS,INCLUDES,DEFINES,flags,
+    string cmd = std::format("{} -MMD -MP {} {} {} {} {} -c {} -o {}",
+                             CXX,CXX_FLAGS,INCLUDES,DEFINES,flags,get_version_defines(version),
                              cbu::path_to_utf8(abs_src_path),cbu::path_to_utf8(abs_obj_path));
     auto code = cbu::run_shell_command(build_path,cmd,&output);
 
@@ -204,7 +207,7 @@ static void get_includes_recurse(string &output,fpath dir) {
 }
 
 using namespace mcc::config;
-uint8_t mcc::compiler::build_absolute(fpath build_path,mcc::config::ConfigObject *cfg,BuildType type,Platform pt) {
+U8 mcc::compiler::build_absolute(fpath build_path,mcc::config::ConfigObject *cfg,BuildType type,Platform pt,mcc::version::Version version) {
     if (type == BuildType::BUILD_NONE) {
         cbu::log_error(false,"BuildType has not been defined!");
         return -1;
@@ -231,7 +234,7 @@ uint8_t mcc::compiler::build_absolute(fpath build_path,mcc::config::ConfigObject
         for (auto &s : cfg->sub_projects) {
             cbu::log_verbose(std::format("Found subproject '{}'",s->name));
         }
-        uint8_t code;
+        U8 code;
         for (auto &s : cfg->sub_projects) {
             cbu::log_info(std::format("Subproject has {} external",s->external_objects.size()));
             for (auto &e : s->external_objects) {
@@ -242,7 +245,7 @@ uint8_t mcc::compiler::build_absolute(fpath build_path,mcc::config::ConfigObject
             }
 
 
-            auto code = build_all(s,type,pt);
+            auto code = build_all(s,type,pt,version);
             if (code) {
                 cbu::log_error(false,"Building subproject failed");
                 return -1;
@@ -354,11 +357,11 @@ uint8_t mcc::compiler::build_absolute(fpath build_path,mcc::config::ConfigObject
             .dep_path = opath / (name + ".d")
         };
         work.push_back(cbu::WorkObject{
-            .call = [tgt,&succesful,&src_path,&build_path,&flags,&any_compiled]() {
+            .call = [tgt,&succesful,&src_path,&build_path,&flags,&any_compiled,version]() {
                 if (!succesful) return;
 
                 bool did_compile;
-                uint8_t code = build_object(src_path,build_path,*tgt,&did_compile,flags);
+                U8 code = build_object(src_path,build_path,*tgt,&did_compile,version,flags);
                 if (mcc::consume_interrupt()) code = -1;
                 delete tgt;
 
@@ -413,7 +416,7 @@ uint8_t mcc::compiler::build_absolute(fpath build_path,mcc::config::ConfigObject
                 linker_cmd += std::format("-Wl,--out-implib,lib{}.dll.a",cfg->name);
             }
 
-            uint8_t linker_res = cbu::run_shell_command(build_path,linker_cmd,&linker_output);
+            U8 linker_res = cbu::run_shell_command(build_path,linker_cmd,&linker_output);
             if (linker_res) {
                 cbu::log_warn(std::format("Linker returned {} with output {}",linker_res,linker_output));
                 return -1;
@@ -437,7 +440,7 @@ uint8_t mcc::compiler::build_absolute(fpath build_path,mcc::config::ConfigObject
             .dep_path = "obj/main.d"
         };
         bool did_compile;
-        uint8_t mcode = build_object(src_path,build_path,main_tgt,&did_compile,flags + " -DRUN_APP_MODE=1");
+        U8 mcode = build_object(src_path,build_path,main_tgt,&did_compile,version,flags + " -DRUN_APP_MODE=1");
         if (mcode) {
             cbu::log_error(false,"Building main failed");
             return -1;
@@ -463,7 +466,7 @@ uint8_t mcc::compiler::build_absolute(fpath build_path,mcc::config::ConfigObject
         string linker_cmd = std::format("{} {} {} -o {} {} {}",CXX,CXX_FLAGS,link_obj_files,
                                         cbu::path_to_utf8(link_path),LINKER_INCLUDES,LINKER_FLAGS);
 
-        uint8_t linker_res = cbu::run_shell_command(build_path,linker_cmd,&linker_output);
+        U8 linker_res = cbu::run_shell_command(build_path,linker_cmd,&linker_output);
         if (linker_res) {
             cbu::log_warn(std::format("Linker returned {} with output {}",linker_res,linker_output));
             return -1;
@@ -480,7 +483,7 @@ uint8_t mcc::compiler::build_absolute(fpath build_path,mcc::config::ConfigObject
 
     return 0;
 }
-uint8_t mcc::compiler::build_all(mcc::config::ConfigObject *cfg,BuildType type,Platform pt) {
+U8 mcc::compiler::build_all(mcc::config::ConfigObject *cfg,BuildType type,Platform pt,mcc::version::Version version) {
     fpath build_path = get_build_path(cfg,type,pt);
-    return build_absolute(build_path,cfg,type,pt);
+    return build_absolute(build_path,cfg,type,pt,version);
 }

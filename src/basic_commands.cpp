@@ -25,22 +25,20 @@ static mcc::compiler::Platform default_platform = mcc::compiler::Platform::PLATF
 static mcc::compiler::BuildType default_buildtype = mcc::compiler::BuildType::BUILD_EDITOR;
 
 
-static uint8_t create_package_optimized(string tp,string pt);
-static uint8_t run_program();
-static uint8_t list_all_commands();
-static uint8_t export_program();
-static uint8_t publish_program();
-static uint8_t clean_all();
-static uint8_t install();
-
-static string version = "v0-1-0";
+static U8 create_package_optimized(string tp,string pt);
+static U8 run_program();
+static U8 list_all_commands();
+static U8 export_program();
+static U8 publish_program();
+static U8 clean_all();
+static U8 install();
 
 static std::unordered_map<cbu::StringName,mcc::compiler::BuildType> build_type_string_lookup;
 static std::unordered_map<cbu::StringName,mcc::compiler::Platform> build_platform_string_lookup;
 
 void mcc::basic_commands::init() {
     mcc::add_command<>("help",&list_all_commands,{},"Displays this help menu :woah:");
-    mcc::add_command<>("quit",(uint8_t(*)()) NULL,{},"Quits the program (shocker!!)");
+    mcc::add_command<>("quit",(U8(*)()) NULL,{},"Quits the program (shocker!!)");
 
     mcc::add_command<>("config",&mcc::config::cmd,{},"Opens the config menu for creating, editing & selecting configs.");
     mcc::add_command<>("reload",&mcc::config::reload,{},"Reload config settings & detect changes to files.");
@@ -80,7 +78,7 @@ void mcc::basic_commands::init() {
     build_platform_string_lookup["l"] = mcc::compiler::Platform::PLATFORM_LINUX;
 }
 
-static uint8_t list_all_commands() {
+static U8 list_all_commands() {
     auto commands = mcc::list_commands();
     for (auto &cmd : commands) {
         cbu::cli_output(std::format("[{}] {}\n",cmd.name,cmd.help_example));
@@ -96,7 +94,7 @@ static void log_config(mcc::config::ConfigObject *obj) {
 static mcc::compiler::BuildType type = mcc::compiler::BuildType::BUILD_EDITOR;
 static mcc::compiler::Platform platform = mcc::compiler::Platform::PLATFORM_LINUX;
 
-static uint8_t check_config() {
+static U8 check_config() {
     if (!mcc::config::valid()) {
         cbu::log_error(false,"No valid config found. Generate one with `config`");
 
@@ -105,22 +103,22 @@ static uint8_t check_config() {
 
     return 0;
 }
-static uint8_t create_package() {
+static U8 create_package() {
     if (check_config()) return 1;
 
-    uint8_t code;
+    U8 code;
     mcc::state::state_safe([&code]() {
         log_config(mcc::state::active_config);
 
         mcc::config::update_config(mcc::state::active_config);
-        code = mcc::compiler::build_all(mcc::state::active_config,type,platform);
+        code = mcc::compiler::build_all(mcc::state::active_config,type,platform,mcc::state::active_config->version);
         if (code) return;
         code = mcc::packager::package_all(mcc::state::active_config,type,platform);
     });
 
     return code;
 }
-static uint8_t create_package_optimized(string tp,string pt) {
+static U8 create_package_optimized(string tp,string pt) {
     if (!build_type_string_lookup.contains(tp)) {
         cbu::log_error(false,std::format("Invalid BuildType '{}'",tp));
 
@@ -136,11 +134,11 @@ static uint8_t create_package_optimized(string tp,string pt) {
 
     return create_package();
 }
-static uint8_t run_program() {
+static U8 run_program() {
 #ifdef _WIN32
-    uint8_t res = create_package_optimized("e","w");
+    U8 res = create_package_optimized("e","w");
 #else
-    uint8_t res = create_package_optimized("e","l");
+    U8 res = create_package_optimized("e","l");
 #endif
     if (res) {
         cbu::log_error(false,std::format("Failed to create package, exit code {}",res));
@@ -153,7 +151,7 @@ static uint8_t run_program() {
     });
 
     cbu::log_info("Starting program...");
-    uint8_t code = cbu::run_shell_command(build_path,std::format("{}/launcher",cbu::path_to_utf8(build_path)),NULL);
+    U8 code = cbu::run_shell_command(build_path,std::format("{}/launcher",cbu::path_to_utf8(build_path)),NULL);
     if (code) {
         cbu::log_error(false,std::format("Program exited with code {}",code));
     } else cbu::log_success("Program exited with code 0!");
@@ -161,28 +159,28 @@ static uint8_t run_program() {
     return code;
 }
 
-static uint8_t export_program() {
+static U8 export_program() {
     if (check_config()) return 1;
 
-    uint8_t code;
+    U8 code;
     mcc::state::state_safe([&code]() {
         log_config(mcc::state::active_config);
 
         mcc::config::update_config(mcc::state::active_config);
-        code = mcc::packager::export_all(mcc::state::active_config,version);
+        code = mcc::packager::export_all(mcc::state::active_config,mcc::state::active_config->version);
     });
 
     return code;
 }
-static uint8_t publish_program() {
+static U8 publish_program() {
     if (check_config()) return 1;
 
-    uint8_t res;
+    U8 res;
     mcc::state::state_safe([&res]() {
         log_config(mcc::state::active_config);
 
         mcc::config::update_config(mcc::state::active_config);
-        res = mcc::publisher::publish_all(mcc::state::active_config,version,true);
+        res = mcc::publisher::publish_all(mcc::state::active_config,mcc::state::active_config->version,true);
     });
     if (res) {
         cbu::log_error(false,"Publish failed");
@@ -191,8 +189,8 @@ static uint8_t publish_program() {
 
     return 0;
 }
-static uint8_t install() {
-    uint8_t code;
+static U8 install() {
+    U8 code;
     mcc::state::state_safe([&code]() {
         log_config(mcc::state::active_config);
 
@@ -202,7 +200,7 @@ static uint8_t install() {
 
     return code;
 }
-static uint8_t clean_all() {
+static U8 clean_all() {
     if (!mcc::config::valid()) {
         cbu::log_error(false,"No valid config found. Generate one with `config`");
 

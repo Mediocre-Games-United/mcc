@@ -1,6 +1,8 @@
+#include "binary.hpp"
 #include "config_file.hpp"
 #include "logger.hpp"
 #include "stringmath.hpp"
+#include <cstdint>
 #include <format>
 #include "config_file_format.hpp"
 
@@ -43,8 +45,8 @@ cbu::BinaryFileSection *ConfigFileFormatV2::get_sections() {
             }
 
             c->model = model;
-        },[](void *obj) -> uint8_t {
-            return (uint8_t) ((cf*) obj)->model;
+        },[](void *obj) -> U8 {
+            return (U8) ((cf*) obj)->model;
         }),
         new cbu::DataBinarySection([](void *obj,void *data) { // main src object
             auto *co = (mcc::config::SourceFileObject*) data;
@@ -89,8 +91,8 @@ cbu::BinaryFileSection *ConfigFileFormatV2::get_sections() {
                 new cbu::U8BinarySection([](void *obj,auto value) {
                     auto *c = (mcc::config::SourceFileObject*) obj;
                     c->enabled = bool(value);
-                },[](void *obj) -> uint8_t {
-                    return uint8_t((*(mcc::config::SourceFileObject**) obj)->enabled);
+                },[](void *obj) -> U8 {
+                    return U8((*(mcc::config::SourceFileObject**) obj)->enabled);
                 })
             })
         },false),
@@ -207,9 +209,9 @@ cbu::BinaryFileSection *ConfigFileFormatV2::get_sections() {
                 auto exp = mcc::config::ExportType(value);
 
                 obj->export_types.push_back(exp);
-            },[](void *u) -> uint8_t {
+            },[](void *u) -> U8 {
                 auto *v = (mcc::config::ExportType*) u;
-                return uint8_t(*v);
+                return U8(*v);
             })
         },false),
         new cbu::StringBinarySection([](void *obj,auto value) { // itchio username
@@ -225,6 +227,13 @@ cbu::BinaryFileSection *ConfigFileFormatV2::get_sections() {
         },[](void *obj) -> string {
             cf *c = (cf*) obj;
             return c->itchio_project;
+        }),
+        new cbu::U32BinarySection([](void *obj,auto value) { // version major
+            auto *c = (cf*) obj;
+            c->version.major = value;
+        },[](void *obj) -> U32 {
+            cf *c = (cf*) obj;
+            return c->version.major;
         }),
     });
 }
@@ -268,8 +277,8 @@ cbu::BinaryFileSection *ConfigFileFormatV1::get_sections() {
             }
 
             c->model = model;
-        },[](void *obj) -> uint8_t {
-            return (uint8_t) ((cf*) obj)->model;
+        },[](void *obj) -> U8 {
+            return (U8) ((cf*) obj)->model;
         }),
         new cbu::DataBinarySection([](void *obj,void *data) { // main src object
             auto *co = (mcc::config::SourceFileObject*) data;
@@ -313,8 +322,8 @@ cbu::BinaryFileSection *ConfigFileFormatV1::get_sections() {
                 new cbu::U8BinarySection([](void *obj,auto value) {
                     auto *c = (mcc::config::SourceFileObject*) obj;
                     c->enabled = bool(value);
-                },[](void *obj) -> uint8_t {
-                    return uint8_t((*(mcc::config::SourceFileObject**) obj)->enabled);
+                },[](void *obj) -> U8 {
+                    return U8((*(mcc::config::SourceFileObject**) obj)->enabled);
                 })
             })
         },false),
@@ -373,9 +382,9 @@ cbu::BinaryFileSection *ConfigFileFormatV1::get_sections() {
                 auto exp = mcc::config::ExportType(value);
 
                 obj->export_types.push_back(exp);
-            },[](void *u) -> uint8_t {
+            },[](void *u) -> U8 {
                 auto *v = (mcc::config::ExportType*) u;
-                return uint8_t(*v);
+                return U8(*v);
             })
         },false)
     });

@@ -9,8 +9,8 @@
 #include <fstream>
 
 using namespace mcc::config;
-static uint8_t install_linux_package(ExternalPackage pck) {
-    uint8_t code;
+static U8 install_linux_package(ExternalPackage pck) {
+    U8 code;
     string output;
 
     string test_cmd,install_cmd = "";
@@ -45,12 +45,12 @@ static uint8_t install_linux_package(ExternalPackage pck) {
     return 0;
 }
 
-static uint8_t install_binary_package(ConfigObject *cfg,ExternalBinary bin,mcc::compiler::Platform pt) {
+static U8 install_binary_package(ConfigObject *cfg,ExternalBinary bin,mcc::compiler::Platform pt) {
     fpath root = mcc::compiler::get_external_binary_path(cfg,bin.download_url,pt);
     fpath apath = root / "archive.tar.gz";
     fpath dpath = root / "extracted";
     fpath tldpath = dpath / bin.tld;
-    uint8_t code;
+    U8 code;
     if (!std::filesystem::exists(apath)) {
         cbu::log_info("Downloading archive");
         code = cbu::run_shell_command(root,std::format("curl --fail --location --output {} {}",cbu::path_to_utf8(apath),bin.download_url),NULL);
@@ -87,9 +87,9 @@ static uint8_t install_binary_package(ConfigObject *cfg,ExternalBinary bin,mcc::
 
     return 0;
 }
-uint8_t mcc::installer::install_all(ConfigObject *cfg) {
+U8 mcc::installer::install_all(ConfigObject *cfg) {
     cbu::log_info("Installing config...");
-    uint8_t code;
+    U8 code;
 
     for (auto &s : cfg->sub_projects) {
         cbu::log_info("Installing subconfig first");

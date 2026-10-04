@@ -1,6 +1,7 @@
 #pragma once
 
 #include "config_file.hpp"
+#include "version.hpp"
 #include <cassert>
 #include <filesystem>
 #include <format>
@@ -27,8 +28,8 @@ namespace mcc::compiler {
     extern const char *platform_names[size_t(Platform::PLATFORM_NONE)];
     extern const char *platform_exe[size_t(Platform::PLATFORM_NONE)];
     extern const char *platform_shared[size_t(Platform::PLATFORM_NONE)];
-    uint8_t build_all(mcc::config::ConfigObject *cfg,BuildType type,Platform pt);
-    uint8_t build_absolute(fpath build_path,mcc::config::ConfigObject *cfg,BuildType type,Platform pt);
+    U8 build_all(mcc::config::ConfigObject *cfg,BuildType type,Platform pt,mcc::version::Version version);
+    U8 build_absolute(fpath build_path,mcc::config::ConfigObject *cfg,BuildType type,Platform pt,mcc::version::Version version);
 
     inline fpath get_temp_path(mcc::config::ConfigObject *cfg) {
         fpath p = cfg->directory / ".mcc/tmp";
