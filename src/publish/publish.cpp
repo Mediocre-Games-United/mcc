@@ -20,8 +20,8 @@ static U8 push_itchio(mcc::config::ConfigObject *cfg,mcc::version::Version versi
 
             cbu::log_info(std::format("itchio export: {}",cbu::path_to_utf8(export_path)));
 
-            string cmd = std::format("butler push {} {}/{}:{}-{} --userversion {}",cbu::path_to_utf8(export_path),cfg->itchio_username,cfg->itchio_project,mcc::compiler::platform_names[int(pt)],mcc::compiler::build_type_names[int(tp)],mcc::version::get_version_string(version,"."));
-            U8 code = cbu::run_shell_command(export_path.parent_path(),cmd,NULL);
+            string cmd = std::format("butler push ./export/ {}/{}:{}-{} --userversion \"{}\"",cfg->itchio_username,cfg->itchio_project,mcc::compiler::platform_names[int(pt)],mcc::compiler::build_type_names[int(tp)],mcc::version::get_version_string(version,"."));
+            U8 code = cbu::run_shell_command(export_path,cmd,NULL);
             if (code) {
                 cbu::log_error(false,"Itch.io push failed!");
                 return -1;
