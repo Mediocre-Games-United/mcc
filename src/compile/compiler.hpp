@@ -1,7 +1,9 @@
 #pragma once
 
-#include "config/config_file.hpp"
+#include "config_file.hpp"
+#include "version.hpp"
 #include <cassert>
+#include <filesystem>
 #include <format>
 
 namespace mcc::compiler {
@@ -26,19 +28,32 @@ namespace mcc::compiler {
     extern const char *platform_names[size_t(Platform::PLATFORM_NONE)];
     extern const char *platform_exe[size_t(Platform::PLATFORM_NONE)];
     extern const char *platform_shared[size_t(Platform::PLATFORM_NONE)];
-    uint8_t build_all(mcc::config::ConfigObject *cfg,BuildType type,Platform pt);
-    uint8_t build_absolute(fpath build_path,mcc::config::ConfigObject *cfg,BuildType type,Platform pt);
+    U8 build_all(mcc::config::ConfigObject *cfg,BuildType type,Platform pt,mcc::version::Version version,mcc::config::ExportType exp);
 
-    inline fpath get_build_path(mcc::config::ConfigObject *cfg,BuildType type,Platform pt) {
-        assert(type != BuildType::BUILD_NONE);
+    inline fpath get_temp_path(mcc::config::ConfigObject *cfg) {
+        fpath p = cfg->directory / ".mcc/tmp";
+        std::filesystem::create_directories(p);
+
+        return p;
+    }
+    inline fpath get_external_binary_path(mcc::config::ConfigObject *cfg,string nm,Platform pt) {
         assert(pt != Platform::PLATFORM_NONE);
+        fpath p = cfg->directory / ".mcc/install" / platform_names[int(pt)] / nm;
+        std::filesystem::create_directories(p);
 
-        return cfg->directory / "build" / std::format("{}{}",platform_names[int(pt)],build_type_names[int(type)]);
+        return p;
     }
     inline fpath get_export_path(mcc::config::ConfigObject *cfg,mcc::config::ExportType exp,BuildType type,Platform pt) {
         assert(type != BuildType::BUILD_NONE);
         assert(pt != Platform::PLATFORM_NONE);
 
-        return cfg->directory / "export" / std::format("{}/{}{}",export_type_names[int(exp)],platform_names[int(pt)],build_type_names[int(type)]);
+        return cfg->directory / ".mcc/export" / std::format("{}/{}{}",export_type_names[int(exp)],platform_names[int(pt)],build_type_names[int(type)]);
+    }
+    inline fpath get_build_path(mcc::config::ConfigObject *cfg,BuildType type,Platform pt,mcc::config::ExportType exp) {
+        assert(type != BuildType::BUILD_NONE);
+        assert(pt != Platform::PLATFORM_NONE);
+
+        if (exp != mcc::config::ExportType::EXPORT_NONE) return get_export_path(cfg,exp,type,pt) / "build";
+        return cfg->directory / ".mcc/build" / std::format("{}{}",platform_names[int(pt)],build_type_names[int(type)]);
     }
 };

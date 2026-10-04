@@ -6,5 +6,5 @@
 #include <cstdint>
 
 namespace mcc::libs {
-    uint8_t copy_libs(fpath build_path,fpath exe_file,mcc::config::ConfigObject *cfg,mcc::compiler::Platform pt);
+    U8 copy_libs(fpath exe_file,mcc::config::ConfigObject *cfg,mcc::compiler::BuildType tp,mcc::compiler::Platform pt,mcc::config::ExportType exp);
 }

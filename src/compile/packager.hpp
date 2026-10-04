@@ -2,9 +2,9 @@
 
 #include "compile/compiler.hpp"
 #include "config/config_file.hpp"
-#include <cstdint>
+#include "version.hpp"
 
 namespace mcc::packager {
-    uint8_t package_all(mcc::config::ConfigObject *cfg,mcc::compiler::BuildType type,mcc::compiler::Platform pt);
-    uint8_t export_all(mcc::config::ConfigObject *cfg);
+    U8 package_all(mcc::config::ConfigObject *cfg,mcc::compiler::BuildType type,mcc::compiler::Platform pt,mcc::config::ExportType exp);
+    U8 export_all(mcc::config::ConfigObject *cfg,mcc::version::Version version);
 }

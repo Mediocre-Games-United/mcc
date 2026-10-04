@@ -1,16 +1,25 @@
 #include "libs.hpp"
 #include "base_types.hpp"
+#include "compiler.hpp"
+#include "config_file.hpp"
 #include "file.hpp"
 #include "logger.hpp"
 #include "shell.hpp"
+#include "stringmath.hpp"
 #include <filesystem>
 #include <format>
 
-uint8_t mcc::libs::copy_libs(fpath build_path,fpath exe_file,mcc::config::ConfigObject *cfg,mcc::compiler::Platform pt) {
+using namespace mcc::config;
+
+static string get_extract_cmd_win(fpath exe_file) {
+    return std::format("/usr/bin/x86_64-w64-mingw32-objdump -p {} | awk \'$1 == \"DLL\" && $2 == \"Name:\" {{ print $3 }}\'",cbu::path_to_utf8(exe_file));
+}
+U8 mcc::libs::copy_libs(fpath exe_file,mcc::config::ConfigObject *cfg,mcc::compiler::BuildType tp,mcc::compiler::Platform pt,mcc::config::ExportType exp) {
+    fpath build_path = mcc::compiler::get_build_path(cfg,tp,pt,exp);
     cbu::log_info("Copying libs...");
 
     string output = "";
-    uint8_t code = 0;
+    U8 code = 0;
     switch (pt) {
         case mcc::compiler::Platform::PLATFORM_LINUX: {
             code = cbu::run_shell_command(build_path,std::format("/usr/bin/ldd {}",cbu::path_to_utf8(exe_file)),&output);
@@ -78,6 +87,79 @@ uint8_t mcc::libs::copy_libs(fpath build_path,fpath exe_file,mcc::config::Config
             break;
         }
         case mcc::compiler::Platform::PLATFORM_WINDOWS: {
+            vector<ExternalWrapper> external{};
+            for (auto &e : cfg->external_objects) {
+                external.push_back(ExternalWrapper{
+                    .obj = e,
+                    .cfg = cfg
+                });
+            }
+            for (auto &s : cfg->sub_projects) {
+                for (auto &e : s->external_objects) {
+                    external.push_back(ExternalWrapper{
+                        .obj = e,
+                        .cfg = s
+                    });
+                }
+
+                fpath bpath = mcc::compiler::get_build_path(s,tp,pt,exp);
+                string nm = s->name + ".dll";
+
+                std::error_code ec;
+                std::filesystem::copy_file(bpath / nm,build_path / nm,ec);
+                if (ec) cbu::log_warn(ec.message());
+
+            }
+            for (auto &e : external) {
+                ExternalBinary bin = e.obj->win_ext_binary;
+                if (!bin) continue;
+                fpath tld = mcc::compiler::get_external_binary_path(e.cfg,e.obj->name,mcc::compiler::Platform::PLATFORM_WINDOWS) / "extracted" / bin.tld;
+                // cbu::log_info(std::format("TLD: {}",cbu::path_to_utf8(tld)));
+
+                string nm = bin.bin_name + ".dll";
+                fpath cand = tld / "lib" / nm;
+                std::error_code ec;
+                if (std::filesystem::exists(cand)) {
+                    std::filesystem::copy_file(cand,build_path / nm,ec);
+                    if (ec) cbu::log_warn(ec.message());
+                    continue;
+                }
+                cand = tld / "bin" / nm;
+                if (!std::filesystem::exists(cand)) {
+                    cbu::log_error(false,std::format("Could not find {}.dll",bin.bin_name));
+                    return -1;
+                }
+
+                std::filesystem::copy_file(cand,build_path / nm,ec);
+                if (ec) cbu::log_warn(ec.message());
+            }
+
+            // the harder ones
+            string output = "";
+            code = cbu::run_shell_command(build_path,get_extract_cmd_win(exe_file),&output);
+
+            vector<string> list = cbu::string_split(output,"\n");
+            vector<string> temp{};
+            for (auto &s : list) {
+                cbu::trim(s);
+                fpath tpath = build_path / s;
+                if (!std::filesystem::exists(tpath)) continue;
+                code = cbu::run_shell_command(build_path,get_extract_cmd_win(tpath),&output);
+
+                vector<string> list = cbu::string_split(output,"\n");
+                for (auto &e : list) { temp.push_back(e); }
+            }
+            for (auto &s : temp) { list.push_back(s); }
+
+            for (auto &s : list) {
+                cbu::trim(s);
+                fpath tpath = fpath("/usr/x86_64-w64-mingw32/bin") / s;
+
+                std::error_code ec;
+                std::filesystem::copy_file(tpath,build_path / s,ec);
+                if (ec) cbu::log_warn(ec.message());
+            }
+
             break;
         }
 
