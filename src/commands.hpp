@@ -11,12 +11,25 @@
 #include <format>
 #include <tuple>
 #include <functional>
+#include <mutex>
 
 namespace mcc {
+    extern volatile size_t interrupt_count;
+    extern std::mutex interrupt_mutex;
+    inline bool consume_interrupt() {
+        interrupt_mutex.lock();
+        if (interrupt_count <= 0) { interrupt_mutex.unlock(); return false; }
+
+        cbu::log_warn("Interrupt caught!");
+        interrupt_count -= 1;
+        interrupt_mutex.unlock();
+        return true;
+    }
+
     struct cmdinfo {
         string help_example;
         string name;
-        std::function<uint8_t(std::vector<string>)> dispatcher;
+        std::function<U8(std::vector<string>)> dispatcher;
     };
     template<typename ...T>
     struct cmdexecutor {
@@ -32,8 +45,8 @@ namespace mcc {
             if (desc.empty()) return str;
             return std::format("{}\n{}",str,desc);
         }
-        inline static uint8_t decode(std::tuple<T...> *target,std::vector<string> vars) {
-            uint8_t res = decode_impl(target,vars);
+        inline static U8 decode(std::tuple<T...> *target,std::vector<string> vars) {
+            U8 res = decode_impl(target,vars);
             return res;
         }
     private:
@@ -61,7 +74,7 @@ namespace mcc {
 
             assert(!"Invalid type for commands");
         }
-        inline int8_t static decode_impl(std::tuple<T...> *target,std::vector<string> vars) {
+        inline U8 static decode_impl(std::tuple<T...> *target,std::vector<string> vars) {
             size_t offset = 0;
             try {
                 auto t = std::tuple<T...>{
@@ -85,7 +98,7 @@ namespace mcc {
     }
 
     template<typename ...T>
-    inline void add_command(string name,uint8_t (*callback)(T...),std::vector<string> help_lines = {},string help = "") {
+    inline void add_command(string name,U8 (*callback)(T...),std::vector<string> help_lines = {},string help = "") {
         if (name.empty()) cbu::log_error(true,"Cannot add empty command");
         cbu::log_verbose(std::format("Adding command {}",name));
 
@@ -93,11 +106,11 @@ namespace mcc {
         commands[name] = cmdinfo{
             .help_example = cmdexecutor<T...>::get_help(name,help_lines,help),
             .name = name,
-            .dispatcher = [callback,name](std::vector<string> vars) -> uint8_t {
+            .dispatcher = [callback,name](std::vector<string> vars) -> U8 {
                 std::tuple<T...> args{};
-                uint8_t res = cmdexecutor<T...>::decode(&args,vars);
+                U8 res = cmdexecutor<T...>::decode(&args,vars);
                 if (res) return res;
-                uint8_t r = std::apply(callback,args);
+                U8 r = std::apply(callback,args);
                 string txt = std::format("Command {} returned code {}",name,r);
                 if (r) cbu::log_error(false,txt);
                 else cbu::log_success(txt);
@@ -115,7 +128,7 @@ namespace mcc {
 
         return list;
     }
-    inline uint8_t run_command(string input) {
+    inline U8 run_command(string input) {
         cbu::log_verbose(std::format("Input: {}",input));
         auto split = cbu::string_split(input," ");
         if (split.empty()) {

@@ -1,5 +1,7 @@
 export
 build
 
+.mcc
+
 # lsps
 .clangd
