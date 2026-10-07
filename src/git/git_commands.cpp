@@ -43,6 +43,11 @@ struct GitStatus {
     S64 behind = 0;
 };
 static GitStatus get_general_status() {
+    if (!mcc::config::valid()) {
+        log_no_conf();
+        return {.valid = false};
+    }
+
     GitStatus status{};
 
     string output;
@@ -95,7 +100,57 @@ static GitStatus get_general_status() {
 }
 
 U8 mcc::git::sync() {
-    return 0;
+    if (!mcc::config::valid()) return log_no_conf();
+
+    string output;
+    U8 code;
+
+    auto status = get_general_status();
+    if (!status.valid) return -1;
+
+    if (status.ahead > 0 and status.behind > 0) {
+        cbu::log_warn("Remote and local are out of sync!");
+
+        mcc::state::state_safe([&output,&code,status]() {
+            code = cbu::run_shell_command(mcc::state::active_config->directory,std::format("git pull --rebase"),&output);
+        });
+        if (code) {
+            mcc::state::state_safe([&output,&code,status]() {
+                code = cbu::run_shell_command(mcc::state::active_config->directory,std::format("git rebase --abort"),&output);
+            });
+
+            cbu::log_error(false,"Conflict detected!");
+            return -1;
+        }
+
+        cbu::log_success("Automatic restore succesful");
+    }
+
+    if (status.ahead > 0) {
+        cbu::log_info("Pushing local changes");
+
+        mcc::state::state_safe([&output,&code,status]() {
+            if (cbu::run_shell_command(mcc::state::active_config->directory,std::format("git push"),&output)) {
+                code = log_no_git();
+            }
+        });
+
+        if (code) return code;
+    } else if (status.behind > 0) {
+        cbu::log_info("Pulling changes from remote");
+
+        mcc::state::state_safe([&output,&code,status]() {
+            if (cbu::run_shell_command(mcc::state::active_config->directory,std::format("git pull"),&output)) {
+                code = log_no_git();
+            }
+        });
+
+        if (code) return code;
+    } else {
+        cbu::log_info("Everything is up to date");
+    }
+
+    return mcc::git::status();
 }
 U8 mcc::git::undo() {
     if (!mcc::config::valid()) return log_no_conf();
