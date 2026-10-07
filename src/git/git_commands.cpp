@@ -5,6 +5,7 @@
 #include "logger.hpp"
 #include "shell.hpp"
 #include "state.hpp"
+#include "stringmath.hpp"
 #include <format>
 
 static vector<string> separate_lines(string output) {
@@ -33,32 +34,110 @@ static U8 log_no_git() {
     return -1;
 }
 
+struct GitStatus {
+    bool valid = true;
+
+    string branch = "<unknown>";
+    bool is_remote = false;
+    S64 ahead = 0;
+    S64 behind = 0;
+};
+static GitStatus get_general_status() {
+    GitStatus status{};
+
+    string output;
+    U8 code = 0;
+
+    while (true) {
+        mcc::state::state_safe([&output,&code]() {
+            if (cbu::run_shell_command(mcc::state::active_config->directory,"git fetch",&output)) {
+                code = log_no_git();
+                return;
+            }
+            if (cbu::run_shell_command(mcc::state::active_config->directory,"git status --porcelain=v2 --branch -z",&output)) {
+                code = log_no_git();
+            }
+        });
+        if (code) return {.valid = false};
+
+        for (string line : separate_lines(output)) {
+            cbu::log_debug(line);
+
+            if (line.starts_with("# branch.head ")) {
+                status.branch = line.substr(14);
+            } else if (line.starts_with("# branch.ab ")) {
+                status.is_remote = true;
+                string full = line.substr(12);
+
+                string f1 = cbu::string_split(full,"+")[1];
+                auto f2 = cbu::string_split(f1,"-");
+                string a = f2[0];
+                string b = f2[1];
+
+                status.ahead = stoi(a);
+                status.behind = stoi(b);
+            }
+        }
+
+        if (!status.is_remote) {
+            mcc::state::state_safe([&output,&code,status]() {
+                if (cbu::run_shell_command(mcc::state::active_config->directory,std::format("git branch -u origin/{} {}",status.branch,status.branch),&output)) {
+                    code = log_no_git();
+                }
+            });
+            continue;
+        }
+
+        break;
+    }
+
+    return status;
+}
+
 U8 mcc::git::sync() {
     return 0;
 }
 U8 mcc::git::undo() {
-    return 0;
-}
-U8 mcc::git::status() {
     if (!mcc::config::valid()) return log_no_conf();
+
+    auto status = get_general_status();
+    if (!status.valid) return -1;
+
+    if (!status.is_remote) {
+        cbu::log_error(false,"Your branch is not connected to the remote!");
+
+        return -1;
+    }
+    if (status.ahead <= 0) {
+        bool res;
+        cbu::cli_input("Your branch is not ahead of the remote, undoing now will go back in time by 1 commit. Proceed? (default false)");
+        cbu::cli_get_valid_bool(&res,true);
+
+        if (!res) return 0;
+    }
 
     string output;
     U8 code = 0;
     mcc::state::state_safe([&output,&code]() {
-        if (cbu::run_shell_command(mcc::state::active_config->directory,"git status --porcelain=v2 --branch -z",&output)) {
+        if (cbu::run_shell_command(mcc::state::active_config->directory,"git reset HEAD~1",&output)) {
             code = log_no_git();
         }
     });
-    if (code) return log_no_git();
+    if (!code) return mcc::git::status();
 
-    string branch = "<unknown>";
-    for (string line : separate_lines(output)) {
-        if (line.starts_with("# branch.head ")) {
-            branch = line.substr(14);
-        }
+    return code;
+}
+U8 mcc::git::status() {
+    if (!mcc::config::valid()) return log_no_conf();
+
+    auto status = get_general_status();
+    if (!status.valid) return -1;
+
+    cbu::cli_output(std::format("Current branch: {}",status.branch));
+    if (status.is_remote) {
+        cbu::cli_output(std::format("{} Commit{} behind remote",status.behind,cbu::string_n("","s",status.behind)));
+        cbu::cli_output(std::format("{} Commit{} ahead remote",status.ahead,cbu::string_n("","s",status.ahead)));
     }
-
-    cbu::cli_output(std::format("Current branch: {}",branch));
 
     return 0;
 }
