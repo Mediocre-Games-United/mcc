@@ -117,6 +117,14 @@ static GitStatus get_general_status(fpath dir) {
 }
 
 static U8 sync_dir(GitStatus status,fpath dir) {
+    for (auto &[key,sub] : status.submodules) {
+        if (sync_dir(sub,dir / key)) {
+            cbu::log_error(false,"Failed to sync submodule");
+
+            return -1;
+        }
+    }
+
     string output;
     U8 code = 0;
     if (status.ahead > 0 and status.behind > 0) {
@@ -167,16 +175,6 @@ U8 mcc::git::sync() {
     if (!status.valid) return -1;
     if (status.has_unsaved) return log_unsaved();
 
-    for (auto &[key,sub] : status.submodules) {
-        mcc::state::state_safe([&code,sub,key]() {
-            code = sync_dir(sub,mcc::state::current_project / key);
-        });
-        if (code) {
-            cbu::log_error(false,"Failed to sync submodule");
-
-            return code;
-        }
-    }
     mcc::state::state_safe([&code,status]() {
         code = sync_dir(status,mcc::state::current_project);
     });
@@ -265,7 +263,30 @@ U8 mcc::git::commit_all(string msg) {
         code = cbu::run_shell_command(mcc::state::current_project,std::format("git commit -m \"{}\"",msg),&output);
         if (code) log_no_git();
     });
-    if (code) return code;
+        if (code) return code;
+
+        cbu::log_success("Commit succesful");
+    return mcc::git::status();
+}
+U8 mcc::git::commit_all_sub(string sub,string msg) {
+    if (!mcc::config::valid()) return log_no_conf();
+
+    fpath dir;
+    mcc::state::state_safe([&dir,sub]() {
+        dir = mcc::state::current_project / sub;
+    });
+    GitStatus status = get_general_status(dir);
+    if (!status.valid) return -1;
+    if (!status.has_unsaved) {
+        cbu::log_warn("No local changes to commit!");
+        return 0;
+    }
+    string output;
+    U8 code = 0;
+    code = cbu::run_shell_command(dir,"git add .",&output);
+    if (code) return log_no_git();
+    code = cbu::run_shell_command(dir,std::format("git commit -m \"{}\"",msg),&output);
+    if (code) return log_no_git();
 
     cbu::log_success("Commit succesful");
     return mcc::git::status();
