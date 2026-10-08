@@ -118,7 +118,7 @@ static GitStatus get_general_status(fpath dir) {
 
 static U8 sync_dir(GitStatus status,fpath dir) {
     string output;
-    U8 code;
+    U8 code = 0;
     if (status.ahead > 0 and status.behind > 0) {
         cbu::log_warn("Remote and local are out of sync!");
 
