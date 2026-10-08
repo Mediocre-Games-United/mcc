@@ -136,7 +136,7 @@ static U8 sync_dir(GitStatus status,fpath dir) {
     if (status.ahead > 0) {
         cbu::log_info("Pushing local changes");
 
-        if (cbu::run_shell_command(mcc::state::active_config->directory,std::format("git push"),&output)) {
+        if (cbu::run_shell_command(dir,std::format("git push"),&output)) {
             code = log_no_git();
         }
 
@@ -144,7 +144,7 @@ static U8 sync_dir(GitStatus status,fpath dir) {
     } else if (status.behind > 0) {
         cbu::log_info("Pulling changes from remote");
 
-        if (cbu::run_shell_command(mcc::state::active_config->directory,std::format("git pull"),&output)) {
+        if (cbu::run_shell_command(dir,std::format("git pull"),&output)) {
             code = log_no_git();
         }
 
@@ -168,8 +168,8 @@ U8 mcc::git::sync() {
     if (status.has_unsaved) return log_unsaved();
 
     for (auto &[key,sub] : status.submodules) {
-        mcc::state::state_safe([&code,status,key]() {
-            code = sync_dir(status,mcc::state::current_project / key);
+        mcc::state::state_safe([&code,sub,key]() {
+            code = sync_dir(sub,mcc::state::current_project / key);
         });
         if (code) {
             cbu::log_error(false,"Failed to sync submodule");
