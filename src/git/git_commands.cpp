@@ -168,8 +168,8 @@ U8 mcc::git::sync() {
     if (status.has_unsaved) return log_unsaved();
 
     for (auto &[key,sub] : status.submodules) {
-        mcc::state::state_safe([&code,status]() {
-            code = sync_dir(status,mcc::state::current_project);
+        mcc::state::state_safe([&code,status,key]() {
+            code = sync_dir(status,mcc::state::current_project / key);
         });
         if (code) {
             cbu::log_error(false,"Failed to sync submodule");
