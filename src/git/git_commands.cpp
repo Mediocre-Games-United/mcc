@@ -136,21 +136,17 @@ static U8 sync_dir(GitStatus status,fpath dir) {
     if (status.ahead > 0) {
         cbu::log_info("Pushing local changes");
 
-        mcc::state::state_safe([&output,&code,status]() {
-            if (cbu::run_shell_command(mcc::state::active_config->directory,std::format("git push"),&output)) {
-                code = log_no_git();
-            }
-        });
+        if (cbu::run_shell_command(mcc::state::active_config->directory,std::format("git push"),&output)) {
+            code = log_no_git();
+        }
 
         if (code) return code;
     } else if (status.behind > 0) {
         cbu::log_info("Pulling changes from remote");
 
-        mcc::state::state_safe([&output,&code,status]() {
-            if (cbu::run_shell_command(mcc::state::active_config->directory,std::format("git pull"),&output)) {
-                code = log_no_git();
-            }
-        });
+        if (cbu::run_shell_command(mcc::state::active_config->directory,std::format("git pull"),&output)) {
+            code = log_no_git();
+        }
 
         if (code) return code;
     } else {
