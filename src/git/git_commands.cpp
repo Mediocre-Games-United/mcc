@@ -1,6 +1,7 @@
 #include "git_commands.hpp"
 #include "base_types.hpp"
 #include "cli.hpp"
+#include "commands.hpp"
 #include "config_file.hpp"
 #include "logger.hpp"
 #include "shell.hpp"
@@ -43,7 +44,7 @@ struct GitStatus {
     bool valid = true;
 
     umap<string,GitStatus> submodules;
-    string branch = "<unknown>";
+    string branch = "<detached>";
     bool is_remote = false;
     bool has_unsaved = false;
     S64 ahead = 0;
@@ -231,4 +232,30 @@ U8 mcc::git::status() {
     print_status_info(status);
 
     return 0;
+}
+
+U8 mcc::git::commit_all(string msg) {
+    if (!mcc::config::valid()) return log_no_conf();
+
+    GitStatus status;
+    mcc::state::state_safe([&status]() {
+        status = get_general_status(mcc::state::current_project);
+    });
+    if (!status.valid) return -1;
+    if (!status.has_unsaved) {
+        cbu::log_warn("No local changes to commit!");
+        return 0;
+    }
+    string output;
+    U8 code = 0;
+    mcc::state::state_safe([&output,&code,msg]() -> void {
+        code = cbu::run_shell_command(mcc::state::current_project,"git add .",&output);
+        if (code) { log_no_git(); return; }
+        code = cbu::run_shell_command(mcc::state::current_project,std::format("git commit -m \"{}\"",msg),&output);
+        if (code) log_no_git();
+    });
+    if (code) return code;
+
+    cbu::log_success("Commit succesful");
+    return mcc::git::status();
 }

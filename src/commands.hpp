@@ -107,12 +107,38 @@ namespace mcc {
             .help_example = cmdexecutor<T...>::get_help(name,help_lines,help),
             .name = name,
             .dispatcher = [callback,name](std::vector<string> vars) -> U8 {
-                std::tuple<T...> args{};
-                U8 res = cmdexecutor<T...>::decode(&args,vars);
+                constexpr std::size_t arg_count = sizeof...(T);
+                using Args = std::tuple<T...>;
+
+                if constexpr (arg_count > 0) {
+                    using LastArg = std::remove_cvref_t<
+                    std::tuple_element_t<arg_count - 1, Args>
+                    >;
+
+                    if constexpr (std::is_same_v<LastArg, std::string>) {
+                        constexpr std::size_t last_arg = arg_count - 1;
+
+                        if (vars.size() > arg_count) {
+                            std::string joined = vars[last_arg];
+                            for (std::size_t i = arg_count; i < vars.size(); ++i) {
+                                joined += ' ';
+                                joined += vars[i];
+                            }
+
+                            vars.resize(arg_count);
+                            vars[last_arg] = std::move(joined);
+                        }
+                    }
+                }
+
+                Args args{};
+                U8 res = cmdexecutor<T...>::decode(&args, vars);
                 if (res) return res;
-                U8 r = std::apply(callback,args);
-                string txt = std::format("Command {} returned code {}",name,r);
-                if (r) cbu::log_error(false,txt);
+
+                U8 r = std::apply(callback, args);
+                string txt = std::format("Command {} returned code {}", name, r);
+
+                if (r) cbu::log_error(false, txt);
                 else cbu::log_success(txt);
 
                 return r;
@@ -130,10 +156,28 @@ namespace mcc {
     }
     inline U8 run_command(string input) {
         cbu::log_verbose(std::format("Input: {}",input));
-        auto split = cbu::string_split(input," ");
+        vector<string> split{};
+        bool has_quote = false;
+        string cur = "";
+        for (char c : input) {
+            if (c == ' ' and !has_quote) {
+                split.push_back(cur);
+                cur.clear();
+                continue;
+            } if (c == '"') {
+                has_quote = !has_quote;
+                continue;
+            }
+            cur += c;
+        }
+        if (!cur.empty()) split.push_back(cur);
+
         if (split.empty()) {
             cbu::log_error(false,"Command cannot be empty");
             return -1;
+        }
+        for (string s : split) {
+            cbu::log_verbose(std::format("Split {}",s));
         }
         string cmd = split[0];
         split.erase(split.begin());

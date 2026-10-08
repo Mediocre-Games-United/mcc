@@ -52,6 +52,7 @@ void mcc::basic_commands::init() {
     mcc::add_command<>("gsync",&mcc::git::sync,{},"Safe push & pull from git remotes");
     mcc::add_command<>("gundo",&mcc::git::undo,{},"Undo local commit");
     mcc::add_command<>("gstatus",&mcc::git::status,{},"Show git status");
+    mcc::add_command<string>("commit",&mcc::git::commit_all,{"CommitMessage"},"Commit all staged & unstaged changes.");
 
     cbu::log_success("Initialized basic commands");
 
