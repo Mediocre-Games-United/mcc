@@ -291,3 +291,41 @@ U8 mcc::git::commit_all_sub(string sub,string msg) {
     cbu::log_success("Commit succesful");
     return mcc::git::status();
 }
+U8 mcc::git::change_branch(string target) {
+    if (!mcc::config::valid()) return log_no_conf();
+
+    fpath dir;
+    mcc::state::state_safe([&dir]() {
+        dir = mcc::state::current_project;
+    });
+
+    GitStatus status = get_general_status(dir);
+    if (!status.valid) return -1;
+    if (status.has_unsaved) {
+        cbu::log_error(false,"Commit unsaved changes first");
+        return -1;
+    }
+
+    if (sync_dir(status,dir)) {
+        cbu::log_error(false,"Sync failed, aborting");
+
+        return -1;
+    }
+    string output;
+    if (cbu::run_shell_command(dir,std::format("git checkout {}",target),&output)) {
+        cbu::log_error(false,"Git checkout failed");
+
+        return -1;
+    }
+
+    status = get_general_status(dir);
+    if (!status.valid) return -1;
+    sync_dir(status,dir);
+
+    print_status_info(status);
+    cbu::log_success("Succesfully switched branches");
+    return 0;
+}
+U8 mcc::git::new_branch(string from,string name) {
+    return 0;
+}
