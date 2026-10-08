@@ -332,5 +332,23 @@ U8 mcc::git::change_branch(string target) {
     return 0;
 }
 U8 mcc::git::new_branch(string from,string name) {
-    return 0;
+    if (change_branch(from)) return -1;
+    fpath dir;
+    mcc::state::state_safe([&dir]() {
+        dir = mcc::state::current_project;
+    });
+
+    string output;
+    if (cbu::run_shell_command(dir,std::format("git checkout -b {}",name),&output)) {
+        cbu::log_error(false,"Failed to create new branch");
+
+        return -1;
+    }
+    if (cbu::run_shell_command(dir,std::format("git push -u origin {}",name),&output)) {
+        cbu::log_error(false,"Failed to push new branch");
+
+        return -1;
+    }
+
+    return change_branch(name);
 }
