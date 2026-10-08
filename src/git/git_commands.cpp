@@ -116,29 +116,15 @@ static GitStatus get_general_status(fpath dir) {
     return status;
 }
 
-U8 mcc::git::sync() {
-    if (!mcc::config::valid()) return log_no_conf();
-
+static U8 sync_dir(GitStatus status,fpath dir) {
     string output;
     U8 code;
-
-    GitStatus status;
-    mcc::state::state_safe([&status]() {
-        status = get_general_status(mcc::state::current_project);
-    });
-    if (!status.valid) return -1;
-    if (status.has_unsaved) return log_unsaved();
-
     if (status.ahead > 0 and status.behind > 0) {
         cbu::log_warn("Remote and local are out of sync!");
 
-        mcc::state::state_safe([&output,&code,status]() {
-            code = cbu::run_shell_command(mcc::state::active_config->directory,std::format("git pull --rebase"),&output);
-        });
+        code = cbu::run_shell_command(dir,std::format("git pull --rebase"),&output);
         if (code) {
-            mcc::state::state_safe([&output,&code,status]() {
-                code = cbu::run_shell_command(mcc::state::active_config->directory,std::format("git rebase --abort"),&output);
-            });
+            code = cbu::run_shell_command(dir,std::format("git rebase --abort"),&output);
 
             cbu::log_error(false,"Conflict detected!");
             return -1;
@@ -170,6 +156,35 @@ U8 mcc::git::sync() {
     } else {
         cbu::log_info("Everything is up to date");
     }
+
+    return 0;
+}
+U8 mcc::git::sync() {
+    if (!mcc::config::valid()) return log_no_conf();
+
+    U8 code;
+
+    GitStatus status;
+    mcc::state::state_safe([&status]() {
+        status = get_general_status(mcc::state::current_project);
+    });
+    if (!status.valid) return -1;
+    if (status.has_unsaved) return log_unsaved();
+
+    for (auto &[key,sub] : status.submodules) {
+        mcc::state::state_safe([&code,status]() {
+            code = sync_dir(status,mcc::state::current_project);
+        });
+        if (code) {
+            cbu::log_error(false,"Failed to sync submodule");
+
+            return code;
+        }
+    }
+    mcc::state::state_safe([&code,status]() {
+        code = sync_dir(status,mcc::state::current_project);
+    });
+    if (code) return code;
 
     return mcc::git::status();
 }
