@@ -322,6 +322,7 @@ U8 mcc::git::change_branch(string target) {
     if (!status.valid) return -1;
     sync_dir(status,dir);
 
+    status = get_general_status(dir);
     print_status_info(status);
     cbu::log_success("Succesfully switched branches");
     return 0;
