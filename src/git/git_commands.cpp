@@ -299,11 +299,16 @@ U8 mcc::git::change_branch(string target) {
         dir = mcc::state::current_project;
     });
 
+    string output;
     GitStatus status = get_general_status(dir);
     if (!status.valid) return -1;
     if (status.has_unsaved) {
-        cbu::log_error(false,"Commit unsaved changes first");
-        return -1;
+        cbu::cli_input("Unsaved changes detected! Discard all unsaved changes to safely switch branches? (default false)");
+        bool res;
+        cbu::cli_get_valid_bool(&res,true);
+        if (!res) return -1;
+
+        cbu::run_shell_command(dir,"git reset --hard; git clean -fd",&output);
     }
 
     if (sync_dir(status,dir)) {
@@ -311,7 +316,6 @@ U8 mcc::git::change_branch(string target) {
 
         return -1;
     }
-    string output;
     if (cbu::run_shell_command(dir,std::format("git checkout {}",target),&output)) {
         cbu::log_error(false,"Git checkout failed");
 
