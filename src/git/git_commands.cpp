@@ -33,36 +33,35 @@ static U8 log_no_git() {
 
     return -1;
 }
+static U8 log_unsaved() {
+    cbu::log_error(false,"Commit unsaved changes first!");
+
+    return -1;
+}
 
 struct GitStatus {
     bool valid = true;
 
+    umap<string,GitStatus> submodules;
     string branch = "<unknown>";
     bool is_remote = false;
+    bool has_unsaved = false;
     S64 ahead = 0;
     S64 behind = 0;
 };
-static GitStatus get_general_status() {
-    if (!mcc::config::valid()) {
-        log_no_conf();
-        return {.valid = false};
-    }
-
+static GitStatus get_general_status(fpath dir) {
     GitStatus status{};
 
     string output;
     U8 code = 0;
 
     while (true) {
-        mcc::state::state_safe([&output,&code]() {
-            if (cbu::run_shell_command(mcc::state::active_config->directory,"git fetch",&output)) {
-                code = log_no_git();
-                return;
-            }
-            if (cbu::run_shell_command(mcc::state::active_config->directory,"git status --porcelain=v2 --branch -z",&output)) {
-                code = log_no_git();
-            }
-        });
+        if (cbu::run_shell_command(dir,"git fetch",&output)) {
+            code = log_no_git();
+        }
+        else if (cbu::run_shell_command(dir,"git status --porcelain=v2 --branch -z",&output)) {
+            code = log_no_git();
+        }
         if (code) return {.valid = false};
 
         for (string line : separate_lines(output)) {
@@ -81,20 +80,37 @@ static GitStatus get_general_status() {
 
                 status.ahead = stoi(a);
                 status.behind = stoi(b);
+            } else if (line.starts_with("#")) {
+
+            } else {
+                status.has_unsaved = true;
             }
         }
 
         if (!status.is_remote) {
-            mcc::state::state_safe([&output,&code,status]() {
-                if (cbu::run_shell_command(mcc::state::active_config->directory,std::format("git branch -u origin/{} {}",status.branch,status.branch),&output)) {
-                    code = log_no_git();
-                }
-            });
+            if (cbu::run_shell_command(dir,std::format("git branch -u origin/{} {}",status.branch,status.branch),&output)) {
+                code = log_no_git();
+            }
+            if (code) return {.valid = false};
             continue;
         }
 
         break;
     }
+    if (cbu::run_shell_command(dir,"git submodule status",&output)) {
+        code = log_no_git();
+        return {.valid = false};
+    }
+    for (string s : cbu::string_split(output,"\n")) {
+        char c = s[0];
+        cbu::log_verbose(std::format("Submodule entry {} first {}",s,c));
+        vector<string> split = cbu::string_split(s.substr(1)," ");
+        string commit = split[0];
+        string path = split[1];
+
+        status.submodules[path] = get_general_status(dir / path);
+    }
+
 
     return status;
 }
@@ -105,8 +121,12 @@ U8 mcc::git::sync() {
     string output;
     U8 code;
 
-    auto status = get_general_status();
+    GitStatus status;
+    mcc::state::state_safe([&status]() {
+        status = get_general_status(mcc::state::current_project);
+    });
     if (!status.valid) return -1;
+    if (status.has_unsaved) return log_unsaved();
 
     if (status.ahead > 0 and status.behind > 0) {
         cbu::log_warn("Remote and local are out of sync!");
@@ -155,7 +175,10 @@ U8 mcc::git::sync() {
 U8 mcc::git::undo() {
     if (!mcc::config::valid()) return log_no_conf();
 
-    auto status = get_general_status();
+    GitStatus status;
+    mcc::state::state_safe([&status]() {
+        status = get_general_status(mcc::state::current_project);
+    });
     if (!status.valid) return -1;
 
     if (!status.is_remote) {
@@ -182,17 +205,30 @@ U8 mcc::git::undo() {
 
     return code;
 }
-U8 mcc::git::status() {
-    if (!mcc::config::valid()) return log_no_conf();
-
-    auto status = get_general_status();
-    if (!status.valid) return -1;
-
+static void print_status_info(GitStatus status) {
     cbu::cli_output(std::format("Current branch: {}",status.branch));
     if (status.is_remote) {
         cbu::cli_output(std::format("{} Commit{} behind remote",status.behind,cbu::string_n("","s",status.behind)));
         cbu::cli_output(std::format("{} Commit{} ahead remote",status.ahead,cbu::string_n("","s",status.ahead)));
+    } if (status.has_unsaved) {
+        cbu::cli_output("Has unsaved changes.");
     }
+
+    for (auto &[key,stat] : status.submodules) {
+        cbu::cli_output(std::format("---\nSubmodule {}",key));
+        print_status_info(stat);
+    }
+}
+U8 mcc::git::status() {
+    if (!mcc::config::valid()) return log_no_conf();
+
+    GitStatus status;
+    mcc::state::state_safe([&status]() {
+        status = get_general_status(mcc::state::current_project);
+    });
+    if (!status.valid) return -1;
+
+    print_status_info(status);
 
     return 0;
 }
