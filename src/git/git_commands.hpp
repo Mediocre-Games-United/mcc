@@ -11,4 +11,5 @@ namespace mcc::git {
     U8 commit_all_sub(string sub,string msg);
     U8 change_branch(string target);
     U8 new_branch(string from,string name);
+    U8 merge(string base,string feature);
 }

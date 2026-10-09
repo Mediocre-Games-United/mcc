@@ -121,7 +121,7 @@ static U8 create_package() {
         mcc::config::update_config(mcc::state::active_config);
         code = mcc::compiler::build_all(mcc::state::active_config,type,platform,mcc::state::active_config->version,mcc::config::ExportType::EXPORT_NONE);
         if (code) return;
-        code = mcc::packager::package_all(mcc::state::active_config,type,platform,mcc::config::ExportType::EXPORT_NONE);
+        code = mcc::packager::package_all(mcc::state::active_config,type,platform,mcc::config::ExportType::EXPORT_NONE,mcc::state::active_config->version);
     });
 
     return code;
@@ -155,7 +155,7 @@ static U8 run_program() {
 
     fpath build_path;
     mcc::state::state_safe([&build_path]() {
-        build_path = mcc::compiler::get_build_path(mcc::state::active_config,type,platform,mcc::config::ExportType::EXPORT_NONE);
+        build_path = mcc::compiler::get_build_path(mcc::state::active_config,type,platform,mcc::config::ExportType::EXPORT_NONE,mcc::state::active_config->version);
     });
 
     cbu::log_info("Starting program...");
@@ -175,7 +175,7 @@ static U8 export_program() {
         log_config(mcc::state::active_config);
 
         mcc::config::update_config(mcc::state::active_config);
-        code = mcc::packager::export_all(mcc::state::active_config,mcc::state::active_config->version);
+        code = mcc::packager::export_all(mcc::state::active_config);
     });
 
     return code;
@@ -188,7 +188,7 @@ static U8 publish_program() {
         log_config(mcc::state::active_config);
 
         mcc::config::update_config(mcc::state::active_config);
-        res = mcc::publisher::publish_all(mcc::state::active_config,mcc::state::active_config->version,true);
+        res = mcc::publisher::publish_all(mcc::state::active_config,false);
     });
     if (res) {
         cbu::log_error(false,"Publish failed");

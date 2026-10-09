@@ -352,3 +352,4 @@ U8 mcc::git::new_branch(string from,string name) {
 
     return change_branch(name);
 }
+U8 merge(string base,string feature);

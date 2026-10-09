@@ -4,5 +4,5 @@
 #include <cstdint>
 
 namespace mcc::publisher {
-    U8 publish_all(mcc::config::ConfigObject *cfg,mcc::version::Version version,bool noconfirm);
+    U8 publish_all(mcc::config::ConfigObject *cfg,bool noconfirm);
 }

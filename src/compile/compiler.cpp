@@ -212,7 +212,7 @@ static void get_includes_recurse(string &output,fpath dir) {
 
 using namespace mcc::config;
 U8 mcc::compiler::build_all(mcc::config::ConfigObject *cfg,BuildType type,Platform pt,mcc::version::Version version,mcc::config::ExportType exp) {
-    fpath build_path = get_build_path(cfg,type,pt,exp);
+    fpath build_path = get_build_path(cfg,type,pt,exp,version);
 
     if (type == BuildType::BUILD_NONE) {
         cbu::log_error(false,"BuildType has not been defined!");
@@ -384,7 +384,7 @@ U8 mcc::compiler::build_all(mcc::config::ConfigObject *cfg,BuildType type,Platfo
 
         if (cfg->model == mcc::config::ConfigModel::EXECUTABLES_WITH_SHARED) {
             for (auto &s: cfg->sub_projects) {
-                fpath build_path = get_build_path(s,type,pt,exp);
+                fpath build_path = get_build_path(s,type,pt,exp,version);
                 if (pt == Platform::PLATFORM_WINDOWS) {
                     link_obj_files = std::format("{} {}/lib{}.dll.a",link_obj_files,cbu::path_to_utf8(build_path),s->name);
                 }
@@ -429,7 +429,7 @@ U8 mcc::compiler::build_all(mcc::config::ConfigObject *cfg,BuildType type,Platfo
             }
 
             if (cfg->model == mcc::config::ConfigModel::SINGLE_EXECUTABLE) {
-                linker_res = mcc::libs::copy_libs(link_path,cfg,type,pt,exp);
+                linker_res = mcc::libs::copy_libs(link_path,cfg,type,pt,exp,version);
                 if (linker_res) {
 
                     cbu::log_warn(std::format("Copylibs failed"));
@@ -457,7 +457,7 @@ U8 mcc::compiler::build_all(mcc::config::ConfigObject *cfg,BuildType type,Platfo
         link_obj_files = std::format("obj/main.o {} ",cbu::path_to_utf8(link_path));
         for (auto s : cfg->sub_projects) {
             cbu::log_info(std::format("Including subproject dll {}",s->name));
-            fpath build_path = get_build_path(s,type,pt,exp);
+            fpath build_path = get_build_path(s,type,pt,exp,version);
             if (pt == Platform::PLATFORM_WINDOWS) {
                 link_obj_files = std::format("{} {}/lib{}.dll.a",link_obj_files,cbu::path_to_utf8(build_path),s->name);
             }
@@ -478,7 +478,7 @@ U8 mcc::compiler::build_all(mcc::config::ConfigObject *cfg,BuildType type,Platfo
             return -1;
         }
 
-        linker_res = mcc::libs::copy_libs(link_path,cfg,type,pt,exp);
+        linker_res = mcc::libs::copy_libs(link_path,cfg,type,pt,exp,version);
         if (linker_res) {
             cbu::log_warn(std::format("Copylibs failed"));
             return -1;
