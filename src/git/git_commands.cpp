@@ -7,6 +7,7 @@
 #include "shell.hpp"
 #include "state.hpp"
 #include "stringmath.hpp"
+#include <filesystem>
 #include <format>
 
 static vector<string> separate_lines(string output) {
@@ -45,6 +46,7 @@ struct GitStatus {
 
     umap<string,GitStatus> submodules;
     string branch = "<detached>";
+    bool is_attached = true;
     bool is_remote = false;
     bool has_unsaved = false;
     S64 ahead = 0;
@@ -69,7 +71,9 @@ static GitStatus get_general_status(fpath dir) {
             cbu::log_debug(line);
 
             if (line.starts_with("# branch.head ")) {
-                status.branch = line.substr(14);
+                string branch = line.substr(14);
+                if (branch == "(detached)") status.is_attached = false;
+                else status.branch = branch;
             } else if (line.starts_with("# branch.ab ")) {
                 status.is_remote = true;
                 string full = line.substr(12);
@@ -88,7 +92,7 @@ static GitStatus get_general_status(fpath dir) {
             }
         }
 
-        if (!status.is_remote) {
+        if (!status.is_remote and status.is_attached) {
             if (cbu::run_shell_command(dir,std::format("git branch -u origin/{} {}",status.branch,status.branch),&output)) {
                 code = log_no_git();
             }
@@ -352,4 +356,74 @@ U8 mcc::git::new_branch(string from,string name) {
 
     return change_branch(name);
 }
-U8 merge(string base,string feature);
+U8 mcc::git::merge(string base,string feature) {
+    cbu::log_error(false,"Not implemented");
+
+    return -1;
+}
+static U8 fix_dir(fpath dir) {
+    string output;
+    GitStatus status = get_general_status(dir);
+    if (!status.valid) {
+        cbu::log_error(false,"Status is invalid! Does a git repository exist?");
+        return -1;
+    }
+    bool did_fix = false;
+    for (auto &[key,sub] : status.submodules) {
+        if (fix_dir(dir / key)) return -1;
+    }
+    if (!status.is_remote or !status.is_attached) {
+        did_fix = true;
+        cbu::log_warn("Git head is detached!");
+        cbu::cli_input("Enter branch name to attach to");
+        string branch;
+        if (!cbu::cli_get_valid_string(&branch)) {
+            cbu::log_error(false,"Branch cannot be empty");
+
+            return -1;
+        }
+
+        if (cbu::run_shell_command(dir,std::format("git checkout {}",branch),&output)) {
+            cbu::log_error(false,"Git checkout failed");
+
+            return -1;
+        }
+
+        cbu::log_success("Succesfully attached head!");
+    }
+    if (!did_fix) cbu::log_success("No fixes are needed");
+
+    return 0;
+}
+U8 mcc::git::fix() {
+    if (!mcc::config::valid()) return log_no_conf();
+
+    U8 code;
+    mcc::state::state_safe([&code]() {
+        code = fix_dir(mcc::state::current_project);
+    });
+
+    return code;
+}
+U8 mcc::git::clone(string target,string url) {
+    fpath dir = target;
+
+    std::filesystem::create_directories(dir.parent_path());
+    if (cbu::run_shell_command(dir.parent_path(),std::format("git clone --recurse-submodules {} {}",url,cbu::path_to_utf8(dir)),NULL)) {
+        cbu::log_error(false,"Failed to clone repository");
+
+        return -1;
+    }
+    if (fix_dir(dir)) {
+        cbu::log_error(false,"Failed to fix repository");
+
+        return -1;
+    }
+
+    cbu::log_success("Cloning succesful");
+    GitStatus status = get_general_status(dir);
+    if (!status.valid) return -1;
+    print_status_info(status);
+
+    return 0;
+}

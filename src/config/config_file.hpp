@@ -71,6 +71,7 @@ namespace mcc::config {
     enum class ExportType : U8 {
         EXPORT_DEFAULT, // Builds and does nothing else on top of it
         EXPORT_ITCHIO, // Builds with some itchio definitions and files and pushes to itchio
+        EXPORT_GITHUB, // Builds default and creates a github release. Creates a draft release first.
         // EXPORT_INSTALLER, // builds and wraps the program in a simple installer (not implemented yet)
         // EXPORT_PORTABLE, // build into a portable zip/tar.gz file (not implemented yet)
 

@@ -82,7 +82,7 @@ const char *mcc::compiler::build_type_names[size_t(BuildType::BUILD_NONE)] = {
     "release","beta","debug","editor"
 };
 const char *mcc::compiler::export_type_names[size_t(mcc::config::ExportType::EXPORT_NONE)] = {
-    "default", "itchio" // "installer", "portable"
+    "default", "itchio", "github" // "installer", "portable"
 };
 const char *mcc::compiler::platform_names[size_t(Platform::PLATFORM_NONE)] = {
     "win","linux"

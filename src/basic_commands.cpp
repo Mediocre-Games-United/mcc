@@ -56,6 +56,9 @@ void mcc::basic_commands::init() {
     mcc::add_command<string,string>("subcommit",&mcc::git::commit_all_sub,{"SubModule","CommitMessage"},"Commit all staged & unstaged changes in submodule.");
     mcc::add_command<string>("gswitch",&mcc::git::change_branch,{"BranchName"},"Syncs changes & changes branches safely");
     mcc::add_command<string,string>("newbranch",&mcc::git::new_branch,{"BaseBranch","NewBranch"},"Safely syncs & creates a new branch from base branch");
+    mcc::add_command<string,string>("gmerge",&mcc::git::merge,{"BranchTo","BranchFrom"},"Merges changes from BranchFrom to BranchTo");
+    mcc::add_command<>("gfix",&mcc::git::fix,{},"Attempts to fix any problems such as detached heads and weird states");
+    mcc::add_command<string,string>("gclone",&mcc::git::clone,{"ClonePath","SourceURL"},"Clones a git repository from url to ClonePath");
 
     cbu::log_success("Initialized basic commands");
 
