@@ -31,6 +31,12 @@ static U8 push_itchio(mcc::config::ConfigObject *cfg,mcc::version::Version versi
 
     return 0;
 }
+static U8 publish_github(mcc::config::ConfigObject *cfg,mcc::version::Version version) {
+
+
+    return 0;
+}
+
 U8 mcc::publisher::publish_all(mcc::config::ConfigObject *cfg,bool noconfirm) {
     U8 code = mcc::packager::export_all(cfg);
     if (code) return code;
@@ -43,6 +49,13 @@ U8 mcc::publisher::publish_all(mcc::config::ConfigObject *cfg,bool noconfirm) {
             cbu::cli_get_valid_bool(&confirm,true);
             if (confirm) code = push_itchio(cfg,version);
         } code = push_itchio(cfg,version);
+    }
+    if (cbu::vector_has_value(cfg->export_types,mcc::config::ExportType::EXPORT_GITHUB)) {
+        if (!noconfirm) {
+            cbu::cli_input("Publish to github? (default false)");
+            cbu::cli_get_valid_bool(&confirm,true);
+            if (confirm) code = publish_github(cfg,version);
+        } code = publish_github(cfg,version);
     }
 
     if (code) return code;
