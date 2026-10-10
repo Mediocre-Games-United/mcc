@@ -1,3 +1,6 @@
+#define CBU_RUN_SHELL_COMMAND_IMPLEMENTATION
+#include "shell.hpp"
+
 #include "background.hpp"
 #include "base_types.hpp"
 #include "cli.hpp"

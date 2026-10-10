@@ -201,6 +201,11 @@ static U8 publish_program() {
     return 0;
 }
 static U8 install() {
+    if (!mcc::config::valid()) {
+        cbu::log_error(false,"No valid config found. Generate one with `config`");
+
+        return 1;
+    }
     U8 code;
     mcc::state::state_safe([&code]() {
         log_config(mcc::state::active_config);

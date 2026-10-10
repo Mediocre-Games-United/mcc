@@ -14,4 +14,5 @@ namespace mcc::git {
     U8 merge(string base,string feature);
     U8 fix();
     U8 clone(string target,string url);
+    U8 discard();
 }
