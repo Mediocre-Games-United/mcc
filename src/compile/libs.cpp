@@ -6,6 +6,7 @@
 #include "logger.hpp"
 #include "shell.hpp"
 #include "stringmath.hpp"
+#include "version.hpp"
 #include <filesystem>
 #include <format>
 
@@ -14,8 +15,8 @@ using namespace mcc::config;
 static string get_extract_cmd_win(fpath exe_file) {
     return std::format("/usr/bin/x86_64-w64-mingw32-objdump -p {} | awk \'$1 == \"DLL\" && $2 == \"Name:\" {{ print $3 }}\'",cbu::path_to_utf8(exe_file));
 }
-U8 mcc::libs::copy_libs(fpath exe_file,mcc::config::ConfigObject *cfg,mcc::compiler::BuildType tp,mcc::compiler::Platform pt,mcc::config::ExportType exp) {
-    fpath build_path = mcc::compiler::get_build_path(cfg,tp,pt,exp);
+U8 mcc::libs::copy_libs(fpath exe_file,mcc::config::ConfigObject *cfg,mcc::compiler::BuildType tp,mcc::compiler::Platform pt,mcc::config::ExportType exp,mcc::version::Version version) {
+    fpath build_path = mcc::compiler::get_build_path(cfg,tp,pt,exp,version);
     cbu::log_info("Copying libs...");
 
     string output = "";
@@ -102,7 +103,7 @@ U8 mcc::libs::copy_libs(fpath exe_file,mcc::config::ConfigObject *cfg,mcc::compi
                     });
                 }
 
-                fpath bpath = mcc::compiler::get_build_path(s,tp,pt,exp);
+                fpath bpath = mcc::compiler::get_build_path(s,tp,pt,exp,version);
                 string nm = s->name + ".dll";
 
                 std::error_code ec;

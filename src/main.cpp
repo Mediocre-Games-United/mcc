@@ -1,3 +1,7 @@
+#include "cbu_state.hpp"
+#define CBU_RUN_SHELL_COMMAND_IMPLEMENTATION
+#include "shell.hpp"
+
 #include "background.hpp"
 #include "base_types.hpp"
 #include "cli.hpp"
@@ -15,7 +19,7 @@
 
 volatile size_t mcc::interrupt_count = 0;
 std::mutex mcc::interrupt_mutex{};
-std::mutex cbu::cli_mutex;
+cbu::GlobalCBUState cbu::global_state{};
 
 static bool is_running = true;
 int standard_mode(string cmd) {
@@ -120,11 +124,6 @@ int main(int argc,char *argv[]) {
 
     mcc::end_background();
     cbu::deinit();
-    cbu::log_success("Closed succesfully");
+    cbu::log_debug("Closed succesfully");
     return exit;
-}
-
-cbu::WorkerState *cbu::get_state() {
-    static cbu::WorkerState wstate{};
-    return &wstate;
 }

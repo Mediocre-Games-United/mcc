@@ -16,7 +16,7 @@ static vector<mcc::compiler::BuildType> export_types = {mcc::compiler::BuildType
 static U8 push_itchio(mcc::config::ConfigObject *cfg,mcc::version::Version version) {
     for (auto &pt : export_platforms) {
         for (auto &tp : export_types) {
-            fpath export_path = mcc::compiler::get_export_path(cfg,mcc::config::ExportType::EXPORT_ITCHIO,tp,pt);
+            fpath export_path = mcc::compiler::get_export_path(cfg,mcc::config::ExportType::EXPORT_ITCHIO,tp,pt,version);
 
             cbu::log_info(std::format("itchio export: {}",cbu::path_to_utf8(export_path)));
 
@@ -31,10 +31,17 @@ static U8 push_itchio(mcc::config::ConfigObject *cfg,mcc::version::Version versi
 
     return 0;
 }
-U8 mcc::publisher::publish_all(mcc::config::ConfigObject *cfg,mcc::version::Version version,bool noconfirm) {
-    U8 code = mcc::packager::export_all(cfg,version);
+static U8 publish_github(mcc::config::ConfigObject *cfg,mcc::version::Version version) {
+
+
+    return 0;
+}
+
+U8 mcc::publisher::publish_all(mcc::config::ConfigObject *cfg,bool noconfirm) {
+    U8 code = mcc::packager::export_all(cfg);
     if (code) return code;
 
+    auto version = cfg->version;
     bool confirm;
     if (cbu::vector_has_value(cfg->export_types,mcc::config::ExportType::EXPORT_ITCHIO)) {
         if (!noconfirm) {
@@ -42,6 +49,13 @@ U8 mcc::publisher::publish_all(mcc::config::ConfigObject *cfg,mcc::version::Vers
             cbu::cli_get_valid_bool(&confirm,true);
             if (confirm) code = push_itchio(cfg,version);
         } code = push_itchio(cfg,version);
+    }
+    if (cbu::vector_has_value(cfg->export_types,mcc::config::ExportType::EXPORT_GITHUB)) {
+        if (!noconfirm) {
+            cbu::cli_input("Publish to github? (default false)");
+            cbu::cli_get_valid_bool(&confirm,true);
+            if (confirm) code = publish_github(cfg,version);
+        } code = publish_github(cfg,version);
     }
 
     if (code) return code;
