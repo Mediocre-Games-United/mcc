@@ -29,6 +29,7 @@ static mcc::compiler::BuildType default_buildtype = mcc::compiler::BuildType::BU
 static U8 create_package_optimized(string tp,string pt);
 static U8 run_program();
 static U8 list_all_commands();
+static U8 list_cmd(string cmd);
 static U8 export_program();
 static U8 publish_program();
 static U8 clean_all();
@@ -39,6 +40,7 @@ static std::unordered_map<cbu::StringName,mcc::compiler::Platform> build_platfor
 
 void mcc::basic_commands::init() {
     mcc::add_command<>("help",&list_all_commands,{},"Displays this help menu :woah:");
+    mcc::add_command<string>("h",&list_cmd,{"CommandName"},"Displays a help menu for 1 command");
     mcc::add_command<>("quit",(U8(*)()) NULL,{},"Quits the program (shocker!!)");
 
     mcc::add_command<>("config",&mcc::config::cmd,{},"Opens the config menu for creating, editing & selecting configs.");
@@ -90,10 +92,25 @@ void mcc::basic_commands::init() {
     build_platform_string_lookup["l"] = mcc::compiler::Platform::PLATFORM_LINUX;
 }
 
+static void print_cmd(mcc::cmdinfo &cmd) {
+    cbu::cli_output(std::format("[{}] {}\n",cmd.name,cmd.help_example));
+}
+static U8 list_cmd(string cmd) {
+    auto commands = mcc::list_commands();
+    for (auto &c : commands) {
+        if (c.name != cmd) continue;
+
+        print_cmd(c);
+        return 0;
+    }
+
+    cbu::log_warn("Command not found!");
+    return -1;
+}
 static U8 list_all_commands() {
     auto commands = mcc::list_commands();
     for (auto &cmd : commands) {
-        cbu::cli_output(std::format("[{}] {}\n",cmd.name,cmd.help_example));
+        print_cmd(cmd);
     }
 
     return 0;
