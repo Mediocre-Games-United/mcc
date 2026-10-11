@@ -29,6 +29,7 @@ static mcc::compiler::BuildType default_buildtype = mcc::compiler::BuildType::BU
 static U8 create_package_optimized(string tp,string pt);
 static U8 run_program();
 static U8 list_all_commands();
+static U8 list_cmd(string cmd);
 static U8 export_program();
 static U8 publish_program();
 static U8 clean_all();
@@ -39,6 +40,7 @@ static std::unordered_map<cbu::StringName,mcc::compiler::Platform> build_platfor
 
 void mcc::basic_commands::init() {
     mcc::add_command<>("help",&list_all_commands,{},"Displays this help menu :woah:");
+    mcc::add_command<string>("h",&list_cmd,{"CommandName"},"Displays a help menu for 1 command");
     mcc::add_command<>("quit",(U8(*)()) NULL,{},"Quits the program (shocker!!)");
 
     mcc::add_command<>("config",&mcc::config::cmd,{},"Opens the config menu for creating, editing & selecting configs.");
@@ -51,14 +53,20 @@ void mcc::basic_commands::init() {
     mcc::add_command<>("clean",&clean_all,{},"Remove all build & export files");
     mcc::add_command<>("gsync",&mcc::git::sync,{},"Safe push & pull from git remotes");
     mcc::add_command<>("gundo",&mcc::git::undo,{},"Undo local commit");
+    mcc::add_command<string>("subundo",&mcc::git::subundo,{"SubModule"},"Undo local commit in submodule");
     mcc::add_command<>("gstatus",&mcc::git::status,{},"Show git status");
     mcc::add_command<string>("commit",&mcc::git::commit_all,{"CommitMessage"},"Commit all staged & unstaged changes.");
     mcc::add_command<string,string>("subcommit",&mcc::git::commit_all_sub,{"SubModule","CommitMessage"},"Commit all staged & unstaged changes in submodule.");
+    mcc::add_command<string>("gswitch",&mcc::git::change_branch,{"BranchName"},"Syncs changes & changes branches safely");
+    mcc::add_command<string,string>("newbranch",&mcc::git::new_branch,{"BaseBranch","NewBranch"},"Safely syncs & creates a new branch from base branch");
+    mcc::add_command<string,string>("gmerge",&mcc::git::merge,{"BranchTo","BranchFrom"},"Merges changes from BranchFrom to BranchTo");
+    mcc::add_command<>("gfix",&mcc::git::fix,{},"Attempts to fix any problems such as detached heads and weird states");
+    mcc::add_command<string,string>("gclone",&mcc::git::clone,{"ClonePath","SourceURL"},"Clones a git repository from url to ClonePath");
 
-    cbu::log_success("Initialized basic commands");
+    cbu::log_debug("Initialized basic commands");
 
     mcc::config::init();
-    cbu::log_success("Initialized config");
+    cbu::log_debug("Initialized config");
 
     state::state_safe([]() {
         state::active_build = default_buildtype;
@@ -84,10 +92,25 @@ void mcc::basic_commands::init() {
     build_platform_string_lookup["l"] = mcc::compiler::Platform::PLATFORM_LINUX;
 }
 
+static void print_cmd(mcc::cmdinfo &cmd) {
+    cbu::cli_output(std::format("[{}] {}\n",cmd.name,cmd.help_example));
+}
+static U8 list_cmd(string cmd) {
+    auto commands = mcc::list_commands();
+    for (auto &c : commands) {
+        if (c.name != cmd) continue;
+
+        print_cmd(c);
+        return 0;
+    }
+
+    cbu::log_warn("Command not found!");
+    return -1;
+}
 static U8 list_all_commands() {
     auto commands = mcc::list_commands();
     for (auto &cmd : commands) {
-        cbu::cli_output(std::format("[{}] {}\n",cmd.name,cmd.help_example));
+        print_cmd(cmd);
     }
 
     return 0;
@@ -119,7 +142,7 @@ static U8 create_package() {
         mcc::config::update_config(mcc::state::active_config);
         code = mcc::compiler::build_all(mcc::state::active_config,type,platform,mcc::state::active_config->version,mcc::config::ExportType::EXPORT_NONE);
         if (code) return;
-        code = mcc::packager::package_all(mcc::state::active_config,type,platform,mcc::config::ExportType::EXPORT_NONE);
+        code = mcc::packager::package_all(mcc::state::active_config,type,platform,mcc::config::ExportType::EXPORT_NONE,mcc::state::active_config->version);
     });
 
     return code;
@@ -153,7 +176,7 @@ static U8 run_program() {
 
     fpath build_path;
     mcc::state::state_safe([&build_path]() {
-        build_path = mcc::compiler::get_build_path(mcc::state::active_config,type,platform,mcc::config::ExportType::EXPORT_NONE);
+        build_path = mcc::compiler::get_build_path(mcc::state::active_config,type,platform,mcc::config::ExportType::EXPORT_NONE,mcc::state::active_config->version);
     });
 
     cbu::log_info("Starting program...");
@@ -173,7 +196,7 @@ static U8 export_program() {
         log_config(mcc::state::active_config);
 
         mcc::config::update_config(mcc::state::active_config);
-        code = mcc::packager::export_all(mcc::state::active_config,mcc::state::active_config->version);
+        code = mcc::packager::export_all(mcc::state::active_config);
     });
 
     return code;
@@ -186,7 +209,7 @@ static U8 publish_program() {
         log_config(mcc::state::active_config);
 
         mcc::config::update_config(mcc::state::active_config);
-        res = mcc::publisher::publish_all(mcc::state::active_config,mcc::state::active_config->version,true);
+        res = mcc::publisher::publish_all(mcc::state::active_config,false);
     });
     if (res) {
         cbu::log_error(false,"Publish failed");
@@ -196,6 +219,11 @@ static U8 publish_program() {
     return 0;
 }
 static U8 install() {
+    if (!mcc::config::valid()) {
+        cbu::log_error(false,"No valid config found. Generate one with `config`");
+
+        return 1;
+    }
     U8 code;
     mcc::state::state_safe([&code]() {
         log_config(mcc::state::active_config);

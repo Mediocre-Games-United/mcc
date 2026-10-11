@@ -7,6 +7,7 @@
 #include <filesystem>
 #include <format>
 #include <fstream>
+#include "file.hpp"
 
 using namespace mcc::config;
 static U8 install_linux_package(ExternalPackage pck) {
