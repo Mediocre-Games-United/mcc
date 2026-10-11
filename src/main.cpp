@@ -124,6 +124,6 @@ int main(int argc,char *argv[]) {
 
     mcc::end_background();
     cbu::deinit();
-    cbu::log_success("Closed succesfully");
+    cbu::log_debug("Closed succesfully");
     return exit;
 }

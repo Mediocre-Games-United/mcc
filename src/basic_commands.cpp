@@ -63,10 +63,10 @@ void mcc::basic_commands::init() {
     mcc::add_command<>("gfix",&mcc::git::fix,{},"Attempts to fix any problems such as detached heads and weird states");
     mcc::add_command<string,string>("gclone",&mcc::git::clone,{"ClonePath","SourceURL"},"Clones a git repository from url to ClonePath");
 
-    cbu::log_success("Initialized basic commands");
+    cbu::log_debug("Initialized basic commands");
 
     mcc::config::init();
-    cbu::log_success("Initialized config");
+    cbu::log_debug("Initialized config");
 
     state::state_safe([]() {
         state::active_build = default_buildtype;
