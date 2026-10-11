@@ -1,4 +1,5 @@
 #include "git_commands.hpp"
+#include "ansi.hpp"
 #include "base_types.hpp"
 #include "cli.hpp"
 #include "commands.hpp"
@@ -51,6 +52,10 @@ struct GitStatus {
     bool has_unsaved = false;
     S64 ahead = 0;
     S64 behind = 0;
+
+    vector<string> modified;
+    vector<string> deleted;
+    vector<string> untracked;
 };
 static GitStatus get_general_status(fpath dir) {
     GitStatus status{};
@@ -87,8 +92,22 @@ static GitStatus get_general_status(fpath dir) {
                 status.behind = stoi(b);
             } else if (line.starts_with("#")) {
 
-            } else {
-                status.has_unsaved = true;
+            } else if (line.starts_with("1")) {
+                auto split = cbu::string_split(line," ");
+                if (split.size() < 9) continue;
+
+                if (split[2] == "S.M.") split[8] = std::format("Submodule: \"{}\"",split[8]);
+                else status.has_unsaved = true;
+                if (split[1] == ".M") { // modified
+                    status.modified.push_back(split[8]);
+                } else if (split[1] == ".D") {
+                    status.deleted.push_back(split[8]);
+                } else {
+                    cbu::log_warn(std::format("Unrecognized git status {}!",split[1]));
+                }
+            } else if (line.starts_with("?")) {
+                auto split = cbu::string_split(line," ");
+                status.untracked.push_back(split[1]);
             }
         }
 
@@ -202,25 +221,39 @@ static U8 fix_dir(fpath dir) {
 
     return 0;
 }
-static void print_status_info(GitStatus status) {
+static void print_status_info(GitStatus status,bool full) {
     cbu::cli_output(std::format("Current branch: {}",status.branch));
     if (status.is_remote) {
         cbu::cli_output(std::format("{} Commit{} behind remote",status.behind,cbu::string_n("","s",status.behind)));
         cbu::cli_output(std::format("{} Commit{} ahead remote",status.ahead,cbu::string_n("","s",status.ahead)));
     } if (status.has_unsaved) {
-        cbu::cli_output("Has unsaved changes.");
+        cbu::cli_output("Has unsaved changes.",cbu::ansi_color_orange);
+    }
+
+    if (full) {
+
+        if (!status.modified.empty() or !status.deleted.empty() or !status.untracked.empty()) cbu::cli_output("---");
+        for (auto &s : status.modified) {
+            cbu::cli_output(std::format("Modified: {}",s));
+        } if (!status.modified.empty()) cbu::cli_output("-");
+        for (auto &s : status.deleted) {
+            cbu::cli_output(std::format("Deleted: {}",s),cbu::ansi_color_red);
+        } if (!status.deleted.empty()) cbu::cli_output("-");
+        for (auto &s : status.untracked) {
+            cbu::cli_output(std::format("Untracked: {}",s));
+        }
     }
 
     for (auto &[key,stat] : status.submodules) {
         cbu::cli_output(std::format("---\nSubmodule {}",key));
-        print_status_info(stat);
+        print_status_info(stat,full);
     }
 }
-static U8 print_status_full(fpath dir) {
+static U8 print_status_full(fpath dir,bool full) {
     GitStatus status = get_general_status(dir);
     if (!status.valid) return -1;
 
-    print_status_info(status);
+    print_status_info(status,full);
 
     return 0;
 }
@@ -272,39 +305,51 @@ U8 mcc::git::sync() {
         code = sync_dir(status,mcc::state::current_project);
         if (code) return;
 
-        print_status_full(dir);
+        print_status_full(dir,false);
     });
 
     return code;
+}
+
+static U8 undo_dir(fpath dir) {
+    GitStatus status = get_general_status(dir);
+
+    if (!status.valid) return -1;
+    string output;
+
+    if (!status.is_remote) {
+        cbu::log_error(false,"Your branch is not connected to the remote!");
+
+        return -1;
+    }
+    if (status.ahead <= 0) {
+        bool res;
+        cbu::cli_input("Your branch is not ahead of the remote, undoing now will go back in time by 1 commit. Proceed? (default false)");
+        cbu::cli_get_valid_bool(&res,true);
+        if (!res) return 1;
+    }
+    U8 code = cbu::run_shell_command(mcc::state::active_config->directory,"git reset HEAD~1",&output);
+    if (code) { log_no_git(); return code; }
+
+    print_status_full(dir,true);
+    return 0;
 }
 U8 mcc::git::undo() {
     if (!mcc::config::valid()) return log_no_conf();
 
     U8 code = 0;
     mcc::state::state_safe([&code]() {
-        fpath dir = mcc::state::current_project;
-        GitStatus status = get_general_status(dir);
+        code = undo_dir(mcc::state::current_project);
+    });
 
-        if (!status.valid) { code = -1; return; }
-        string output;
+    return code;
+}
+U8 mcc::git::subundo(string sub) {
+    if (!mcc::config::valid()) return log_no_conf();
 
-        if (!status.is_remote) {
-            cbu::log_error(false,"Your branch is not connected to the remote!");
-
-            code = -1;
-            return;
-        }
-        if (status.ahead <= 0) {
-            bool res;
-            cbu::cli_input("Your branch is not ahead of the remote, undoing now will go back in time by 1 commit. Proceed? (default false)");
-            cbu::cli_get_valid_bool(&res,true);
-
-            return;
-        }
-        code = cbu::run_shell_command(mcc::state::active_config->directory,"git reset HEAD~1",&output);
-        if (code) { log_no_git(); return; }
-
-        print_status_full(dir);
+    U8 code = 0;
+    mcc::state::state_safe([&code,sub]() {
+        code = undo_dir(mcc::state::current_project / sub);
     });
 
     return code;
@@ -314,7 +359,7 @@ U8 mcc::git::status() {
 
     U8 code = 0;
     mcc::state::state_safe([&code]() {
-        code = print_status_full(mcc::state::current_project);
+        code = print_status_full(mcc::state::current_project,true);
     });
 
     return code;
@@ -336,13 +381,14 @@ U8 mcc::git::commit_all(string msg) {
             return;
         }
 
-        code = cbu::run_shell_command(mcc::state::current_project,"git add .",&output);
+        code = cbu::run_shell_command(dir,"git add .",&output);
         if (code) { log_no_git(); return; }
-        code = cbu::run_shell_command(mcc::state::current_project,std::format("git commit -m \"{}\"",msg),&output);
+        code = cbu::run_shell_command(dir,std::format("git commit -m \"{}\"",msg),&output);
         if (code) { log_no_git(); return; }
 
         cbu::log_success("Commit succesful");
     });
+
 
     return code;
 }
@@ -362,9 +408,9 @@ U8 mcc::git::commit_all_sub(string sub,string msg) {
             return;
         }
 
-        code = cbu::run_shell_command(mcc::state::current_project,"git add .",&output);
+        code = cbu::run_shell_command(dir,"git add .",&output);
         if (code) { log_no_git(); return; }
-        code = cbu::run_shell_command(mcc::state::current_project,std::format("git commit -m \"{}\"",msg),&output);
+        code = cbu::run_shell_command(dir,std::format("git commit -m \"{}\"",msg),&output);
         if (code) { log_no_git(); return; }
 
         cbu::log_success("Commit succesful");
@@ -392,7 +438,7 @@ U8 mcc::git::change_branch(string target) {
         code = sync_dir(status,dir);
         if (code) return;
 
-        code = print_status_full(dir);
+        code = print_status_full(dir,false);
     });
 
     return code;
@@ -462,7 +508,7 @@ U8 mcc::git::clone(string target,string url) {
     cbu::log_success("Cloning succesful");
     GitStatus status = get_general_status(dir);
     if (!status.valid) return -1;
-    print_status_info(status);
+    print_status_info(status,true);
 
     return 0;
 }
