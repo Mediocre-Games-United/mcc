@@ -623,10 +623,33 @@ U8 mcc::git::clone(string target,string url) {
     return 0;
 }
 
-U8 mcc::git::safe_clean() {
-    cbu::log_error(true,"Not implemented");
+static umap<string,string> get_stashes_names(fpath dir) {
+    string output;
+    if (cbu::run_shell_command(dir,"git stash list",&output)) {
+        return {};
+    }
+    umap<string,string> list{};
+    vector<string> split = cbu::string_split(output,"\n");
+    for (auto &s : split) {
+        cbu::log_debug(s);
+    }
 
-    return 0;
+    return list;
+}
+static void remove_stashes_with_name(fpath dir,string name) {
+    auto list = get_stashes_names(dir);
+}
+U8 mcc::git::safe_clean() {
+    U8 code = 0;
+    mcc::state::state_safe([&code]() {
+        fpath dir = mcc::state::current_project;
+
+        string output;
+        remove_stashes_with_name(dir,"mcc:clean_autosave");
+        // if (cbu::run_shell_command(dir,"git stash -m \"mcc:clean_autosave\"",&output)) { code = -1; return; }
+    });
+
+    return code;
 }
 U8 mcc::git::stash_all() {
     cbu::log_error(true,"Not implemented");
