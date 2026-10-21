@@ -103,10 +103,16 @@ static GitStatus get_general_status(fpath dir,bool get_network) {
 
                 if (split[2] == "S.M.") split[8] = std::format("Submodule: \"{}\"",split[8]);
                 else status.has_unsaved = true;
-                if (split[1] == ".M") { // modified
+                if (split[1][0] == 'M') { // modified, staged
                     status.modified.push_back(split[8]);
-                } else if (split[1] == ".D") {
+                } else if (split[1][1] == 'M') { // modified, unstaged
+                    status.modified.push_back(split[8]);
+                } else if (split[1][0] == 'D') { // deleted, staged
                     status.deleted.push_back(split[8]);
+                } else if (split[1][1] == 'D') { // deleted, unstaged
+                    status.deleted.push_back(split[8]);
+                } else if (split[1][0] == 'A') { // new, staged
+                    status.modified.push_back(split[8]);
                 } else {
                     cbu::log_warn(std::format("Unrecognized git status {}!",split[1]));
                 }
@@ -168,7 +174,7 @@ static U8 sync_dir(GitStatus status,fpath dir) {
             return -1;
         }
 
-        cbu::log_success("Automatic restore succesful");
+        cbu::log_success("Automatic rebase succesful with no conflicts detected!");
     }
 
     if (status.ahead > 0) {
@@ -229,25 +235,41 @@ static U8 fix_dir(fpath dir) {
     return 0;
 }
 static void print_status_info(GitStatus status,bool full) {
-    cbu::cli_output(std::format("Current branch: {}",status.branch));
+    string label = std::format("Current branch: {}",status.branch);
+    if (status.has_unsaved) {
+        label = std::format("{}, {}",label,cbu::ansi_wrap_string("Has unsaved changes.",cbu::ansi_color_orange));
+    }
+
+    cbu::cli_output(label);
     if (status.is_remote) {
-        cbu::cli_output(std::format("{} Commit{} behind remote",status.behind,cbu::string_n("","s",status.behind)));
-        cbu::cli_output(std::format("{} Commit{} ahead remote",status.ahead,cbu::string_n("","s",status.ahead)));
-    } if (status.has_unsaved) {
-        cbu::cli_output("Has unsaved changes.",cbu::ansi_color_orange);
+        string ahead_label = "";
+        string behind_label = "";
+
+        if (status.behind <= 0) {
+            behind_label = cbu::ansi_wrap_string("0 Commits behind",cbu::ansi_color_green);
+        } else {
+            behind_label = cbu::ansi_wrap_string(std::format("{} Commit{} behind",status.behind,cbu::string_n("","s",status.behind)),cbu::ansi_color_yellow);
+        }
+        if (status.ahead <= 0) {
+            ahead_label = cbu::ansi_wrap_string("0 Commits ahead",cbu::ansi_color_green);
+        } else {
+            ahead_label = cbu::ansi_wrap_string(std::format("{} Commit{} ahead",status.ahead,cbu::string_n("","s",status.ahead)),cbu::ansi_color_yellow);
+        }
+
+        cbu::cli_output(std::format("Remote: {}, {}",behind_label,ahead_label));
     }
 
     if (full) {
 
         if (!status.modified.empty() or !status.deleted.empty() or !status.untracked.empty()) cbu::cli_output("---");
         for (auto &s : status.modified) {
-            cbu::cli_output(std::format("Modified: {}",s));
-        } if (!status.modified.empty()) cbu::cli_output("-");
+            cbu::cli_output(std::format("{}: {}",cbu::ansi_wrap_string("Modified",cbu::ansi_color_orange),s));
+        } if (!status.modified.empty() and (!status.deleted.empty() or !status.untracked.empty())) cbu::cli_output("-");
         for (auto &s : status.deleted) {
-            cbu::cli_output(std::format("Deleted: {}",s),cbu::ansi_color_red);
-        } if (!status.deleted.empty()) cbu::cli_output("-");
+            cbu::cli_output(std::format("{}: {}",cbu::ansi_wrap_string("Deleted",cbu::ansi_color_red),s));
+        } if (!status.deleted.empty() and !status.untracked.empty()) cbu::cli_output("-");
         for (auto &s : status.untracked) {
-            cbu::cli_output(std::format("Untracked: {}",s));
+            cbu::cli_output(std::format("{}: {}",cbu::ansi_wrap_string("Untracked",cbu::ansi_color_lime),s));
         }
     }
 
