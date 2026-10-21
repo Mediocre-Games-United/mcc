@@ -322,11 +322,19 @@ U8 mcc::config::reload() {
 }
 void mcc::config::background() {
     mcc::state::state_safe([]() {
-        if (!mcc::state::active_config) return;
+        cf *cfg = mcc::state::active_config;
+        if (!cfg) return;
 
-        update_config(mcc::state::active_config);
-        auto fmt = ConfigFileFormat();
-        fmt.save_config(mcc::state::active_config);
+        if (!cfg->is_temp) {
+            auto fmt = ConfigFileFormat();
+            fmt.load_file_to_buffer(cfg->directory / FNAME);
+            fmt.load_buffer_to_object(cfg);
+
+            update_config(cfg);
+            fmt.save_config(cfg);
+        } else {
+            update_config(cfg);
+        }
     });
 }
 
@@ -450,6 +458,9 @@ bool mcc::config::set_name_current(string name) {
     }
 
 
+    auto fmt = ConfigFileFormat();
+    fmt.load_file_to_buffer(obj->directory / FNAME);
+    fmt.load_buffer_to_object(obj);
     mcc::state::state_safe([obj]() {
         mcc::state::active_config = obj;
         mcc::state::current_project = obj->directory;

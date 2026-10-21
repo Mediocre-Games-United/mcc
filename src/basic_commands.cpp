@@ -62,9 +62,9 @@ void mcc::basic_commands::init() {
     mcc::add_command<string,string>("gmerge",&mcc::git::merge,{"BranchTo","BranchFrom"},"Merges changes from BranchFrom to BranchTo");
     mcc::add_command<>("gfix",&mcc::git::fix,{},"Attempts to fix any problems such as detached heads and weird states");
     mcc::add_command<string,string>("gclone",&mcc::git::clone,{"ClonePath","SourceURL"},"Clones a git repository from url to ClonePath");
-    mcc::add_command<>("gclean",&mcc::git::safe_clean,{},"Discards all changes! Dangerous! If done accidentally, use gstash to undo the clean.");
-    mcc::add_command<>("gstash",&mcc::git::stash_all,{},"Stashes all changes.");
-    mcc::add_command<>("grestore",&mcc::git::restore_stashes,{},"Restores available stashes.");
+    mcc::add_command<>("gclean",&mcc::git::safe_clean,{},"Discards all changes! Dangerous! If done accidentally, use gstash to undo the clean");
+    mcc::add_command<>("gstash",&mcc::git::stash_all,{},"Stashes all changes");
+    mcc::add_command<>("grestore",&mcc::git::restore_stashes,{},"Restores available stashes");
 
     cbu::log_debug("Initialized basic commands");
 

@@ -407,6 +407,7 @@ U8 mcc::git::sync() {
 
         print_status_full(dir,false);
     });
+    mcc::config::background();
 
     return code;
 }
@@ -441,6 +442,7 @@ U8 mcc::git::undo() {
     mcc::state::state_safe([&code]() {
         code = undo_dir(mcc::state::current_project);
     });
+    mcc::config::background();
 
     return code;
 }
@@ -451,6 +453,7 @@ U8 mcc::git::subundo(string sub) {
     mcc::state::state_safe([&code,sub]() {
         code = undo_dir(mcc::state::current_project / sub);
     });
+    mcc::config::background();
 
     return code;
 }
@@ -544,6 +547,7 @@ U8 mcc::git::change_branch(string target) {
 
         code = print_status_full(dir,false);
     });
+    mcc::config::background();
 
     return code;
 }
@@ -576,6 +580,7 @@ U8 mcc::git::new_branch(string from,string name) {
 
         code = checkout_branch(dir,name);
     });
+    mcc::config::background();
 
     return code;
 }
@@ -591,6 +596,7 @@ U8 mcc::git::fix() {
     mcc::state::state_safe([&code]() {
         code = fix_dir(mcc::state::current_project);
     });
+    mcc::config::background();
 
     return code;
 }
