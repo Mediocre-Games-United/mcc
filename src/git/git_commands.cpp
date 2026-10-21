@@ -65,6 +65,7 @@ static GitStatus get_general_status(fpath dir,bool get_network) {
 
     while (true) {
         if (get_network) {
+            cbu::cli_output("Fetching git status from remote...");
             if (cbu::run_shell_command(dir,"git fetch",&output)) {
                 code = log_no_git();
                 return {.valid = false};
