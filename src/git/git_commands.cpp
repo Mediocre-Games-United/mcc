@@ -57,18 +57,22 @@ struct GitStatus {
     vector<string> deleted;
     vector<string> untracked;
 };
-static GitStatus get_general_status(fpath dir) {
+static GitStatus get_general_status(fpath dir,bool get_network) {
     GitStatus status{};
 
     string output;
     U8 code = 0;
 
     while (true) {
-        if (cbu::run_shell_command(dir,"git fetch",&output)) {
-            code = log_no_git();
+        if (get_network) {
+            if (cbu::run_shell_command(dir,"git fetch",&output)) {
+                code = log_no_git();
+                return {.valid = false};
+            }
         }
-        else if (cbu::run_shell_command(dir,"git status --porcelain=v2 --branch -z",&output)) {
+        if (cbu::run_shell_command(dir,"git status --porcelain=v2 --branch -z",&output)) {
             code = log_no_git();
+            return {.valid = false};
         }
         if (code) return {.valid = false};
 
@@ -111,12 +115,14 @@ static GitStatus get_general_status(fpath dir) {
             }
         }
 
-        if (!status.is_remote and status.is_attached) {
-            if (cbu::run_shell_command(dir,std::format("git branch -u origin/{} {}",status.branch,status.branch),&output)) {
-                code = log_no_git();
+        if (get_network) {
+            if (!status.is_remote and status.is_attached) {
+                if (cbu::run_shell_command(dir,std::format("git branch -u origin/{} {}",status.branch,status.branch),&output)) {
+                    code = log_no_git();
+                }
+                if (code) return {.valid = false};
+                continue;
             }
-            if (code) return {.valid = false};
-            continue;
         }
 
         break;
@@ -132,7 +138,7 @@ static GitStatus get_general_status(fpath dir) {
         string commit = split[0];
         string path = split[1];
 
-        status.submodules[path] = get_general_status(dir / path);
+        status.submodules[path] = get_general_status(dir / path,get_network);
     }
 
 
@@ -189,7 +195,7 @@ static U8 sync_dir(GitStatus status,fpath dir) {
 
 static U8 fix_dir(fpath dir) {
     string output;
-    GitStatus status = get_general_status(dir);
+    GitStatus status = get_general_status(dir,true);
     if (!status.valid) {
         cbu::log_error(false,"Status is invalid! Does a git repository exist?");
         return -1;
@@ -250,7 +256,7 @@ static void print_status_info(GitStatus status,bool full) {
     }
 }
 static U8 print_status_full(fpath dir,bool full) {
-    GitStatus status = get_general_status(dir);
+    GitStatus status = get_general_status(dir,true);
     if (!status.valid) return -1;
 
     print_status_info(status,full);
@@ -272,7 +278,7 @@ static U8 prompt_remove_unsaved(fpath dir) {
 }
 static U8 checkout_branch(fpath dir,string target) {
     string output;
-    GitStatus status = get_general_status(dir);
+    GitStatus status = get_general_status(dir,true);
 
     if (!status.valid) return -1;
     if (status.has_unsaved and prompt_remove_unsaved(dir)) return -1;
@@ -298,7 +304,7 @@ U8 mcc::git::sync() {
     mcc::state::state_safe([&code]() {
         fpath dir = mcc::state::current_project;
 
-        GitStatus status = get_general_status(dir);
+        GitStatus status = get_general_status(dir,true);
         if (!status.valid) { code = -1; return; }
         if (status.has_unsaved and prompt_remove_unsaved(dir)) { code = -1; return; }
 
@@ -312,7 +318,7 @@ U8 mcc::git::sync() {
 }
 
 static U8 undo_dir(fpath dir) {
-    GitStatus status = get_general_status(dir);
+    GitStatus status = get_general_status(dir,true);
 
     if (!status.valid) return -1;
     string output;
@@ -373,7 +379,7 @@ U8 mcc::git::commit_all(string msg) {
         fpath dir = mcc::state::current_project;
         string output;
 
-        GitStatus status = get_general_status(dir);
+        GitStatus status = get_general_status(dir,false);
 
         if (!status.valid) { code = -1; return; }
         if (!status.has_unsaved) {
@@ -387,6 +393,8 @@ U8 mcc::git::commit_all(string msg) {
         if (code) { log_no_git(); return; }
 
         cbu::log_success("Commit succesful");
+        status = get_general_status(dir,false);
+        print_status_info(status,true);
     });
 
 
@@ -400,7 +408,7 @@ U8 mcc::git::commit_all_sub(string sub,string msg) {
         fpath dir = mcc::state::current_project / sub;
         string output;
 
-        GitStatus status = get_general_status(dir);
+        GitStatus status = get_general_status(dir,false);
 
         if (!status.valid) { code = -1; return; }
         if (!status.has_unsaved) {
@@ -414,6 +422,8 @@ U8 mcc::git::commit_all_sub(string sub,string msg) {
         if (code) { log_no_git(); return; }
 
         cbu::log_success("Commit succesful");
+        status = get_general_status(dir,false);
+        print_status_info(status,true);
     });
 
     return code;
@@ -427,7 +437,7 @@ U8 mcc::git::change_branch(string target) {
         code = checkout_branch(dir,target);
         if (code) return;
 
-        GitStatus status = get_general_status(dir);
+        GitStatus status = get_general_status(dir,true);
         if (!status.valid) {
             cbu::log_error(false,"Failed to get status after checkout");
 
@@ -506,7 +516,7 @@ U8 mcc::git::clone(string target,string url) {
     }
 
     cbu::log_success("Cloning succesful");
-    GitStatus status = get_general_status(dir);
+    GitStatus status = get_general_status(dir,true);
     if (!status.valid) return -1;
     print_status_info(status,true);
 
