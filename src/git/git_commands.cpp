@@ -630,8 +630,9 @@ U8 mcc::git::clean() {
         fpath dir = mcc::state::current_project;
 
         string output;
-        if (cbu::run_shell_command(dir,"git reset --hard git clean -fd",&output)) { code = -1; return; }
+        if (cbu::run_shell_command(dir,"git reset --hard; git clean -fd",&output)) { code = -1; return; }
     });
+    if (code) return code;
 
     cbu::log_success("Unsaved changes discarded succesfully");
 
