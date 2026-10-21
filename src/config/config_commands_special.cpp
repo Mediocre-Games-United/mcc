@@ -387,7 +387,7 @@ void mcc::config_commands::config_add_external_cmd() {
 
         cbu::log_info("External object adding, trying to install it...");
         cfg->external_objects.push_back(
-            new ExternalObject(std::move(obj))
+            ExternalObject(std::move(obj))
         );
 
         update_config(cfg);

@@ -64,7 +64,7 @@ static int handle_parser_output(cbu::parser_output pout) {
         temp->directory = std::filesystem::current_path();
         temp->src_directory = "src";
         temp->model = mcc::config::ConfigModel::SINGLE_EXECUTABLE;
-        temp->name = "temp";
+        temp->set_name("temp");
         temp->export_types.push_back(mcc::config::ExportType::EXPORT_DEFAULT);
 
         mcc::config::update_config(temp);

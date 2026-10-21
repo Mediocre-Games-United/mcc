@@ -98,15 +98,15 @@ U8 mcc::installer::install_all(ConfigObject *cfg) {
         if (code) return code;
     }
     for (auto &ext : cfg->external_objects) {
-        if (ext->linux_package) {
-            code = install_linux_package(ext->linux_package);
+        if (ext.linux_package) {
+            code = install_linux_package(ext.linux_package);
             if (mcc::consume_interrupt()) return -1;
             if (code) return code;
         } else {
             cbu::log_error(false,"Not implemented");
         }
-        if (ext->win_ext_binary) {
-            code = install_binary_package(cfg,ext->name,ext->win_ext_binary,mcc::compiler::Platform::PLATFORM_WINDOWS);
+        if (ext.win_ext_binary) {
+            code = install_binary_package(cfg,ext.name,ext.win_ext_binary,mcc::compiler::Platform::PLATFORM_WINDOWS);
             if (code) return code;
         }
     }

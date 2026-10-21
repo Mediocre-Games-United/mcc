@@ -62,6 +62,7 @@ void mcc::basic_commands::init() {
     mcc::add_command<string,string>("gmerge",&mcc::git::merge,{"BranchTo","BranchFrom"},"Merges changes from BranchFrom to BranchTo");
     mcc::add_command<>("gfix",&mcc::git::fix,{},"Attempts to fix any problems such as detached heads and weird states");
     mcc::add_command<string,string>("gclone",&mcc::git::clone,{"ClonePath","SourceURL"},"Clones a git repository from url to ClonePath");
+    mcc::add_command<>("gclean",&mcc::git::clean,{},"Discards all changes! Dangerous!");
 
     cbu::log_debug("Initialized basic commands");
 
@@ -118,7 +119,7 @@ static U8 list_all_commands() {
 
 static void log_config(mcc::config::ConfigObject *obj) {
     if (!obj) cbu::log_error(true,"Active config is null!");
-    cbu::log_info(std::format("Using config {}",obj->name));
+    cbu::log_info(std::format("Using config {}",obj->get_name()));
 }
 static mcc::compiler::BuildType type = mcc::compiler::BuildType::BUILD_EDITOR;
 static mcc::compiler::Platform platform = mcc::compiler::Platform::PLATFORM_LINUX;
