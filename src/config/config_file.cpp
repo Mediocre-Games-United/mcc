@@ -19,9 +19,40 @@
 #include <filesystem>
 #include <format>
 #include <queue>
+#include "stringmath.hpp"
 #include "vectormath.hpp"
 
 using namespace mcc::config;
+
+static umap<cbu::StringName,size_t> duplicate_config_ids;
+string ConfigObject::get_name() {
+    if (!duplicate_config_ids.contains(name)) return name;
+    if (duplicate_config_ids[name] == 0) return name;
+
+    return std::format("{}@{}",name,id);
+}
+void ConfigObject::register_name() {
+    if (is_registered) return;
+
+    is_registered = true;
+    if (duplicate_config_ids.contains(name)) {
+        duplicate_config_ids[name] += 1;
+        id = duplicate_config_ids[name];
+
+        return;
+    }
+
+    duplicate_config_ids[name] = 0;
+    id = 0;
+}
+void ConfigObject::remove_name() {
+    if (!is_registered) return;
+    if (!duplicate_config_ids.contains(name)) return;
+
+    is_registered = false;
+    duplicate_config_ids[name] -= 1;
+    if (duplicate_config_ids[name] <= 0) duplicate_config_ids.erase(name);
+}
 
 ConfigContainer *mcc::config::current_config = NULL;
 
@@ -82,16 +113,15 @@ public:
 
             if (std::filesystem::exists(ref->fpath)) {
                 cf *cfg = fmt.load_config(ref->fpath);
-                auto ex = find_config_by_name(cfg->name);
+                auto ex = find_config_by_path(cfg->directory,false);
                 if (ex) {
                     cbu::log_verbose("Config exists!");
                     delete cfg;
-
-                    continue;
+                } else {
+                    update_config(cfg);
+                    link_config(cfg);
                 }
 
-                update_config(cfg);
-                link_config(cfg);
             }
 
             delete ref;
@@ -132,6 +162,7 @@ bool mcc::config::link_config(ConfigObject *obj) {
         return true;
     }
 
+    obj->register_name();
     current_config->loaded_configs.push_back(obj);
     auto fmt = ConfigContainerFileFormat();
     fmt.save_configs();
@@ -143,7 +174,7 @@ static bool subprojects_have_src_file(SourceFileObject *&src,vector<cf*> &subcon
         for (auto &sr : s->source_files) {
             if (sr->name != src->name) continue;
 
-            cbu::log_verbose(std::format("Subproject {} src {} matches with t {}",s->name,sr->name,src->name));
+            cbu::log_verbose(std::format("Subproject {} src {} matches with t {}",s->get_name(),sr->name,src->name));
             return true;
         }
     }
@@ -225,7 +256,7 @@ static void config_recurse_sub_projects(vector<cf*> &subconfigs,fpath path) {
 
         bool found = false;
         for (auto &o : subconfigs) {
-            if (o->name != cfg->name || o->directory != cfg->directory) continue;
+            if (o->get_name() != cfg->get_name() || o->directory != cfg->directory) continue;
 
             cbu::log_verbose("Subconfig already exists! Skipping...");
             found = true;
@@ -388,13 +419,20 @@ bool mcc::config::link_config_by_file(fpath path) {
         return false;
     }
 
+    auto ex = find_config_by_path(path,false);
+    if (ex) {
+        cbu::log_warn("Config is already loaded!");
+
+        return true;
+    }
+
     auto fmt = ConfigFileFormat();
     cf *cfg = fmt.load_config(path);
     update_config(cfg);
     link_config(cfg);
-    last_config_name = cfg->name;
+    last_config_name = cfg->get_name();
 
-    cbu::log_success(std::format("Found & loaded config {} succesfully",cfg->name));
+    cbu::log_success(std::format("Found & loaded config {} succesfully",cfg->get_name()));
     return true;
 }
 bool mcc::config::set_file_current(fpath ppath) {
@@ -421,17 +459,24 @@ bool mcc::config::set_name_current(string name) {
 }
 ConfigObject *mcc::config::find_config_by_name(string name) {
     for (auto &s : current_config->loaded_configs) {
-        if (s->name != name) continue;
+        if (s->get_name() != name) continue;
 
         return s;
     }
     return NULL;
 }
-ConfigObject *mcc::config::find_config_by_path(fpath path) {
+ConfigObject *mcc::config::find_config_by_path(fpath path,bool link_if_not_found) {
     for (auto &s : current_config->loaded_configs) {
         if (s->directory != path) continue;
 
         return s;
     }
+    if (link_if_not_found) {
+        bool res = link_config_by_file(path);
+
+        if (!res) return NULL;
+        return find_config_by_path(path,false);
+    }
+
     return NULL;
 }

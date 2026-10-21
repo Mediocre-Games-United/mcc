@@ -92,7 +92,8 @@ namespace mcc::config {
         }
         bool is_temp = false;
 
-        string name;
+        string get_name();
+
         fpath directory;
         fpath src_directory;
         bool has_parent_directory = false;
@@ -113,6 +114,15 @@ namespace mcc::config {
 
         string itchio_username;
         string itchio_project;
+
+        bool is_registered = false;
+        inline void set_name(string n) { name = n; }
+        inline string get_raw_name() { return name; }
+        void register_name();
+        void remove_name();
+    private:
+        string name;
+        size_t id = 0;
     };
     struct ExternalWrapper {
         ExternalObject *obj;
@@ -133,7 +143,7 @@ namespace mcc::config {
 
     void update_config(ConfigObject *obj);
     ConfigObject *find_config_by_name(string name);
-    ConfigObject *find_config_by_path(fpath path);
+    ConfigObject *find_config_by_path(fpath path,bool link_if_not_found = true);
 
 
     struct ConfigContainerDataBlock {

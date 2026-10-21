@@ -14,7 +14,7 @@ void mcc::config_commands::list_configs_cmd() {
         return;
     }
     for (auto &s : mcc::config::current_config->loaded_configs) {
-        cbu::cli_output(std::format("---\n{} - {} at {}",s->name,mcc::version::get_version_string(s->version,"."),cbu::path_to_utf8(s->directory)));
+        cbu::cli_output(std::format("---\n{} - {} at {}",s->get_name(),mcc::version::get_version_string(s->version,"."),cbu::path_to_utf8(s->directory)));
     }
 }
 void mcc::config_commands::link_config_cmd() {
@@ -72,7 +72,9 @@ void mcc::config_commands::edit_config_cmd() {
                     cbu::log_warn("Name cannot be empty");
                     break;
                 }
-                cfg->name = name;
+                cfg->remove_name();
+                cfg->set_name(name);
+                cfg->register_name();
                 update_config(cfg);
 
                 break;
@@ -156,7 +158,7 @@ void mcc::config_commands::new_config_cmd() {
                                name,
                                cbu::path_to_utf8(project_path),
                                cbu::path_to_utf8(src_path)));
-    cfg->name = name;
+    cfg->set_name(name);
     cfg->directory = project_path;
     cfg->src_directory = src_path;
     cfg->model = model;

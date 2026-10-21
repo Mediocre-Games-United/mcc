@@ -104,7 +104,7 @@ U8 mcc::libs::copy_libs(fpath exe_file,mcc::config::ConfigObject *cfg,mcc::compi
                 }
 
                 fpath bpath = mcc::compiler::get_build_path(s,tp,pt,exp,version);
-                string nm = s->name + ".dll";
+                string nm = s->get_raw_name() + ".dll";
 
                 std::error_code ec;
                 std::filesystem::copy_file(bpath / nm,build_path / nm,ec);

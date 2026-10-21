@@ -118,7 +118,7 @@ static U8 list_all_commands() {
 
 static void log_config(mcc::config::ConfigObject *obj) {
     if (!obj) cbu::log_error(true,"Active config is null!");
-    cbu::log_info(std::format("Using config {}",obj->name));
+    cbu::log_info(std::format("Using config {}",obj->get_name()));
 }
 static mcc::compiler::BuildType type = mcc::compiler::BuildType::BUILD_EDITOR;
 static mcc::compiler::Platform platform = mcc::compiler::Platform::PLATFORM_LINUX;

@@ -168,7 +168,7 @@ U8 mcc::packager::export_all(mcc::config::ConfigObject *cfg) {
             for (auto &tp : export_types) {
                 fpath export_path = mcc::compiler::get_export_path(cfg,exp,tp,pt,version);
                 fpath ppath = export_path.parent_path();
-                string name = std::format("{}_{}_{}_{}.zip",cfg->name,mcc::compiler::platform_names[int(pt)],mcc::compiler::build_type_names[int(tp)],mcc::version::get_version_string(version,"-"));
+                string name = std::format("{}_{}_{}_{}.zip",cfg->get_raw_name(),mcc::compiler::platform_names[int(pt)],mcc::compiler::build_type_names[int(tp)],mcc::version::get_version_string(version,"-"));
 
                 switch (exp) {
                     case mcc::config::ExportType::EXPORT_ITCHIO: {

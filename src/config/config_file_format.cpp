@@ -13,9 +13,9 @@ cbu::BinaryFileSection *ConfigFileFormatV2::get_sections() {
     return new cbu::MainBinaryFileSection({
         new cbu::StringBinarySection([](void *obj,auto value) { // name
             cf *c = (cf*) obj;
-            c->name = value;
+            c->set_name(value);
         },[](void *obj) -> string {
-            return ((cf*) obj)->name;
+            return ((cf*) obj)->get_raw_name();
         }),
         new cbu::StringBinarySection([](void *obj,auto value) { // srcdir
             cf *c = (cf*) obj;
@@ -259,9 +259,9 @@ cbu::BinaryFileSection *ConfigFileFormatV1::get_sections() {
     return new cbu::MainBinaryFileSection({
         new cbu::StringBinarySection([](void *obj,auto value) { // name
             cf *c = (cf*) obj;
-            c->name = value;
+            c->set_name(value);
         },[](void *obj) -> string {
-            return ((cf*) obj)->name;
+            return ((cf*) obj)->get_raw_name();
         }),
         new cbu::StringBinarySection([](void *obj,auto value) { // srcdir
             cf *c = (cf*) obj;

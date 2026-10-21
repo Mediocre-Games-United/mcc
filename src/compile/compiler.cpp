@@ -225,7 +225,7 @@ U8 mcc::compiler::build_all(mcc::config::ConfigObject *cfg,BuildType type,Platfo
     mcc::installer::install_all(cfg);
 
 
-    cbu::log_verbose(std::format("Building project {}",cfg->name));
+    cbu::log_verbose(std::format("Building project {}",cfg->get_name()));
     vector<ExternalWrapper> external{};
     for (auto &e : cfg->external_objects) {
         external.push_back(ExternalWrapper{
@@ -238,7 +238,7 @@ U8 mcc::compiler::build_all(mcc::config::ConfigObject *cfg,BuildType type,Platfo
         cbu::log_verbose("Build: building subprojects first!");
 
         for (auto &s : cfg->sub_projects) {
-            cbu::log_verbose(std::format("Found subproject '{}'",s->name));
+            cbu::log_verbose(std::format("Found subproject '{}'",s->get_name()));
         }
         U8 code;
         for (auto &s : cfg->sub_projects) {
@@ -379,18 +379,18 @@ U8 mcc::compiler::build_all(mcc::config::ConfigObject *cfg,BuildType type,Platfo
     }
     fpath link_path;
     if (cfg->model != mcc::config::ConfigModel::SINGLE_EXECUTABLE) {
-        link_path = build_path / std::format("{}{}",cfg->name,platform_shared[int(pt)]);
+        link_path = build_path / std::format("{}{}",cfg->get_raw_name(),platform_shared[int(pt)]);
         link_obj_files = std::format("-shared {}",link_obj_files);
 
         if (cfg->model == mcc::config::ConfigModel::EXECUTABLES_WITH_SHARED) {
             for (auto &s: cfg->sub_projects) {
                 fpath build_path = get_build_path(s,type,pt,exp,version);
                 if (pt == Platform::PLATFORM_WINDOWS) {
-                    link_obj_files = std::format("{} {}/lib{}.dll.a",link_obj_files,cbu::path_to_utf8(build_path),s->name);
+                    link_obj_files = std::format("{} {}/lib{}.dll.a",link_obj_files,cbu::path_to_utf8(build_path),s->get_raw_name());
                 }
                 else link_obj_files = std::format("{} {}",link_obj_files,
                     cbu::path_to_utf8(
-                        build_path / std::format("{}{}",s->name,platform_shared[int(pt)])));
+                        build_path / std::format("{}{}",s->get_raw_name(),platform_shared[int(pt)])));
             }
         }
     } else {
@@ -419,7 +419,7 @@ U8 mcc::compiler::build_all(mcc::config::ConfigObject *cfg,BuildType type,Platfo
             string linker_cmd = std::format("{} {} {} -o {} {} {} ",CXX,CXX_FLAGS,link_obj_files,
                                             cbu::path_to_utf8(link_path),LINKER_INCLUDES,LINKER_FLAGS);
             if (pt == Platform::PLATFORM_WINDOWS) {
-                linker_cmd += std::format("-Wl,--out-implib,lib{}.dll.a",cfg->name);
+                linker_cmd += std::format("-Wl,--out-implib,lib{}.dll.a",cfg->get_raw_name());
             }
 
             U8 linker_res = cbu::run_shell_command(build_path,linker_cmd,&linker_output);
@@ -452,18 +452,18 @@ U8 mcc::compiler::build_all(mcc::config::ConfigObject *cfg,BuildType type,Platfo
             return -1;
         }
         if (pt == Platform::PLATFORM_WINDOWS) {
-            link_path = build_path / std::format("lib{}.dll.a",cfg->name);
+            link_path = build_path / std::format("lib{}.dll.a",cfg->get_raw_name());
         }
         link_obj_files = std::format("obj/main.o {} ",cbu::path_to_utf8(link_path));
         for (auto s : cfg->sub_projects) {
-            cbu::log_info(std::format("Including subproject dll {}",s->name));
+            cbu::log_info(std::format("Including subproject dll {}",s->get_name()));
             fpath build_path = get_build_path(s,type,pt,exp,version);
             if (pt == Platform::PLATFORM_WINDOWS) {
-                link_obj_files = std::format("{} {}/lib{}.dll.a",link_obj_files,cbu::path_to_utf8(build_path),s->name);
+                link_obj_files = std::format("{} {}/lib{}.dll.a",link_obj_files,cbu::path_to_utf8(build_path),s->get_raw_name());
             }
             else link_obj_files = std::format("{} {}",link_obj_files,
                 cbu::path_to_utf8(
-                    build_path / std::format("{}{}",s->name,platform_shared[int(pt)])));
+                    build_path / std::format("{}{}",s->get_raw_name(),platform_shared[int(pt)])));
         }
 
         link_path = build_path / std::format("launcher{}",platform_exe[int(pt)]);
