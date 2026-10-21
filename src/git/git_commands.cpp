@@ -625,11 +625,11 @@ U8 mcc::git::clone(string target,string url) {
 
 static umap<string,string> get_stashes_names(fpath dir) {
     string output;
-    if (cbu::run_shell_command(dir,"git stash list",&output)) {
+    if (cbu::run_shell_command(dir,"git stash list -z",&output)) {
         return {};
     }
     umap<string,string> list{};
-    vector<string> split = cbu::string_split(output,"\n");
+    vector<string> split = cbu::string_split(output,"\0");
     for (auto &s : split) {
         vector<string> split2 = cbu::string_split(s,":");
 
@@ -642,11 +642,19 @@ static umap<string,string> get_stashes_names(fpath dir) {
     return list;
 }
 static void remove_stashes_with_name(fpath dir,string name) {
-    auto list = get_stashes_names(dir);
+    while (true) {
+        auto list = get_stashes_names(dir);
 
-    string output;
-    for (auto &[id,nm] : list) {
-        cbu::run_shell_command(dir,std::format("git stash drop {}",id),&output);
+        string output;
+        bool f = true;
+        for (auto &[id,nm] : list) {
+            if (nm != name) continue;
+            cbu::run_shell_command(dir,std::format("git stash drop {}",id),&output);
+
+            f = false;
+            break;
+        }
+        if (f) break;
     }
 }
 U8 mcc::git::safe_clean() {
