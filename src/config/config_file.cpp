@@ -241,14 +241,15 @@ static void config_recurse_src_files(vector<cf*> &subconfigs,SourceFileObject *&
         }
     }
 }
-static void config_recurse_sub_projects(vector<cf*> &subconfigs,fpath path) {
+static void config_recurse_sub_projects(vector<cf*> &subconfigs,fpath path,fpath parent) {
     for (auto &s : cbu::iterate_dir(path)) {
         if (std::filesystem::is_directory(s)) {
-            config_recurse_sub_projects(subconfigs,s);
+            config_recurse_sub_projects(subconfigs,s,parent);
             continue;
         }
         if (!std::filesystem::is_regular_file(s)) continue;
         if (s.filename() != FNAME) continue;
+        if (std::filesystem::equivalent(s,parent)) continue;
 
         cbu::log_debug(std::format("Found subconfig {} at {}",FNAME,cbu::path_to_utf8(s)));
         auto fmt = ConfigFileFormat();
@@ -287,7 +288,7 @@ void mcc::config::update_config(cf *obj) {
 
     SourceFileObject *main = NULL;
     auto lpath = obj->directory / obj->src_directory;
-    config_recurse_sub_projects(subconfigs,lpath);
+    config_recurse_sub_projects(subconfigs,lpath,obj->directory / FNAME);
     config_recurse_src_files(subconfigs,main,sourcefiles,lpath,lpath);
 
     vector<SourceFileObject*> remove_queue{};
