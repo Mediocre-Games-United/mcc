@@ -8,6 +8,7 @@
 #include "shell.hpp"
 #include "state.hpp"
 #include "stringmath.hpp"
+#include "workers.hpp"
 #include <filesystem>
 #include <format>
 
@@ -31,11 +32,6 @@ static U8 log_no_conf() {
 
     return -1;
 }
-static U8 log_no_git() {
-    cbu::log_error(false,"Config has no git repository");
-
-    return -1;
-}
 static U8 log_unsaved() {
     cbu::log_error(false,"Commit unsaved changes first!");
 
@@ -44,10 +40,11 @@ static U8 log_unsaved() {
 
 struct GitStatus {
     bool valid = true;
+    fpath dir;
 
     umap<string,GitStatus> submodules;
     string branch = "<detached>";
-    bool is_attached = true;
+    bool is_attached = false;
     bool is_remote = false;
     bool has_unsaved = false;
     S64 ahead = 0;
@@ -57,86 +54,83 @@ struct GitStatus {
     vector<string> deleted;
     vector<string> untracked;
 };
-static GitStatus get_general_status(fpath dir,bool get_network) {
-    GitStatus status{};
-
-    string output;
-    U8 code = 0;
-
-    while (true) {
-        if (get_network) {
-            cbu::cli_output("Fetching git status from remote...");
-            if (cbu::run_shell_command(dir,"git fetch",&output)) {
-                code = log_no_git();
-                return {.valid = false};
-            }
-        }
-        if (cbu::run_shell_command(dir,"git status --porcelain=v2 --branch -z",&output)) {
-            code = log_no_git();
-            return {.valid = false};
-        }
-        if (code) return {.valid = false};
-
-        for (string line : separate_lines(output)) {
-            cbu::log_debug(line);
-
-            if (line.starts_with("# branch.head ")) {
-                string branch = line.substr(14);
-                if (branch == "(detached)") status.is_attached = false;
-                else status.branch = branch;
-            } else if (line.starts_with("# branch.ab ")) {
-                status.is_remote = true;
-                string full = line.substr(12);
-
-                string f1 = cbu::string_split(full,"+")[1];
-                auto f2 = cbu::string_split(f1,"-");
-                string a = f2[0];
-                string b = f2[1];
-
-                status.ahead = stoi(a);
-                status.behind = stoi(b);
-            } else if (line.starts_with("#")) {
-
-            } else if (line.starts_with("1")) {
-                auto split = cbu::string_split(line," ");
-                if (split.size() < 9) continue;
-
-                if (split[2] == "S.M.") split[8] = std::format("Submodule: \"{}\"",split[8]);
-                else status.has_unsaved = true;
-                if (split[1][0] == 'M') { // modified, staged
-                    status.modified.push_back(split[8]);
-                } else if (split[1][1] == 'M') { // modified, unstaged
-                    status.modified.push_back(split[8]);
-                } else if (split[1][0] == 'D') { // deleted, staged
-                    status.deleted.push_back(split[8]);
-                } else if (split[1][1] == 'D') { // deleted, unstaged
-                    status.deleted.push_back(split[8]);
-                } else if (split[1][0] == 'A') { // new, staged
-                    status.modified.push_back(split[8]);
-                } else {
-                    cbu::log_warn(std::format("Unrecognized git status {}!",split[1]));
-                }
-            } else if (line.starts_with("?")) {
-                auto split = cbu::string_split(line," ");
-                status.untracked.push_back(split[1]);
-            }
-        }
-
-        if (get_network) {
-            if (!status.is_remote and status.is_attached) {
-                if (cbu::run_shell_command(dir,std::format("git branch -u origin/{} {}",status.branch,status.branch),&output)) {
-                    code = log_no_git();
-                }
-                if (code) return {.valid = false};
-                continue;
-            }
-        }
-
-        break;
+static void status_get_all_dirs(GitStatus status,vector<fpath> &list) {
+    list.push_back(status.dir);
+    for (auto &[path,sub] : status.submodules) {
+        status_get_all_dirs(sub,list);
     }
+}
+static U8 read_current_git_status(fpath dir,GitStatus &status) {
+    status.dir = dir;
+    string output;
+
+    if (cbu::run_shell_command(dir,"git status --porcelain=v2 --branch -z",&output)) {
+        status.valid = false;
+        cbu::log_error(false,"git status failed! Maybe a git repository doesn't exist?");
+        return -1;
+    }
+
+    status.modified.clear();
+    status.untracked.clear();
+    status.deleted.clear();
+    status.is_remote = false;
+    status.has_unsaved = false;
+
+    for (string line : separate_lines(output)) {
+        cbu::log_debug(line);
+
+        if (line.starts_with("# branch.head ")) {
+            string branch = line.substr(14);
+            if (branch == "(detached)") {
+                status.branch = "<detached>";
+                status.is_attached = false;
+            } else {
+                status.branch = branch;
+                status.is_attached = true;
+            }
+        } else if (line.starts_with("# branch.ab ")) {
+            status.is_remote = true;
+            string full = line.substr(12);
+
+            string f1 = cbu::string_split(full,"+")[1];
+            auto f2 = cbu::string_split(f1,"-");
+            string a = f2[0];
+            string b = f2[1];
+
+            status.ahead = stoi(a);
+            status.behind = stoi(b);
+        } else if (line.starts_with("#")) {
+
+        } else if (line.starts_with("1")) {
+            auto split = cbu::string_split(line," ");
+            if (split.size() < 9) continue;
+
+            if (split[2] == "S.M.") split[8] = std::format("Submodule: \"{}\"",split[8]);
+            else status.has_unsaved = true;
+            if (split[1][0] == 'M') { // modified, staged
+                status.modified.push_back(split[8]);
+            } else if (split[1][1] == 'M') { // modified, unstaged
+                status.modified.push_back(split[8]);
+            } else if (split[1][0] == 'D') { // deleted, staged
+                status.deleted.push_back(split[8]);
+            } else if (split[1][1] == 'D') { // deleted, unstaged
+                status.deleted.push_back(split[8]);
+            } else if (split[1][0] == 'A') { // new, staged
+                status.modified.push_back(split[8]);
+            } else {
+                cbu::log_warn(std::format("Unrecognized git status {}!",split[1]));
+            }
+        } else if (line.starts_with("?")) {
+            auto split = cbu::string_split(line," ");
+            status.untracked.push_back(split[1]);
+        }
+    }
+
     if (cbu::run_shell_command(dir,"git submodule status",&output)) {
-        code = log_no_git();
-        return {.valid = false};
+        status.valid = false;
+        cbu::log_error(false,"git submodule status failed! Maybe a git repository doesn't exist?");
+
+        return -1;
     }
     for (string s : cbu::string_split(output,"\n")) {
         char c = s[0];
@@ -145,57 +139,134 @@ static GitStatus get_general_status(fpath dir,bool get_network) {
         string commit = split[0];
         string path = split[1];
 
-        status.submodules[path] = get_general_status(dir / path,get_network);
+        GitStatus substatus{};
+        if (read_current_git_status(dir / path,substatus)) {
+            cbu::log_error(false,"Failed to read git status for submodule");
+
+            status.valid = false;
+            return -1;
+        }
+        status.submodules[path] = substatus;
     }
 
+    return 0;
+}
+static GitStatus get_general_status(fpath dir,bool get_network) {
+    GitStatus status{};
+
+    string output;
+    U8 code = read_current_git_status(dir,status);
+    if (code) return status;
+
+    if (get_network) {
+        cbu::cli_output("Fetching git status from remote...");
+        vector<fpath> dirs{};
+        status_get_all_dirs(status,dirs);
+
+        vector<std::function<void()>> calls{};
+
+        std::atomic<bool> succesful = true;
+        for (auto &d : dirs) {
+            calls.push_back([d,&succesful]() {
+                string output;
+                U8 code = cbu::run_shell_command(d,"git fetch",&output);
+                if (!code) return;
+
+                cbu::log_error(false,"git fetch failed!");
+                succesful = false;
+            });
+        }
+        cbu::run_tasks_sync(calls);
+        if (!succesful) return {.valid = false};
+        if (read_current_git_status(dir,status)) return status;
+
+        if (!status.is_attached) {
+            cbu::cli_input("Git is not attached to a branch! Enter branch name to attach to");
+            string br;
+            if (!cbu::cli_get_valid_string(&br)) {
+                cbu::log_error(false,"Branch cannot be empty");
+                return {.valid = false};
+            }
+            if (cbu::run_shell_command(dir,std::format("git checkout {}",br),&output)) {
+                cbu::log_error(false,"git checkout failed! Invalid branch name?");
+                return {.valid = false};
+            }
+
+            if (read_current_git_status(dir,status)) return status;
+        }
+        if (!status.is_remote and status.is_attached) {
+            if (cbu::run_shell_command(dir,std::format("git branch -u origin/{} {}",status.branch,status.branch),&output)) {
+                return {.valid = false};
+            }
+            if (read_current_git_status(dir,status)) return status;
+        }
+    }
 
     return status;
 }
 
 static U8 sync_dir(GitStatus status,fpath dir) {
-    for (auto &[key,sub] : status.submodules) {
-        if (sync_dir(sub,dir / key)) {
-            cbu::log_error(false,"Failed to sync submodule");
+    vector<fpath> dirs{};
+    status_get_all_dirs(status,dirs);
 
-            return -1;
-        }
+    std::atomic<bool> succesful = true;
+    std::mutex read_mutex{};
+    vector<std::function<void()>> work{};
+    for (auto &d : dirs) {
+        work.push_back([d,&succesful,&read_mutex]() {
+            string output;
+            U8 code = 0;
+            GitStatus status{};
+
+            read_mutex.lock();
+            code = read_current_git_status(d,status);
+            read_mutex.unlock();
+            if (code) {
+                succesful = false;
+                return;
+            }
+
+            if (status.ahead > 0 and status.behind > 0) {
+                cbu::log_warn("Remote and local are out of sync!");
+
+                code = cbu::run_shell_command(d,std::format("git pull --rebase"),&output);
+                if (code) {
+                    code = cbu::run_shell_command(d,std::format("git rebase --abort"),&output);
+
+                    cbu::log_error(false,"Conflict detected!");
+                    succesful = false;
+                    return;
+                }
+
+                cbu::log_success("Automatic rebase succesful with no conflicts detected!");
+                status.behind = 0;
+            }
+            if (status.ahead > 0) {
+                cbu::log_info("Pushing local changes");
+
+                if (cbu::run_shell_command(d,std::format("git push"),&output)) {
+                    cbu::log_error(false,"git push failed!");
+
+                    succesful = false;
+                    return;
+                }
+
+            } else if (status.behind > 0) {
+                cbu::log_info("Pulling changes from remote");
+
+                if (cbu::run_shell_command(d,std::format("git pull"),&output)) {
+                    cbu::log_error(false,"git pull failed!");
+
+                    succesful = false;
+                    return;
+                }
+
+            }
+        });
     }
 
-    string output;
-    U8 code = 0;
-    if (status.ahead > 0 and status.behind > 0) {
-        cbu::log_warn("Remote and local are out of sync!");
-
-        code = cbu::run_shell_command(dir,std::format("git pull --rebase"),&output);
-        if (code) {
-            code = cbu::run_shell_command(dir,std::format("git rebase --abort"),&output);
-
-            cbu::log_error(false,"Conflict detected!");
-            return -1;
-        }
-
-        cbu::log_success("Automatic rebase succesful with no conflicts detected!");
-    }
-
-    if (status.ahead > 0) {
-        cbu::log_info("Pushing local changes");
-
-        if (cbu::run_shell_command(dir,std::format("git push"),&output)) {
-            code = log_no_git();
-        }
-
-        if (code) return code;
-    } else if (status.behind > 0) {
-        cbu::log_info("Pulling changes from remote");
-
-        if (cbu::run_shell_command(dir,std::format("git pull"),&output)) {
-            code = log_no_git();
-        }
-
-        if (code) return code;
-    } else {
-        cbu::log_info("Everything is up to date");
-    }
+    cbu::run_tasks_sync(work);
+    if (!succesful) return -1;
 
     return 0;
 }
@@ -358,7 +429,7 @@ static U8 undo_dir(fpath dir) {
         if (!res) return 1;
     }
     U8 code = cbu::run_shell_command(mcc::state::active_config->directory,"git reset HEAD~1",&output);
-    if (code) { log_no_git(); return code; }
+    if (code) return code;
 
     print_status_full(dir,true);
     return 0;
@@ -411,9 +482,9 @@ U8 mcc::git::commit_all(string msg) {
         }
 
         code = cbu::run_shell_command(dir,"git add .",&output);
-        if (code) { log_no_git(); return; }
+        if (code) return;
         code = cbu::run_shell_command(dir,std::format("git commit -m \"{}\"",msg),&output);
-        if (code) { log_no_git(); return; }
+        if (code) return;
 
         cbu::log_success("Commit succesful");
         status = get_general_status(dir,false);
@@ -440,9 +511,9 @@ U8 mcc::git::commit_all_sub(string sub,string msg) {
         }
 
         code = cbu::run_shell_command(dir,"git add .",&output);
-        if (code) { log_no_git(); return; }
+        if (code) return;
         code = cbu::run_shell_command(dir,std::format("git commit -m \"{}\"",msg),&output);
-        if (code) { log_no_git(); return; }
+        if (code) return;
 
         cbu::log_success("Commit succesful");
         status = get_general_status(dir,false);
@@ -542,6 +613,22 @@ U8 mcc::git::clone(string target,string url) {
     GitStatus status = get_general_status(dir,true);
     if (!status.valid) return -1;
     print_status_info(status,true);
+
+    return 0;
+}
+
+U8 mcc::git::safe_clean() {
+    cbu::log_error(true,"Not implemented");
+
+    return 0;
+}
+U8 mcc::git::stash_all() {
+    cbu::log_error(true,"Not implemented");
+
+    return 0;
+}
+U8 mcc::git::restore_stashes() {
+    cbu::log_error(true,"Not implemented");
 
     return 0;
 }
