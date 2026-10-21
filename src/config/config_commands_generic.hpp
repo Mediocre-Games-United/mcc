@@ -2,6 +2,7 @@
 
 namespace mcc::config_commands {
     void list_configs_cmd();
+    void list_config_cmd();
     void link_config_cmd();
     void edit_config_cmd();
     void new_config_cmd();

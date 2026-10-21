@@ -27,8 +27,12 @@ namespace mcc::config {
     };
     struct SourceFileObject { // used as a guide to generate SourceCompileTarget objects
         fpath path;
-        string name;
+        string name = "";
         bool enabled = true;
+
+        operator bool() {
+            return !name.empty();
+        }
     };
 
     struct ExternalPackage { // package from a package manager distribution
@@ -79,17 +83,6 @@ namespace mcc::config {
     };
 
     struct ConfigObject { // a template object that can be used to generate compile targets, should not have any functionality, only an object describing the project
-        ~ConfigObject() {
-            cbu::log_verbose(std::format("ConfigObject destroyed at page {}",(void*) this));
-
-            for (auto &s : source_files) {
-                delete s;
-            }
-            if (main_source) delete main_source;
-        }
-        ConfigObject() {
-            cbu::log_verbose(std::format("ConfigObject created at page {}",(void*) this));
-        }
         bool is_temp = false;
 
         string get_name();
@@ -102,9 +95,9 @@ namespace mcc::config {
         ConfigModel model;
         vector<ExportType> export_types{};
         vector<ConfigObject*> sub_projects{};
-        vector<SourceFileObject*> source_files{}; // should not include main_source
-        vector<ExternalObject*> external_objects{}; // libraries that are linked and included when compiling
-        SourceFileObject *main_source = NULL; // used as main for mode 2, otherwise ignored. optionally compiled multiple times
+        vector<SourceFileObject> source_files{}; // should not include main_source
+        vector<ExternalObject> external_objects{}; // libraries that are linked and included when compiling
+        SourceFileObject main_source; // used as main for mode 2, otherwise ignored. optionally compiled multiple times
 
         // other executables only used by mode 2
         bool generate_launcher_wrapper = false; // if true, compile main_source into [main]_app.o -> app(.exe) and [main]_launcher.o -> launcher(.exe) and make the launcher executable a wrapper that handles the app executable
@@ -125,7 +118,7 @@ namespace mcc::config {
         size_t id = 0;
     };
     struct ExternalWrapper {
-        ExternalObject *obj;
+        ExternalObject obj;
         ConfigObject *cfg;
     };
 

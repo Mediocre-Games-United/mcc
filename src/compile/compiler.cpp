@@ -320,22 +320,22 @@ U8 mcc::compiler::build_all(mcc::config::ConfigObject *cfg,BuildType type,Platfo
         LINKER_FLAGS = "";
         for (auto &e : external) {
             auto &s = e.obj;
-            cbu::log_info(std::format("External: {}, {}",s->name,bool(s->linux_package)));
-            if (!s->linux_package) continue;
-            if (s->linux_package.link_name.empty()) continue;
-            LINKER_INCLUDES += std::format(" -l{} ",s->linux_package.link_name);
+            cbu::log_info(std::format("External: {}, {}",s.name,bool(s.linux_package)));
+            if (!s.linux_package) continue;
+            if (s.linux_package.link_name.empty()) continue;
+            LINKER_INCLUDES += std::format(" -l{} ",s.linux_package.link_name);
         }
     } else {
         LINKER_FLAGS = " -lopengl32 ";
         for (auto &e : external) {
             auto &s = e.obj;
             auto &cfg = e.cfg;
-            if (!s->win_ext_binary) continue;
+            if (!s.win_ext_binary) continue;
 
-            cbu::log_info(std::format("Adding {} to flags",s->win_ext_binary.download_url));
-            fpath tld = get_external_binary_path(cfg,s->name,Platform::PLATFORM_WINDOWS) / "extracted" / s->win_ext_binary.tld;
+            cbu::log_info(std::format("Adding {} to flags",s.win_ext_binary.download_url));
+            fpath tld = get_external_binary_path(cfg,s.name,Platform::PLATFORM_WINDOWS) / "extracted" / s.win_ext_binary.tld;
             INCLUDES += std::format(" -I{} ",cbu::path_to_utf8(tld / "include"));
-            LINKER_INCLUDES += std::format(" -L{} -L{} -l{} ",cbu::path_to_utf8(tld / "bin"),cbu::path_to_utf8(tld / "lib"),s->win_ext_binary.bin_name);
+            LINKER_INCLUDES += std::format(" -L{} -L{} -l{} ",cbu::path_to_utf8(tld / "bin"),cbu::path_to_utf8(tld / "lib"),s.win_ext_binary.bin_name);
         }
     }
 
@@ -350,15 +350,15 @@ U8 mcc::compiler::build_all(mcc::config::ConfigObject *cfg,BuildType type,Platfo
     }
 
     for (auto &s : srcs) {
-        if (!s->enabled) continue;
+        if (!s.enabled) continue;
 
-        const fpath opath = "obj" / s->path.parent_path();
-        string name = cbu::path_to_utf8(s->path.stem());
+        const fpath opath = "obj" / s.path.parent_path();
+        string name = cbu::path_to_utf8(s.path.stem());
         string ofile = cbu::path_to_utf8(opath / (name + ".o"));
         link_obj_files += std::format(" {}",ofile);
 
         mcc::config::SourceCompileTarget *tgt = new mcc::config::SourceCompileTarget{
-            .src_path = s->path,
+            .src_path = s.path,
             .obj_path = ofile,
             .dep_path = opath / (name + ".d")
         };
@@ -441,7 +441,7 @@ U8 mcc::compiler::build_all(mcc::config::ConfigObject *cfg,BuildType type,Platfo
 
     if (cfg->model == mcc::config::ConfigModel::EXECUTABLES_WITH_SHARED) {
         mcc::config::SourceCompileTarget main_tgt = {
-            .src_path = cfg->main_source->path,
+            .src_path = cfg->main_source.path,
             .obj_path = "obj/main.o",
             .dep_path = "obj/main.d"
         };

@@ -112,9 +112,9 @@ U8 mcc::libs::copy_libs(fpath exe_file,mcc::config::ConfigObject *cfg,mcc::compi
 
             }
             for (auto &e : external) {
-                ExternalBinary bin = e.obj->win_ext_binary;
+                ExternalBinary bin = e.obj.win_ext_binary;
                 if (!bin) continue;
-                fpath tld = mcc::compiler::get_external_binary_path(e.cfg,e.obj->name,mcc::compiler::Platform::PLATFORM_WINDOWS) / "extracted" / bin.tld;
+                fpath tld = mcc::compiler::get_external_binary_path(e.cfg,e.obj.name,mcc::compiler::Platform::PLATFORM_WINDOWS) / "extracted" / bin.tld;
                 // cbu::log_info(std::format("TLD: {}",cbu::path_to_utf8(tld)));
 
                 string nm = bin.bin_name + ".dll";

@@ -2,6 +2,7 @@
 #include "cli.hpp"
 #include "commands.hpp"
 #include "config_file.hpp"
+#include "file.hpp"
 #include "logger.hpp"
 #include "version.hpp"
 #include <format>
@@ -16,6 +17,46 @@ void mcc::config_commands::list_configs_cmd() {
     for (auto &s : mcc::config::current_config->loaded_configs) {
         cbu::cli_output(std::format("---\n{} - {} at {}",s->get_name(),mcc::version::get_version_string(s->version,"."),cbu::path_to_utf8(s->directory)));
     }
+}
+void mcc::config_commands::list_config_cmd() {
+    string name;
+    cbu::cli_input("Enter the config name");
+    if (!cbu::cli_get_valid_string(&name)) {
+        cbu::log_error(false,"Name cannot be empty");
+        return;
+    }
+
+    auto cfg = mcc::config::find_config_by_name(name);
+    if (!cfg) {
+        cbu::log_error(false,"Config does not exist");
+        return;
+    }
+
+    cbu::cli_output(std::format("{} - {} at {}\n---",cfg->get_name(),mcc::version::get_version_string(cfg->version,"."),cbu::path_to_utf8(cfg->directory)));
+
+    size_t source_count = 0;
+    size_t external_count = 0;
+    size_t sub_count = 0;
+
+    for (auto &s : cfg->source_files) {
+        source_count += 1;
+
+        cbu::cli_output(std::format("- Source file {}, enabled {}",cbu::ansi_wrap_bold(s.name),s.enabled));
+    }
+    cbu::cli_output(std::format("Has {} source files\n---",source_count));
+    for (auto &sub : cfg->sub_projects) {
+        sub_count += 1;
+
+        cbu::cli_output(std::format("- Subproject {}",cbu::ansi_wrap_bold(sub->get_name())));
+    }
+    cbu::cli_output(std::format("Has {} subprojects\n---",sub_count));
+    for (auto &ext : cfg->external_objects) {
+        external_count += 1;
+
+        cbu::cli_output(std::format("- External object {}",cbu::ansi_wrap_bold(ext.name)));
+    }
+    cbu::cli_output(std::format("Has {} external objects",external_count));
+
 }
 void mcc::config_commands::link_config_cmd() {
     fpath path;
