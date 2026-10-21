@@ -623,122 +623,18 @@ U8 mcc::git::clone(string target,string url) {
     return 0;
 }
 
-static umap<string,string> get_stashes_names(fpath dir) {
-    string output;
-    if (cbu::run_shell_command(dir,"git stash list -z",&output)) {
-        return {};
-    }
-    umap<string,string> list{};
-    vector<string> split = cbu::string_split(output,"\0");
-    for (auto &s : split) {
-        vector<string> split2 = cbu::string_split(s,":");
 
-        string id = split2[0];
-        string name = split2[2];
-        cbu::log_debug(std::format("Stash id {} with name {}",id,name));
-        list[id] = name;
-    }
-
-    return list;
-}
-static void remove_stashes_with_name(fpath dir,string name) {
-    while (true) {
-        auto list = get_stashes_names(dir);
-
-        string output;
-        bool f = true;
-        for (auto &[id,nm] : list) {
-            if (nm != name) continue;
-            cbu::run_shell_command(dir,std::format("git stash drop {}",id),&output);
-
-            f = false;
-            break;
-        }
-        if (f) break;
-    }
-}
-U8 mcc::git::safe_clean() {
+U8 mcc::git::clean() {
     U8 code = 0;
     mcc::state::state_safe([&code]() {
         fpath dir = mcc::state::current_project;
 
         string output;
-        remove_stashes_with_name(dir,"mcc:clean_autosave");
-        if (cbu::run_shell_command(dir,"git add .;git stash -m \"mcc:clean_autosave\"",&output)) { code = -1; return; }
+        if (cbu::run_shell_command(dir,"git reset --hard git clean -fd",&output)) { code = -1; return; }
     });
 
-    cbu::log_success("Unsaved changes discarded succesfully, use grestore to undo");
+    cbu::log_success("Unsaved changes discarded succesfully");
 
     return code;
 }
-U8 mcc::git::stash_all() {
-    U8 code = 0;
-    mcc::state::state_safe([&code]() {
-        fpath dir = mcc::state::current_project;
 
-        string output;
-        remove_stashes_with_name(dir,"mcc:manual_stash");
-        if (cbu::run_shell_command(dir,"git add .;git stash -m \"mcc:manual_stash\"",&output)) { code = -1; return; }
-
-    });
-
-    return code;
-}
-U8 mcc::git::restore_stashes() {
-    U8 code = 0;
-    mcc::state::state_safe([&code]() {
-        fpath dir = mcc::state::current_project;
-        string output;
-
-        auto list = get_stashes_names(dir);
-        bool first = true;
-        bool restore_clean = false;
-        bool restore_manual = false;
-
-        while (true) {
-            vector<string> clean_ids{};
-            vector<string> manual_ids{};
-            for (auto &[id,name] : list) {
-                if (name == "mcc:manual_stash") {
-                    manual_ids.push_back(id);
-                } else if (name == "mcc:clean_autosave") {
-                    clean_ids.push_back(id);
-                }
-            }
-
-            if (clean_ids.empty() and manual_ids.empty()) {
-                if (first) cbu::log_success("No stashes to restore");
-                code = 0;
-                break;
-            }
-
-            bool f = first;
-            if (first and !manual_ids.empty()) {
-                cbu::cli_input("Restore previous manual stash? (default false)");
-                cbu::cli_get_valid_bool(&restore_manual,true);
-            } else if (first and !clean_ids.empty()) {
-                cbu::cli_input("Restore previous clean? (default false)");
-                cbu::cli_get_valid_bool(&restore_clean,true);
-            }
-            if (!restore_manual and !restore_clean) break;
-            first = false;
-
-            if (restore_clean) {
-                if (clean_ids.empty()) break;
-                cbu::run_shell_command(dir,std::format("git stash apply {}",clean_ids[0]),&output);
-                cbu::run_shell_command(dir,std::format("git stash drop {}",clean_ids[0]),&output);
-                continue;
-            }
-            if (restore_manual) {
-                if (manual_ids.empty()) break;
-                cbu::run_shell_command(dir,std::format("git stash apply {}",manual_ids[0]),&output);
-                cbu::run_shell_command(dir,std::format("git stash drop {}",manual_ids[0]),&output);
-                continue;
-            }
-        }
-
-
-    });
-
-    return code;
-}
