@@ -380,10 +380,7 @@ U8 mcc::compiler::build_all(mcc::config::ConfigObject *cfg,BuildType type,Platfo
     }
     fpath link_path;
     if (cfg->model != mcc::config::ConfigModel::SINGLE_EXECUTABLE) {
-        string sub = "lib";
-        if (pt == Platform::PLATFORM_WINDOWS) sub = "";
-
-        link_path = build_path / std::format("out/{}{}{}",sub,cfg->get_raw_name(),platform_shared[int(pt)]);
+        link_path = build_path / std::format("out/{}",get_shared_lib_name(cfg->get_raw_name(),pt));
         link_obj_files = std::format("-shared {}",link_obj_files);
 
         if (cfg->model == mcc::config::ConfigModel::EXECUTABLES_WITH_SHARED) {
@@ -398,7 +395,7 @@ U8 mcc::compiler::build_all(mcc::config::ConfigObject *cfg,BuildType type,Platfo
             }
         }
     } else {
-        link_path = build_path / std::format("out/launcher{}",platform_exe[int(pt)]);
+        link_path = build_path / std::format("launcher{}",platform_exe[int(pt)]);
     }
     cbu::log_info(std::format("Link path: {}",cbu::path_to_utf8(link_path)));
 

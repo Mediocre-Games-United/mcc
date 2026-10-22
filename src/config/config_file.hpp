@@ -108,6 +108,8 @@ namespace mcc::config {
         string itchio_username;
         string itchio_project;
 
+        bool github_no_windows = false;
+
         bool is_registered = false;
         inline void set_name(string n) { name = n; }
         inline string get_raw_name() { return name; }

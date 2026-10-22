@@ -164,14 +164,11 @@ U8 mcc::packager::export_all(mcc::config::ConfigObject *cfg) {
         }
     }
 
-    cbu::log_success("All packages OK");
 
     for (auto &exp : cfg->export_types) {
         for (auto &pt : export_platforms) {
             for (auto &tp : export_types) {
                 fpath export_path = mcc::compiler::get_export_path(cfg,exp,tp,pt,version);
-                fpath ppath = export_path.parent_path();
-                string name = std::format("{}_{}_{}_{}.zip",cfg->get_raw_name(),mcc::compiler::platform_names[int(pt)],mcc::compiler::build_type_names[int(tp)],mcc::version::get_version_string(version,"-"));
 
                 switch (exp) {
                     case mcc::config::ExportType::EXPORT_ITCHIO: {
@@ -180,14 +177,25 @@ U8 mcc::packager::export_all(mcc::config::ConfigObject *cfg) {
 
                         break;
                     }
+                    case mcc::config::ExportType::EXPORT_GITHUB: {
+                        U8 code = cbu::run_shell_command(export_path,"tar -czf github_archive.tar.gz export/",NULL);
+                        if (code) {
+                            cbu::log_error(false,"Failed to compress package");
+
+                            return -1;
+                        }
+
+                        break;
+                    }
                     default: {
-                        // cbu::run_shell_command(ppath,std::format("zip -r {} {}/",name,cbu::path_to_utf8(export_path)),NULL);
                         break;
                     }
                 }
             }
         }
     }
+
+    cbu::log_success("All packages OK");
 
     return 0;
 }
