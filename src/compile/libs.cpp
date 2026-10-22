@@ -13,7 +13,7 @@
 using namespace mcc::config;
 
 static string get_extract_cmd_win(fpath exe_file) {
-    return std::format("/usr/bin/x86_64-w64-mingw32-objdump -p {} | awk \'$1 == \"DLL\" && $2 == \"Name:\" {{ print $3 }}\'",cbu::path_to_utf8(exe_file));
+    return std::format("x86_64-w64-mingw32-objdump -p {} | awk \'$1 == \"DLL\" && $2 == \"Name:\" {{ print $3 }}\'",cbu::path_to_utf8(exe_file));
 }
 U8 mcc::libs::copy_libs(fpath exe_file,mcc::config::ConfigObject *cfg,mcc::compiler::BuildType tp,mcc::compiler::Platform pt,mcc::config::ExportType exp,mcc::version::Version version) {
     fpath build_path = mcc::compiler::get_build_path(cfg,tp,pt,exp,version);
@@ -23,8 +23,9 @@ U8 mcc::libs::copy_libs(fpath exe_file,mcc::config::ConfigObject *cfg,mcc::compi
     U8 code = 0;
     switch (pt) {
         case mcc::compiler::Platform::PLATFORM_LINUX: {
-            code = cbu::run_shell_command(build_path,std::format("/usr/bin/ldd {}",cbu::path_to_utf8(exe_file)),&output);
-            // cbu::log_info(output);
+            std::filesystem::create_directories(build_path / "lib");
+            code = cbu::run_shell_command(build_path,std::format("ldd {}",cbu::path_to_utf8(exe_file)),&output);
+            cbu::log_info(output);
             string name;
             string path;
 
@@ -52,16 +53,35 @@ U8 mcc::libs::copy_libs(fpath exe_file,mcc::config::ConfigObject *cfg,mcc::compi
                     is_path = true;
                     continue;
                 } if (c == '(') {
+                    cbu::trim(name);
+                    cbu::trim(path);
                     cbu::log_debug(std::format("Found name {} with path {}",name,path));
                     is_path = false;
 
                     std::error_code ec;
                     fpath npath = fpath(name);
                     string nm = cbu::path_to_utf8(npath.filename());
+                    if (nm == std::format("{}.so",cfg->get_raw_name())) {
+                        cbu::log_verbose("Skipped copying self");
+                        // continue;
+                    }
+
+                    fpath tgt = build_path / "lib" / nm;
+
+                    for (auto &s : cfg->sub_projects) {
+                        if (nm == std::format("{}.so",s->get_raw_name())) {
+                            tgt = build_path / nm;
+
+                            break;
+                        }
+                    }
                     if (std::filesystem::exists(npath)) {
                         cbu::log_verbose("Name is a valid path");
 
-                        std::filesystem::copy_file(npath,build_path / nm,std::filesystem::copy_options::overwrite_existing,ec);
+                        for (char c : name) {
+                            cbu::log_verbose(std::format("'{}' ({})",c,U8(c)));
+                        }
+                        std::filesystem::copy_file(npath,tgt,std::filesystem::copy_options::overwrite_existing,ec);
                         if (ec) cbu::log_warn(ec.message());
                         continue;
                     }
@@ -71,7 +91,7 @@ U8 mcc::libs::copy_libs(fpath exe_file,mcc::config::ConfigObject *cfg,mcc::compi
                     }
                     if (!std::filesystem::exists(path)) continue;
 
-                    std::filesystem::copy_file(path,build_path / nm,std::filesystem::copy_options::overwrite_existing,ec);
+                    std::filesystem::copy_file(path,tgt,std::filesystem::copy_options::overwrite_existing,ec);
                     if (ec) cbu::log_warn(ec.message());
                     continue;
                 } if (c == ')') {
@@ -107,7 +127,7 @@ U8 mcc::libs::copy_libs(fpath exe_file,mcc::config::ConfigObject *cfg,mcc::compi
                 string nm = s->get_raw_name() + ".dll";
 
                 std::error_code ec;
-                std::filesystem::copy_file(bpath / nm,build_path / nm,ec);
+                std::filesystem::copy_file(bpath / nm,build_path / nm,std::filesystem::copy_options::overwrite_existing,ec);
                 if (ec) cbu::log_warn(ec.message());
 
             }
@@ -157,7 +177,7 @@ U8 mcc::libs::copy_libs(fpath exe_file,mcc::config::ConfigObject *cfg,mcc::compi
                 fpath tpath = fpath("/usr/x86_64-w64-mingw32/bin") / s;
 
                 std::error_code ec;
-                std::filesystem::copy_file(tpath,build_path / s,ec);
+                std::filesystem::copy_file(tpath,build_path / s,std::filesystem::copy_options::overwrite_existing,ec);
                 if (ec) cbu::log_warn(ec.message());
             }
 
