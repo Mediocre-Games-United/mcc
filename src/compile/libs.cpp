@@ -187,5 +187,21 @@ U8 mcc::libs::copy_libs(fpath exe_file,mcc::config::ConfigObject *cfg,mcc::compi
         default: {}
     }
 
+
+    std::error_code ec;
+    if (cfg->model == ConfigModel::EXECUTABLES_WITH_SHARED) {
+        string nm = compiler::get_shared_lib_name(cfg->get_raw_name(),pt);
+
+        std::filesystem::copy_file(build_path / "out" / nm,build_path / nm,std::filesystem::copy_options::overwrite_existing,ec);
+        if (ec) cbu::log_warn(ec.message());
+    }
+    for (auto &s : cfg->sub_projects) {
+        fpath sub_build_path = mcc::compiler::get_build_path(s,tp,pt,exp,version);
+        string nm = compiler::get_shared_lib_name(s->get_raw_name(),pt);
+
+        std::filesystem::copy_file(sub_build_path / "out" / nm,build_path / nm,std::filesystem::copy_options::overwrite_existing,ec);
+        if (ec) cbu::log_warn(ec.message());
+    }
+
     return code;
 }

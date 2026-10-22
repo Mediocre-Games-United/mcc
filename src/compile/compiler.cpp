@@ -423,7 +423,7 @@ U8 mcc::compiler::build_all(mcc::config::ConfigObject *cfg,BuildType type,Platfo
             string linker_cmd = std::format("{} {} {} -o {} {} {} ",CXX,CXX_FLAGS,link_obj_files,
                                             cbu::path_to_utf8(link_path),LINKER_INCLUDES,LINKER_FLAGS);
             if (pt == Platform::PLATFORM_WINDOWS) {
-                linker_cmd += std::format("-Wl,--out-implib,lib{}.dll.a",cfg->get_raw_name());
+                linker_cmd += std::format("-Wl,--out-implib,out/lib{}.dll.a",cfg->get_raw_name());
             }
 
             U8 linker_res = cbu::run_shell_command(build_path,linker_cmd,&linker_output);
@@ -456,7 +456,7 @@ U8 mcc::compiler::build_all(mcc::config::ConfigObject *cfg,BuildType type,Platfo
             return -1;
         }
         if (pt == Platform::PLATFORM_WINDOWS) {
-            link_path = build_path / std::format("lib{}.dll.a",cfg->get_raw_name());
+            link_path = build_path / std::format("out/lib{}.dll.a",cfg->get_raw_name());
             link_obj_files = std::format("obj/main.o {}",cbu::path_to_utf8(link_path));
         } else {
             link_obj_files = std::format("obj/main.o -L{} -l{}",cbu::path_to_utf8(link_path.parent_path()),cfg->get_raw_name());
@@ -467,7 +467,7 @@ U8 mcc::compiler::build_all(mcc::config::ConfigObject *cfg,BuildType type,Platfo
             cbu::log_info(std::format("Including subproject dll {}",s->get_name()));
             fpath build_path = get_build_path(s,type,pt,exp,version);
             if (pt == Platform::PLATFORM_WINDOWS) {
-                link_obj_files = std::format("{} {}/lib{}.dll.a",link_obj_files,cbu::path_to_utf8(build_path),s->get_raw_name());
+                link_obj_files = std::format("{} {}/out/lib{}.dll.a",link_obj_files,cbu::path_to_utf8(build_path),s->get_raw_name());
             }
             else link_obj_files = std::format("{} -L{} -l{}",link_obj_files,cbu::path_to_utf8(build_path / "out"),s->get_raw_name());
         }

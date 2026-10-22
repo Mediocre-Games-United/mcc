@@ -1,6 +1,7 @@
 #include "packager.hpp"
 #include "compile/compiler.hpp"
 #include "config_file.hpp"
+#include "export_texts.hpp"
 #include "logger.hpp"
 #include <filesystem>
 #include <format>
@@ -102,12 +103,14 @@ U8 mcc::packager::package_all(mcc::config::ConfigObject *cfg,mcc::compiler::Buil
 
 static void copy_all_packaged_recursive(fpath root,fpath cdir,fpath target) {
     for (auto &s : cbu::iterate_dir(cdir)) {
+        string name = cbu::path_to_utf8(s.filename());
         if (std::filesystem::is_directory(s)) {
+            if (name == "out") continue;
+
             cbu::log_verbose(std::format("Recurse {}",cbu::path_to_utf8(s)));
             copy_all_packaged_recursive(root,s,target);
             continue;
         }
-        string name = cbu::path_to_utf8(s.filename());
 
         if (name.ends_with(".dll.a")) continue;
         if (name.ends_with(".o") || name.ends_with(".d")) continue;
@@ -172,6 +175,9 @@ U8 mcc::packager::export_all(mcc::config::ConfigObject *cfg) {
 
                 switch (exp) {
                     case mcc::config::ExportType::EXPORT_ITCHIO: {
+                        string d = std::format(itch_toml_file_template);
+                        cbu::write_to_file_safe(export_path / "export/.itch.toml",d);
+
                         break;
                     }
                     default: {
