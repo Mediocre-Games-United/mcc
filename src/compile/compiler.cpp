@@ -211,7 +211,20 @@ static void get_includes_recurse(string &output,fpath dir) {
 }
 
 using namespace mcc::config;
-U8 mcc::compiler::build_all(mcc::config::ConfigObject *cfg,BuildType type,Platform pt,mcc::version::Version version,mcc::config::ExportType exp) {
+U8 mcc::compiler::build_all(mcc::config::ConfigObject *cfg,BuildType type,Platform pt,mcc::version::Version &version,mcc::config::ExportType exp) {
+    string commit_id;
+    if (cbu::run_shell_command(cfg->directory,"git rev-parse --short=12 HEAD 2>/dev/null",&commit_id)) {
+        commit_id = "unknown";
+    }
+    string date;
+
+    cbu::run_shell_command("/","date -u +\"%d-%m-%Y\"",&date);
+
+    cbu::trim(commit_id);
+    cbu::trim(date);
+    version.build_date = date;
+    version.git_commit = commit_id;
+
     fpath build_path = get_build_path(cfg,type,pt,exp,version);
     std::filesystem::create_directories(build_path / "out");
 

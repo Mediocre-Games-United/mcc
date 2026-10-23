@@ -29,7 +29,7 @@ namespace mcc::compiler {
     extern const char *platform_exe[size_t(Platform::PLATFORM_NONE)];
     extern const char *platform_shared[size_t(Platform::PLATFORM_NONE)];
 
-    U8 build_all(mcc::config::ConfigObject *cfg,BuildType type,Platform pt,mcc::version::Version version,mcc::config::ExportType exp);
+    U8 build_all(mcc::config::ConfigObject *cfg,BuildType type,Platform pt,mcc::version::Version &version,mcc::config::ExportType exp);
 
     inline string get_shared_lib_name(string name,Platform pt) {
         if (pt == Platform::PLATFORM_WINDOWS) return std::format("{}{}",name,platform_shared[int(pt)]);
