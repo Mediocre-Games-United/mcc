@@ -144,6 +144,7 @@ namespace mcc::config {
     struct ConfigContainer {
         ~ConfigContainer() { for (auto &s : loaded_configs) delete s; }
         vector<ConfigObject*> loaded_configs;
+        fpath previous_config = "";
         std::queue<ConfigContainerDataBlock*> pending_datablocks;
     };
     extern ConfigContainer *current_config;

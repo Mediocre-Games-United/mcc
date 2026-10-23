@@ -19,6 +19,7 @@
 #include <filesystem>
 #include <format>
 #include <queue>
+#include <system_error>
 #include "stringmath.hpp"
 #include "vectormath.hpp"
 
@@ -89,6 +90,11 @@ public:
                         return ((ConfigContainerDataBlock*) obj)->fpath;
                     })
                 })
+            },false),
+            new cbu::StringBinarySection([](void *obj,auto value) { // previous config
+                ((ConfigContainer*) obj)->previous_config = value;
+            },[](void *obj) -> string {
+                return cbu::path_to_utf8(((ConfigContainer*) obj)->previous_config);
             })
         });
     }
@@ -145,6 +151,8 @@ static void scan_config() {
     });
 
     fmt.load_configs();
+    if (current_config->previous_config.empty()) return;
+    set_file_current(current_config->previous_config);
 }
 
 bool mcc::config::link_config(ConfigObject *obj) {
@@ -249,7 +257,9 @@ static void config_recurse_sub_projects(vector<cf*> &subconfigs,fpath path,fpath
         }
         if (!std::filesystem::is_regular_file(s)) continue;
         if (s.filename() != FNAME) continue;
-        if (std::filesystem::equivalent(s,parent)) continue;
+        std::error_code ec;
+        if (std::filesystem::equivalent(s,parent,ec)) continue;
+        if (ec) cbu::log_warn(ec.message());
 
         cbu::log_debug(std::format("Found subconfig {} at {}",FNAME,cbu::path_to_utf8(s)));
         auto fmt = ConfigFileFormat();
@@ -463,6 +473,9 @@ bool mcc::config::set_name_current(string name) {
         mcc::state::current_project = obj->directory;
     });
 
+    current_config->previous_config = obj->directory / FNAME;
+    auto fmt = ConfigContainerFileFormat();
+    fmt.save_configs();
     cbu::log_success(std::format("Project {} at {} is now current",name,cbu::path_to_utf8(obj->directory)));
     return true;
 }
