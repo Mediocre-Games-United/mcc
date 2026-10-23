@@ -10,8 +10,8 @@ namespace mcc::version {
         size_t minor;
         size_t patch;
 
-        string git_commit = "unknown";
-        string build_date = "unknown_date";
+        string git_commit = "none";
+        string build_date = "never";
     };
 
     string get_version_string(Version &vr,string sep);

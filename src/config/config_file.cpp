@@ -439,9 +439,10 @@ bool mcc::config::link_config_by_file(fpath path) {
         return false;
     }
 
-    auto ex = find_config_by_path(path,false);
+    auto ex = find_config_by_path(path.parent_path(),false);
     if (ex) {
-        cbu::log_warn("Config is already loaded!");
+        cbu::log_debug("Config is already loaded!");
+        last_config_name = ex->get_name();
 
         return true;
     }
