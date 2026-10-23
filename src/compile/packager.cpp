@@ -1,6 +1,7 @@
 #include "packager.hpp"
 #include "compile/compiler.hpp"
 #include "config_file.hpp"
+#include "export_texts.hpp"
 #include "logger.hpp"
 #include <filesystem>
 #include <format>
@@ -102,12 +103,14 @@ U8 mcc::packager::package_all(mcc::config::ConfigObject *cfg,mcc::compiler::Buil
 
 static void copy_all_packaged_recursive(fpath root,fpath cdir,fpath target) {
     for (auto &s : cbu::iterate_dir(cdir)) {
+        string name = cbu::path_to_utf8(s.filename());
         if (std::filesystem::is_directory(s)) {
+            if (name == "out") continue;
+
             cbu::log_verbose(std::format("Recurse {}",cbu::path_to_utf8(s)));
             copy_all_packaged_recursive(root,s,target);
             continue;
         }
-        string name = cbu::path_to_utf8(s.filename());
 
         if (name.ends_with(".dll.a")) continue;
         if (name.ends_with(".o") || name.ends_with(".d")) continue;
@@ -133,7 +136,7 @@ U8 mcc::packager::export_all(mcc::config::ConfigObject *cfg) {
 
         return -1;
     }
-    auto version = cfg->version;
+    auto &version = cfg->version;
 
     for (auto &exp : cfg->export_types) {
         for (auto &pt : export_platforms) {
@@ -161,27 +164,38 @@ U8 mcc::packager::export_all(mcc::config::ConfigObject *cfg) {
         }
     }
 
-    cbu::log_success("All packages OK");
 
     for (auto &exp : cfg->export_types) {
         for (auto &pt : export_platforms) {
             for (auto &tp : export_types) {
                 fpath export_path = mcc::compiler::get_export_path(cfg,exp,tp,pt,version);
-                fpath ppath = export_path.parent_path();
-                string name = std::format("{}_{}_{}_{}.zip",cfg->get_raw_name(),mcc::compiler::platform_names[int(pt)],mcc::compiler::build_type_names[int(tp)],mcc::version::get_version_string(version,"-"));
 
                 switch (exp) {
                     case mcc::config::ExportType::EXPORT_ITCHIO: {
+                        string d = std::format(itch_toml_file_template);
+                        cbu::write_to_file_safe(export_path / "export/.itch.toml",d);
+
+                        break;
+                    }
+                    case mcc::config::ExportType::EXPORT_GITHUB: {
+                        U8 code = cbu::run_shell_command(export_path,"tar -czf github_archive.tar.gz export/",NULL);
+                        if (code) {
+                            cbu::log_error(false,"Failed to compress package");
+
+                            return -1;
+                        }
+
                         break;
                     }
                     default: {
-                        // cbu::run_shell_command(ppath,std::format("zip -r {} {}/",name,cbu::path_to_utf8(export_path)),NULL);
                         break;
                     }
                 }
             }
         }
     }
+
+    cbu::log_success("All packages OK");
 
     return 0;
 }

@@ -55,9 +55,9 @@ void mcc::config_commands::config_add_export_cmd() {
         cbu::log_warn("Config does not exist or is not linked!");
         return;
     }
-    cbu::cli_input("Enter export type\nDefault (0 default)\nItch.io (1)");
+    cbu::cli_input("Enter export type\nDefault (0 default)\nItch.io (1)\nGithub.com (2)");
     int opt;
-    if (!cbu::cli_get_valid_int(&opt,0,1,true,0)) {
+    if (!cbu::cli_get_valid_int(&opt,0,2,true,0)) {
         cbu::log_error(false,"Invalid value");
         return;
     }
@@ -87,6 +87,17 @@ void mcc::config_commands::config_add_export_cmd() {
 
             break;
         }
+        case 2: {
+            exp = ExportType::EXPORT_GITHUB;
+            bool no_windows = false;
+            cbu::cli_input("Only upload linux builds? (default false)");
+            cbu::cli_get_valid_bool(&no_windows,true);
+
+            cfg->github_no_windows = no_windows;
+            update_config(cfg);
+
+            break;
+        }
     }
     bool match = false;
     for (auto &s : cfg->export_types) {
@@ -95,9 +106,9 @@ void mcc::config_commands::config_add_export_cmd() {
         match = true;
         break;
     }
-    cbu::log_success("Added export type to config!");
     if (match) return;
 
+    cbu::log_success("Added export type to config!");
     cfg->export_types.push_back(exp);
     update_config(cfg);
 }

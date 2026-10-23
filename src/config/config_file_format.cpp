@@ -249,6 +249,13 @@ cbu::BinaryFileSection *ConfigFileFormatV2::get_sections() {
             cf *c = (cf*) obj;
             return c->version.patch;
         }),
+        new cbu::U8BinarySection([](void *obj,auto value) { // github no windows
+            auto *c = (cf*) obj;
+            c->github_no_windows = bool(value);
+        },[](void *obj) -> U8 {
+            cf *c = (cf*) obj;
+            return U8(c->github_no_windows);
+        }),
     });
 }
 

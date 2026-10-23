@@ -34,12 +34,31 @@ static U8 export_program();
 static U8 publish_program();
 static U8 clean_all();
 static U8 install();
+static U8 list_version() {
+    cbu::cli_output(std::format("Version {}",FULL_VERSION_STRING));
+
+    return 0;
+}
+static U8 list_current() {
+    if (!mcc::config::valid()) {
+        cbu::log_warn("No config active");
+        return 0;
+    }
+
+    mcc::state::state_safe([]() {
+        cbu::log_info(std::format("Current config {} at {}",mcc::state::active_config->get_name(),cbu::path_to_utf8(mcc::state::current_project)));
+    });
+
+    return 0;
+}
 
 static std::unordered_map<cbu::StringName,mcc::compiler::BuildType> build_type_string_lookup;
 static std::unordered_map<cbu::StringName,mcc::compiler::Platform> build_platform_string_lookup;
 
 void mcc::basic_commands::init() {
     mcc::add_command<>("help",&list_all_commands,{},"Displays this help menu :woah:");
+    mcc::add_command<>("version",&list_version,{},"Displays the program version");
+    mcc::add_command<>("current",&list_current,{},"Displays the current config");
     mcc::add_command<string>("h",&list_cmd,{"CommandName"},"Displays a help menu for 1 command");
     mcc::add_command<>("quit",(U8(*)()) NULL,{},"Quits the program (shocker!!)");
 
