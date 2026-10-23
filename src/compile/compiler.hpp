@@ -1,6 +1,7 @@
 #pragma once
 
 #include "config_file.hpp"
+#include "file.hpp"
 #include "version.hpp"
 #include <cassert>
 #include <filesystem>
@@ -52,7 +53,7 @@ namespace mcc::compiler {
         return p;
     }
     inline string get_mcc_root_path(mcc::config::ConfigObject *cfg,mcc::version::Version ver) {
-        return cfg->directory / std::format(".mcc/{}-{}-{}",version::get_version_string(ver,"_"),version::get_build_string(ver),cfg->get_raw_name());
+        return cbu::path_to_utf8(cfg->directory / std::format(".mcc/{}-{}-{}",version::get_version_string(ver,"_"),version::get_build_string(ver),cfg->get_raw_name()));
     }
     inline fpath get_export_path(mcc::config::ConfigObject *cfg,mcc::config::ExportType exp,BuildType type,Platform pt,mcc::version::Version ver) {
         assert(type != BuildType::BUILD_NONE);
