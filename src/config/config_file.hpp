@@ -99,10 +99,6 @@ namespace mcc::config {
         vector<ExternalObject> external_objects{}; // libraries that are linked and included when compiling
         SourceFileObject main_source; // used as main for mode 2, otherwise ignored. optionally compiled multiple times
 
-        // other executables only used by mode 2
-        bool generate_launcher_wrapper = false; // if true, compile main_source into [main]_app.o -> app(.exe) and [main]_launcher.o -> launcher(.exe) and make the launcher executable a wrapper that handles the app executable
-        bool generate_crash_handler = false; // if launcher is set, also generate a crash handler from [main]_crash_handler.o -> crash_handler(.exe)
-
         mcc::version::Version version = {0,1,0};
 
         string itchio_username;
