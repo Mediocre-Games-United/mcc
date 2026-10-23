@@ -136,7 +136,7 @@ U8 mcc::packager::export_all(mcc::config::ConfigObject *cfg) {
 
         return -1;
     }
-    auto version = cfg->version;
+    auto &version = cfg->version;
 
     for (auto &exp : cfg->export_types) {
         for (auto &pt : export_platforms) {
