@@ -66,7 +66,15 @@ static int handle_parser_output(cbu::parser_output pout) {
         temp->src_directory = "src";
         temp->model = mcc::config::ConfigModel::SINGLE_EXECUTABLE;
         temp->set_name("temp");
-        temp->export_types.push_back(mcc::config::ExportType::EXPORT_DEFAULT);
+        temp->export_types.push_back({
+            .type = mcc::config::ExportType::EXPORT_DEFAULT,
+#ifdef _WIN32
+            .platform = mcc::compiler::Platform::PLATFORM_WINDOWS,
+#else
+            .platform = mcc::compiler::Platform::PLATFORM_LINUX,
+#endif
+            .buildtype = mcc::compiler::BuildType::BUILD_EDITOR,
+        });
 
         mcc::config::update_config(temp);
         mcc::state::state_safe([temp]() {

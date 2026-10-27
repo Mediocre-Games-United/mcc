@@ -194,7 +194,7 @@ cbu::BinaryFileSection *ConfigFileFormatV3::get_sections() {
 
             return cbu::path_to_utf8(c->parent_directory);
         }),
-        new cbu::RepeatingBinarySection([](void *u,size_t *size,size_t *len) -> void* {
+        new cbu::RepeatingBinarySection([](void *u,size_t *size,size_t *len) -> void* { // export types
             auto *obj = (cf*) u;
             *len = obj->export_types.size();
             *size = sizeof(mcc::config::ExportClass);
@@ -216,6 +216,24 @@ cbu::BinaryFileSection *ConfigFileFormatV3::get_sections() {
                 },[](void *u) -> U8 {
                     auto *obj = (mcc::config::ExportClass*) u;
                     return U8(obj->type);
+                }),
+                new cbu::U8BinarySection([](void *u,auto value) {
+                    auto *obj = (mcc::config::ExportClass*) u;
+                    auto exp = mcc::config::ExportType(value);
+
+                    obj->platform = mcc::compiler::Platform(exp);
+                },[](void *u) -> U8 {
+                    auto *obj = (mcc::config::ExportClass*) u;
+                    return U8(obj->platform);
+                }),
+                new cbu::U8BinarySection([](void *u,auto value) {
+                    auto *obj = (mcc::config::ExportClass*) u;
+                    auto exp = mcc::config::ExportType(value);
+
+                    obj->buildtype = mcc::compiler::BuildType(exp);
+                },[](void *u) -> U8 {
+                    auto *obj = (mcc::config::ExportClass*) u;
+                    return U8(obj->buildtype);
                 })
             })
         },false),
@@ -644,7 +662,7 @@ cbu::BinaryFileSection *ConfigFileFormatV1::get_sections() {
                 auto *obj = (cf*) u;
                 auto exp = mcc::config::ExportType(value);
 
-                obj->export_types.push_back(exp);
+                // obj->export_types.push_back(exp);
             },[](void *u) -> U8 {
                 auto *v = (mcc::config::ExportType*) u;
                 return U8(*v);

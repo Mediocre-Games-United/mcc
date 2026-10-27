@@ -103,6 +103,11 @@ namespace mcc::config {
     struct ExportClass {
         ExportType type;
         compiler::Platform platform;
+        compiler::BuildType buildtype;
+
+        bool operator!=(const ExportClass &other) {
+            return type != other.type or platform != other.platform or buildtype != other.buildtype;
+        }
     };
 
     struct ConfigObject { // a template object that can be used to generate compile targets, should not have any functionality, only an object describing the project
