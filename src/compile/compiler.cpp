@@ -79,7 +79,7 @@ static vector<fpath> parse_depfile(const string& depfile)
 }
 
 const char *mcc::compiler::build_type_names[size_t(BuildType::BUILD_NONE)] = {
-    "release","beta","debug","editor"
+    "release","beta","debug","editor","stable"
 };
 const char *mcc::compiler::export_type_names[size_t(mcc::config::ExportType::EXPORT_NONE)] = {
     "default", "itchio", "github" // "installer", "portable"
@@ -323,6 +323,12 @@ U8 mcc::compiler::build_all(mcc::config::ConfigObject *cfg,BuildType type,Platfo
         }
         case BuildType::BUILD_RELEASE: {
             CXX_FLAGS += "-DRELEASE=1 ";
+            CXX_FLAGS += RELEASE_FLAGS;
+
+            break;
+        }
+        case BuildType::BUILD_STABLE: {
+            CXX_FLAGS += "-DSTABLE=1 -DRELEASE=1 ";
             CXX_FLAGS += RELEASE_FLAGS;
 
             break;

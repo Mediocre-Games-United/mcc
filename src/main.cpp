@@ -1,4 +1,5 @@
 #include "cbu_state.hpp"
+#include "file.hpp"
 #define CBU_RUN_SHELL_COMMAND_IMPLEMENTATION
 #include "shell.hpp"
 
@@ -102,10 +103,6 @@ int main(int argc,char *argv[]) {
     }
 
     cbu::log_info("Starting program");
-    cbu::init();
-
-    mcc::basic_commands::init();
-    mcc::start_background();
 
     cbu::parser_output pout = cbu::parse_args(argc,argv,{
         cbu::parser_flag('t',"temp","Generates a temporary config in the current working directory for monolithic executables that require no linking steps"),
@@ -116,14 +113,21 @@ int main(int argc,char *argv[]) {
     cbu::log_verbose(std::format("Parser returned {}",pout));
 
 
+    fpath e = cbu::get_exe_path();
+    cbu::log_debug(std::format("Exe path: {}",cbu::path_to_utf8(e)));
     if (pout.can_proceed and pout.valid) {
+        cbu::init();
+        mcc::basic_commands::init();
+        mcc::start_background();
+
         exit = handle_parser_output(pout);
+
+        mcc::end_background();
+        cbu::deinit();
     } else if (!pout.valid) {
         cbu::log_error(false,pout.err);
     }
 
-    mcc::end_background();
-    cbu::deinit();
     cbu::log_debug("Closed succesfully");
     return exit;
 }

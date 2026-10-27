@@ -10,6 +10,25 @@
 #include <optional>
 
 #define FNAME "project.mcc"
+
+namespace mcc::compiler {
+    enum class BuildType {
+        BUILD_RELEASE,
+        BUILD_BETA,
+        BUILD_DEBUG,
+        BUILD_EDITOR,
+        BUILD_STABLE,
+
+        BUILD_NONE
+    };
+
+    enum class Platform {
+        PLATFORM_WINDOWS,
+        PLATFORM_LINUX,
+
+        PLATFORM_NONE
+    };
+}
 namespace mcc::config {
     struct SourceCompileTarget {
         fpath src_path;
@@ -81,6 +100,10 @@ namespace mcc::config {
 
         EXPORT_NONE
     };
+    struct ExportClass {
+        ExportType type;
+        compiler::Platform platform;
+    };
 
     struct ConfigObject { // a template object that can be used to generate compile targets, should not have any functionality, only an object describing the project
         bool is_temp = false;
@@ -93,7 +116,7 @@ namespace mcc::config {
         fpath parent_directory = "";
         bool autodetect_source = true;
         ConfigModel model;
-        vector<ExportType> export_types{};
+        vector<ExportClass> export_types{};
         vector<ConfigObject*> sub_projects{};
         vector<SourceFileObject> source_files{}; // should not include main_source
         vector<ExternalObject> external_objects{}; // libraries that are linked and included when compiling
@@ -103,8 +126,6 @@ namespace mcc::config {
 
         string itchio_username;
         string itchio_project;
-
-        bool github_no_windows = false;
 
         bool is_registered = false;
         inline void set_name(string n) { name = n; }
