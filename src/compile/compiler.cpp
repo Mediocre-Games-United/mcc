@@ -492,7 +492,7 @@ U8 mcc::compiler::build_all(mcc::config::ConfigObject *cfg,BuildType type,Platfo
             cbu::log_error(false,"Building crash handler failed");
             return -1;
         }
-        mcode = build_object(src_path,build_path,launcher_tgt,&did_compile,version,flags + std::format(" -DRUN_LAUNCHER_MODE=1 -DRUN_APP_NAME=\"{}\"",app_name));
+        mcode = build_object(src_path,build_path,launcher_tgt,&did_compile,version,flags + std::format(" -DRUN_LAUNCHER_MODE=1 -DRUN_APP_NAME=\"\\\"{}\\\"\"",app_name));
         if (mcode) {
             cbu::log_error(false,"Building launcher failed");
             return -1;
