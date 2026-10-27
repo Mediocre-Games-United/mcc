@@ -8,22 +8,6 @@
 #include <format>
 
 namespace mcc::compiler {
-    enum class BuildType {
-        BUILD_RELEASE,
-        BUILD_BETA,
-        BUILD_DEBUG,
-        BUILD_EDITOR,
-
-        BUILD_NONE
-    };
-
-    enum class Platform {
-        PLATFORM_WINDOWS,
-        PLATFORM_LINUX,
-
-        PLATFORM_NONE
-    };
-
     extern const char *build_type_names[size_t(BuildType::BUILD_NONE)];
     extern const char *export_type_names[size_t(config::ExportType::EXPORT_NONE)];
     extern const char *platform_names[size_t(Platform::PLATFORM_NONE)];

@@ -79,7 +79,7 @@ static vector<fpath> parse_depfile(const string& depfile)
 }
 
 const char *mcc::compiler::build_type_names[size_t(BuildType::BUILD_NONE)] = {
-    "release","beta","debug","editor"
+    "release","beta","debug","editor","stable"
 };
 const char *mcc::compiler::export_type_names[size_t(mcc::config::ExportType::EXPORT_NONE)] = {
     "default", "itchio", "github" // "installer", "portable"
@@ -211,6 +211,7 @@ static void get_includes_recurse(string &output,fpath dir) {
 }
 
 using namespace mcc::config;
+
 U8 mcc::compiler::build_all(mcc::config::ConfigObject *cfg,BuildType type,Platform pt,mcc::version::Version &version,mcc::config::ExportType exp,bool overwrite_version) {
     if (overwrite_version) {
         string commit_id;
@@ -326,6 +327,12 @@ U8 mcc::compiler::build_all(mcc::config::ConfigObject *cfg,BuildType type,Platfo
 
             break;
         }
+        case BuildType::BUILD_STABLE: {
+            CXX_FLAGS += "-DSTABLE=1 -DRELEASE=1 ";
+            CXX_FLAGS += RELEASE_FLAGS;
+
+            break;
+        }
         default: break;
     }
 
@@ -409,6 +416,7 @@ U8 mcc::compiler::build_all(mcc::config::ConfigObject *cfg,BuildType type,Platfo
                 }
             }
         }
+
     } else {
         link_path = build_path / std::format("launcher{}",platform_exe[int(pt)]);
     }
@@ -456,10 +464,22 @@ U8 mcc::compiler::build_all(mcc::config::ConfigObject *cfg,BuildType type,Platfo
     }
 
     if (cfg->model == mcc::config::ConfigModel::EXECUTABLES_WITH_SHARED) {
+        string app_name = cfg->get_raw_name();
+
         mcc::config::SourceCompileTarget main_tgt = {
             .src_path = cfg->main_source.path,
             .obj_path = "obj/main.o",
             .dep_path = "obj/main.d"
+        };
+        mcc::config::SourceCompileTarget launcher_tgt = {
+            .src_path = cfg->main_source.path,
+            .obj_path = "obj/main_launcher.o",
+            .dep_path = "obj/main_launcher.d"
+        };
+        mcc::config::SourceCompileTarget crash_tgt = {
+            .src_path = cfg->main_source.path,
+            .obj_path = "obj/main_crash.o",
+            .dep_path = "obj/main_crash.d"
         };
         bool did_compile;
         U8 mcode = build_object(src_path,build_path,main_tgt,&did_compile,version,flags + " -DRUN_APP_MODE=1");
@@ -467,11 +487,21 @@ U8 mcc::compiler::build_all(mcc::config::ConfigObject *cfg,BuildType type,Platfo
             cbu::log_error(false,"Building main failed");
             return -1;
         }
+        mcode = build_object(src_path,build_path,crash_tgt,&did_compile,version,flags + " -DRUN_CRASH_MODE=1");
+        if (mcode) {
+            cbu::log_error(false,"Building crash handler failed");
+            return -1;
+        }
+        mcode = build_object(src_path,build_path,launcher_tgt,&did_compile,version,flags + std::format(" -DRUN_LAUNCHER_MODE=1 -DRUN_APP_NAME=\"\\\"{}\\\"\"",app_name));
+        if (mcode) {
+            cbu::log_error(false,"Building launcher failed");
+            return -1;
+        }
         if (pt == Platform::PLATFORM_WINDOWS) {
             link_path = build_path / std::format("out/lib{}.dll.a",cfg->get_raw_name());
-            link_obj_files = std::format("obj/main.o {}",cbu::path_to_utf8(link_path));
+            link_obj_files = std::format("{}",cbu::path_to_utf8(link_path));
         } else {
-            link_obj_files = std::format("obj/main.o -L{} -l{}",cbu::path_to_utf8(link_path.parent_path()),cfg->get_raw_name());
+            link_obj_files = std::format("-L{} -l{}",cbu::path_to_utf8(link_path.parent_path()),cfg->get_raw_name());
         }
 
 
@@ -484,20 +514,31 @@ U8 mcc::compiler::build_all(mcc::config::ConfigObject *cfg,BuildType type,Platfo
             else link_obj_files = std::format("{} -L{} -l{}",link_obj_files,cbu::path_to_utf8(build_path / "out"),s->get_raw_name());
         }
 
-        link_path = build_path / std::format("launcher{}",platform_exe[int(pt)]);
+        auto link_step = [&link_path,build_path,LINKER_INCLUDES,link_obj_files,pt](string name,string o) -> U8 {
+            link_path = build_path / std::format("{}{}",name,platform_exe[int(pt)]);
 
-        string linker_output = "";
-        string linker_cmd = std::format("{} {} {} -o {} {} {}",CXX,CXX_FLAGS,link_obj_files,
-                                        cbu::path_to_utf8(link_path),LINKER_INCLUDES,LINKER_FLAGS);
+            string linker_output = "";
+            string linker_cmd = std::format("{} {} {} {} -o {} {} {}",CXX,CXX_FLAGS,link_obj_files,o,
+                                            cbu::path_to_utf8(link_path),LINKER_INCLUDES,LINKER_FLAGS);
 
-        U8 linker_res = cbu::run_shell_command(build_path,linker_cmd,&linker_output);
-        if (linker_res) {
-            cbu::log_warn(std::format("Linker returned {} with output {}",linker_res,linker_output));
-            return -1;
-        }
+            U8 linker_res = cbu::run_shell_command(build_path,linker_cmd,&linker_output);
+            if (linker_res) {
+                cbu::log_warn(std::format("Linker returned {} with output {}",linker_res,linker_output));
+                return -1;
+            }
 
-        linker_res = mcc::libs::copy_libs(link_path,cfg,type,pt,exp,version);
-        if (linker_res) {
+            return 0;
+        };
+
+        U8 linker_res = link_step("launcher","obj/main_launcher.o");
+        if (linker_res) return linker_res;
+        linker_res = link_step("crash_handler","obj/main_crash.o");
+        if (linker_res) return linker_res;
+        linker_res = link_step(app_name,"obj/main.o");
+        if (linker_res) return linker_res;
+
+        U8 lib_res = mcc::libs::copy_libs(link_path,cfg,type,pt,exp,version);
+        if (lib_res) {
             cbu::log_warn(std::format("Copylibs failed"));
             return -1;
         }

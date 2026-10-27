@@ -128,8 +128,6 @@ static void copy_all_packaged_recursive(fpath root,fpath cdir,fpath target) {
     }
 }
 
-static vector<mcc::compiler::Platform> export_platforms = {mcc::compiler::Platform::PLATFORM_LINUX,mcc::compiler::Platform::PLATFORM_WINDOWS};
-static vector<mcc::compiler::BuildType> export_types = {mcc::compiler::BuildType::BUILD_BETA,mcc::compiler::BuildType::BUILD_RELEASE};
 U8 mcc::packager::export_all(mcc::config::ConfigObject *cfg) {
     if (cfg->export_types.empty()) {
         cbu::log_error(false,"Config has no export types!");
@@ -139,58 +137,54 @@ U8 mcc::packager::export_all(mcc::config::ConfigObject *cfg) {
     auto &version = cfg->version;
 
     for (auto &exp : cfg->export_types) {
-        for (auto &pt : export_platforms) {
-            for (auto &tp : export_types) {
-                fpath export_path = mcc::compiler::get_export_path(cfg,exp,tp,pt,version);
+        compiler::Platform pt = exp.platform;
+        compiler::BuildType tp = exp.buildtype;
 
-                std::error_code ec;
-                auto code = mcc::compiler::build_all(cfg,tp,pt,version,exp);
-                if (code) {
-                    cbu::log_error(false,"Build failed");
-                    return -1;
-                }
-                code = package_all(cfg,tp,pt,exp,version);
-                if (code) {
-                    cbu::log_error(false,"Package failed");
-                    return -1;
-                }
-
-                fpath rpath = export_path / "build";
-                fpath tpath = export_path / "export";
-                cbu::log_info(std::format("Export Path: {} rpath {}",cbu::path_to_utf8(export_path),cbu::path_to_utf8(rpath)));
-                std::filesystem::remove_all(tpath,ec);
-                copy_all_packaged_recursive(rpath,rpath,tpath);
-            }
+        std::error_code ec;
+        auto code = mcc::compiler::build_all(cfg,tp,pt,version,exp.type);
+        if (code) {
+            cbu::log_error(false,"Build failed");
+            return -1;
         }
+        code = package_all(cfg,tp,pt,exp.type,version);
+        if (code) {
+            cbu::log_error(false,"Package failed");
+            return -1;
+        }
+
+        fpath export_path = mcc::compiler::get_export_path(cfg,exp.type,tp,pt,version);
+        fpath rpath = export_path / "build";
+        fpath tpath = export_path / "export";
+        cbu::log_info(std::format("Export Path: {} rpath {}",cbu::path_to_utf8(export_path),cbu::path_to_utf8(rpath)));
+        std::filesystem::remove_all(tpath,ec);
+        copy_all_packaged_recursive(rpath,rpath,tpath);
     }
 
 
     for (auto &exp : cfg->export_types) {
-        for (auto &pt : export_platforms) {
-            for (auto &tp : export_types) {
-                fpath export_path = mcc::compiler::get_export_path(cfg,exp,tp,pt,version);
+        compiler::Platform pt = exp.platform;
+        compiler::BuildType tp = exp.buildtype;
+        fpath export_path = mcc::compiler::get_export_path(cfg,exp.type,tp,pt,version);
 
-                switch (exp) {
-                    case mcc::config::ExportType::EXPORT_ITCHIO: {
-                        string d = std::format(itch_toml_file_template);
-                        cbu::write_to_file_safe(export_path / "export/.itch.toml",d);
+        switch (exp.type) {
+            case mcc::config::ExportType::EXPORT_ITCHIO: {
+                string d = std::format(itch_toml_file_template);
+                cbu::write_to_file_safe(export_path / "export/.itch.toml",d);
 
-                        break;
-                    }
-                    case mcc::config::ExportType::EXPORT_GITHUB: {
-                        U8 code = cbu::run_shell_command(export_path,"tar -czf github_archive.tar.gz export/",NULL);
-                        if (code) {
-                            cbu::log_error(false,"Failed to compress package");
+                break;
+            }
+            case mcc::config::ExportType::EXPORT_GITHUB: {
+                U8 code = cbu::run_shell_command(export_path,"tar -czf github_archive.tar.gz export/",NULL);
+                if (code) {
+                    cbu::log_error(false,"Failed to compress package");
 
-                            return -1;
-                        }
-
-                        break;
-                    }
-                    default: {
-                        break;
-                    }
+                    return -1;
                 }
+
+                break;
+            }
+            default: {
+                break;
             }
         }
     }

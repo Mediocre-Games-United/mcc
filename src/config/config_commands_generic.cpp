@@ -1,6 +1,7 @@
 #include "config_commands_generic.hpp"
 #include "cli.hpp"
 #include "commands.hpp"
+#include "compiler.hpp"
 #include "config_file.hpp"
 #include "file.hpp"
 #include "logger.hpp"
@@ -37,6 +38,7 @@ void mcc::config_commands::list_config_cmd() {
     size_t source_count = 0;
     size_t external_count = 0;
     size_t sub_count = 0;
+    size_t exp_count = 0;
 
     for (auto &s : cfg->source_files) {
         source_count += 1;
@@ -55,7 +57,19 @@ void mcc::config_commands::list_config_cmd() {
 
         cbu::cli_output(std::format("- External object {}",cbu::ansi_wrap_bold(ext.name)));
     }
-    cbu::cli_output(std::format("Has {} external objects",external_count));
+    cbu::cli_output(std::format("Has {} external objects\n---",external_count));
+    for (auto &exp : cfg->export_types) {
+        exp_count += 1;
+
+        cbu::cli_output(std::format("- Export type {}",cbu::ansi_wrap_bold(
+            std::format("{}, {} for {}",
+                        mcc::compiler::export_type_names[int(exp.type)],
+                        mcc::compiler::build_type_names[int(exp.buildtype)],
+                        mcc::compiler::platform_names[int(exp.platform)]
+                        )
+        )));
+    }
+    cbu::cli_output(std::format("Has {} export types\n---",exp_count));
 
 }
 void mcc::config_commands::link_config_cmd() {

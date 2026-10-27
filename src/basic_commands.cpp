@@ -101,6 +101,8 @@ void mcc::basic_commands::init() {
     build_type_string_lookup["d"] = mcc::compiler::BuildType::BUILD_DEBUG;
     build_type_string_lookup["release"] = mcc::compiler::BuildType::BUILD_RELEASE;
     build_type_string_lookup["r"] = mcc::compiler::BuildType::BUILD_RELEASE;
+    build_type_string_lookup["stable"] = mcc::compiler::BuildType::BUILD_STABLE;
+    build_type_string_lookup["s"] = mcc::compiler::BuildType::BUILD_STABLE;
 
     build_platform_string_lookup["win"] = mcc::compiler::Platform::PLATFORM_WINDOWS;
     build_platform_string_lookup["windows"] = mcc::compiler::Platform::PLATFORM_WINDOWS;

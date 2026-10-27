@@ -19,7 +19,21 @@ U8 mcc::libs::copy_libs(fpath exe_file,mcc::config::ConfigObject *cfg,mcc::compi
     fpath build_path = mcc::compiler::get_build_path(cfg,tp,pt,exp,version);
     cbu::log_info("Copying libs...");
 
-    string output = "";
+    string output;
+#ifdef _WIN32
+    // windows link
+#else
+    fpath ln = cfg->directory / "latest";
+    if (std::filesystem::exists(ln)) {
+        if (std::filesystem::is_symlink(ln)) {
+            std::filesystem::remove(ln);
+            std::filesystem::create_directory_symlink(exe_file.parent_path(),ln);
+        }
+    } else {
+        std::filesystem::create_directory_symlink(exe_file.parent_path(),ln);
+    }
+#endif
+
     U8 code = 0;
     switch (pt) {
         case mcc::compiler::Platform::PLATFORM_LINUX: {

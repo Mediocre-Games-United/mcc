@@ -89,27 +89,47 @@ void mcc::config_commands::config_add_export_cmd() {
         }
         case 2: {
             exp = ExportType::EXPORT_GITHUB;
-            bool no_windows = false;
-            cbu::cli_input("Only upload linux builds? (default false)");
-            cbu::cli_get_valid_bool(&no_windows,true);
-
-            cfg->github_no_windows = no_windows;
-            update_config(cfg);
 
             break;
         }
     }
+    ExportClass c{};
+    c.type = exp;
+
+    int pt,tp;
+#ifdef _WIN32
+    cbu::cli_input("Enter export platform\nWindows (0 default)\nLinux (1)");
+    if (!cbu::cli_get_valid_int(&pt,0,1,true,0)) {
+#else
+    cbu::cli_input("Enter export platform\nWindows (0)\nLinux (1 default)");
+    if (!cbu::cli_get_valid_int(&pt,0,1,true,1)) {
+#endif
+        cbu::log_error(false,"Invalid value");
+        return;
+    }
+    c.platform = mcc::compiler::Platform(pt);
+
+    cbu::cli_input("Enter export build type\nRelease (0)\nBeta (1 default)");
+    if (!cbu::cli_get_valid_int(&tp,0,1,true,1)) {
+        cbu::log_error(false,"Invalid value");
+        return;
+    }
+    c.buildtype = mcc::compiler::BuildType(tp);
+
     bool match = false;
     for (auto &s : cfg->export_types) {
-        if (s != exp) continue;
+        if (s != c) continue;
 
         match = true;
         break;
     }
-    if (match) return;
+    if (match) {
+        cbu::log_warn("Export type already exists!");
+        return;
+    }
 
     cbu::log_success("Added export type to config!");
-    cfg->export_types.push_back(exp);
+    cfg->export_types.push_back(c);
     update_config(cfg);
 }
 
