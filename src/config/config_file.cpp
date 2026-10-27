@@ -267,7 +267,7 @@ static void config_recurse_sub_projects(vector<cf*> &subconfigs,fpath path,fpath
 
         bool found = false;
         for (auto &o : subconfigs) {
-            if (o->get_name() != cfg->get_name() || o->directory != cfg->directory) continue;
+            if (o->directory != cfg->directory) continue;
 
             cbu::log_verbose("Subconfig already exists! Skipping...");
             found = true;
