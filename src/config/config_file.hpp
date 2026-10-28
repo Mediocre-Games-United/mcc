@@ -113,6 +113,36 @@ namespace mcc::config {
     struct ConfigObject { // a template object that can be used to generate compile targets, should not have any functionality, only an object describing the project
         bool is_temp = false;
 
+        ConfigObject &operator=(const ConfigObject &other) = delete;
+
+        void reload_config_from_file();
+        inline void hotswap(ConfigObject &other) {
+            cbu::log_debug(std::format("Hotswapping config {}",(void*) this));
+
+            other.remove_name();
+            remove_name();
+
+            set_name(other.get_raw_name());
+            register_name();
+
+            is_temp = other.is_temp;
+            directory = other.directory;
+            src_directory = other.src_directory;
+            has_parent_directory = other.has_parent_directory;
+            parent_directory = other.parent_directory;
+            autodetect_source = other.autodetect_source;
+            model = other.model;
+
+            export_types = other.export_types;
+            source_files = other.source_files;
+            external_objects = other.external_objects;
+            main_source = other.main_source;
+
+            version = other.version;
+            itchio_username = other.itchio_username;
+            itchio_project = other.itchio_project;
+        }
+
         string get_name();
 
         fpath directory;
@@ -134,7 +164,7 @@ namespace mcc::config {
 
         bool is_registered = false;
         inline void set_name(string n) { name = n; }
-        inline string get_raw_name() { return name; }
+        inline string get_raw_name() const { return name; }
         void register_name();
         void remove_name();
     private:

@@ -50,6 +50,7 @@ struct GitStatus {
     S64 ahead = 0;
     S64 behind = 0;
 
+    vector<string> modified_submodules;
     vector<string> modified;
     vector<string> deleted;
     vector<string> untracked;
@@ -58,6 +59,21 @@ static void status_get_all_dirs(GitStatus status,vector<fpath> &list) {
     list.push_back(status.dir);
     for (auto &[path,sub] : status.submodules) {
         status_get_all_dirs(sub,list);
+    }
+}
+static void print_change_info(GitStatus status) {
+    if (!status.modified.empty() or !status.deleted.empty() or !status.untracked.empty() or !status.modified_submodules.empty()) cbu::cli_output("---");
+    for (auto &s : status.modified) {
+        cbu::cli_output(std::format("{}: {}",cbu::ansi_wrap_string("Modified",cbu::ansi_color_orange),s));
+    } if (!status.modified.empty() and (!status.deleted.empty() or !status.untracked.empty() or !status.modified_submodules.empty())) cbu::cli_output("-");
+    for (auto &s : status.deleted) {
+        cbu::cli_output(std::format("{}: {}",cbu::ansi_wrap_string("Deleted",cbu::ansi_color_red),s));
+    } if (!status.deleted.empty() and (!status.untracked.empty() or !status.modified_submodules.empty())) cbu::cli_output("-");
+    for (auto &s : status.untracked) {
+        cbu::cli_output(std::format("{}: {}",cbu::ansi_wrap_string("Untracked",cbu::ansi_color_lime),s));
+    } if (!status.untracked.empty() and (!status.modified_submodules.empty())) cbu::cli_output("-");
+    for (auto &s : status.modified_submodules) {
+        cbu::cli_output(std::format("{}: {}",cbu::ansi_wrap_string("Submodule",cbu::ansi_color_dark_cyan),s));
     }
 }
 static U8 read_current_git_status(fpath dir,GitStatus &status) {
@@ -70,6 +86,7 @@ static U8 read_current_git_status(fpath dir,GitStatus &status) {
         return -1;
     }
 
+    status.modified_submodules.clear();
     status.modified.clear();
     status.untracked.clear();
     status.deleted.clear();
@@ -105,20 +122,26 @@ static U8 read_current_git_status(fpath dir,GitStatus &status) {
             auto split = cbu::string_split(line," ");
             if (split.size() < 9) continue;
 
-            if (split[2] == "S.M.") split[8] = std::format("Submodule: \"{}\"",split[8]);
-            else status.has_unsaved = true;
-            if (split[1][0] == 'M') { // modified, staged
-                status.modified.push_back(split[8]);
-            } else if (split[1][1] == 'M') { // modified, unstaged
-                status.modified.push_back(split[8]);
-            } else if (split[1][0] == 'D') { // deleted, staged
-                status.deleted.push_back(split[8]);
-            } else if (split[1][1] == 'D') { // deleted, unstaged
-                status.deleted.push_back(split[8]);
-            } else if (split[1][0] == 'A') { // new, staged
-                status.modified.push_back(split[8]);
-            } else {
-                cbu::log_warn(std::format("Unrecognized git status {}!",split[1]));
+            cbu::log_verbose(std::format("Git status {}",split[2]));
+            if (split[2][0] == 'S') {
+                status.modified_submodules.push_back(std::format("Submodule: \"{}\"",split[8]));
+            }
+            else {
+                status.has_unsaved = true;
+
+                if (split[1][0] == 'M') { // modified, staged
+                    status.modified.push_back(split[8]);
+                } else if (split[1][1] == 'M') { // modified, unstaged
+                    status.modified.push_back(split[8]);
+                } else if (split[1][0] == 'D') { // deleted, staged
+                    status.deleted.push_back(split[8]);
+                } else if (split[1][1] == 'D') { // deleted, unstaged
+                    status.deleted.push_back(split[8]);
+                } else if (split[1][0] == 'A') { // new, staged
+                    status.modified.push_back(split[8]);
+                } else {
+                    cbu::log_warn(std::format("Unrecognized git status {}!",split[1]));
+                }
             }
         } else if (line.starts_with("?")) {
             auto split = cbu::string_split(line," ");
@@ -205,6 +228,22 @@ static GitStatus get_general_status(fpath dir,bool get_network) {
     return status;
 }
 
+static U8 discard_all(fpath dir) {
+    string output;
+    return cbu::run_shell_command(dir,"git reset --hard; git clean -fd",&output);
+}
+static U8 prompt_remove_unsaved(GitStatus status,fpath dir) {
+    string output;
+
+    print_change_info(status);
+
+    cbu::cli_input("Unsaved changes detected! Discard all unsaved changes? (default false)");
+    bool res;
+    cbu::cli_get_valid_bool(&res,true);
+    if (!res) return -1;
+
+    return discard_all(dir);
+}
 static U8 sync_dir(GitStatus status,fpath dir) {
     vector<fpath> dirs{};
     status_get_all_dirs(status,dirs);
@@ -220,6 +259,8 @@ static U8 sync_dir(GitStatus status,fpath dir) {
 
             read_mutex.lock();
             code = read_current_git_status(d,status);
+
+            if (status.has_unsaved and prompt_remove_unsaved(status,d)) code = 1;
             read_mutex.unlock();
             if (code) {
                 succesful = false;
@@ -330,19 +371,7 @@ static void print_status_info(GitStatus status,bool full) {
         cbu::cli_output(std::format("Remote: {}, {}",behind_label,ahead_label));
     }
 
-    if (full) {
-
-        if (!status.modified.empty() or !status.deleted.empty() or !status.untracked.empty()) cbu::cli_output("---");
-        for (auto &s : status.modified) {
-            cbu::cli_output(std::format("{}: {}",cbu::ansi_wrap_string("Modified",cbu::ansi_color_orange),s));
-        } if (!status.modified.empty() and (!status.deleted.empty() or !status.untracked.empty())) cbu::cli_output("-");
-        for (auto &s : status.deleted) {
-            cbu::cli_output(std::format("{}: {}",cbu::ansi_wrap_string("Deleted",cbu::ansi_color_red),s));
-        } if (!status.deleted.empty() and !status.untracked.empty()) cbu::cli_output("-");
-        for (auto &s : status.untracked) {
-            cbu::cli_output(std::format("{}: {}",cbu::ansi_wrap_string("Untracked",cbu::ansi_color_lime),s));
-        }
-    }
+    if (full) print_change_info(status);
 
     for (auto &[key,stat] : status.submodules) {
         cbu::cli_output(std::format("---\nSubmodule {}",key));
@@ -357,25 +386,12 @@ static U8 print_status_full(fpath dir,bool full) {
 
     return 0;
 }
-static U8 discard_all(fpath dir) {
-    string output;
-    return cbu::run_shell_command(dir,"git reset --hard; git clean -fd",&output);
-}
-static U8 prompt_remove_unsaved(fpath dir) {
-    string output;
-    cbu::cli_input("Unsaved changes detected! Discard all unsaved changes? (default false)");
-    bool res;
-    cbu::cli_get_valid_bool(&res,true);
-    if (!res) return -1;
-
-    return discard_all(dir);
-}
 static U8 checkout_branch(fpath dir,string target) {
     string output;
     GitStatus status = get_general_status(dir,true);
 
     if (!status.valid) return -1;
-    if (status.has_unsaved and prompt_remove_unsaved(dir)) return -1;
+    if (status.has_unsaved and prompt_remove_unsaved(status,dir)) return -1;
 
     if (sync_dir(status,dir)) {
         cbu::log_error(false,"Sync failed, aborting");
@@ -400,7 +416,25 @@ U8 mcc::git::sync() {
 
         GitStatus status = get_general_status(dir,true);
         if (!status.valid) { code = -1; return; }
-        if (status.has_unsaved and prompt_remove_unsaved(dir)) { code = -1; return; }
+
+        code = sync_dir(status,mcc::state::current_project);
+        if (code) return;
+
+        print_status_full(dir,false);
+    });
+    mcc::config::background();
+
+    return code;
+}
+U8 mcc::git::subsync(string sub) {
+    if (!mcc::config::valid()) return log_no_conf();
+
+    U8 code = 0;
+    mcc::state::state_safe([&code,sub]() {
+        fpath dir = mcc::state::current_project / sub;
+
+        GitStatus status = get_general_status(dir,true);
+        if (!status.valid) { code = -1; return; }
 
         code = sync_dir(status,mcc::state::current_project);
         if (code) return;
@@ -625,16 +659,30 @@ U8 mcc::git::clone(string target,string url) {
 
 
 U8 mcc::git::clean() {
-    U8 code = 0;
+    U8 code = 1;
+
     mcc::state::state_safe([&code]() {
         fpath dir = mcc::state::current_project;
+        bool confirm;
+        GitStatus status = get_general_status(dir,false);
+        if (!status.valid) return;
 
-        string output;
-        if (cbu::run_shell_command(dir,"git reset --hard; git clean -fd",&output)) { code = -1; return; }
+        print_change_info(status);
+        cbu::cli_input("Discard all uncommitted changes? (default false)");
+        cbu::cli_get_valid_bool(&confirm,true);
+        if (!confirm) {
+            code = 0;
+            cbu::log_info("Cancelled");
+            return;
+        }
+
+        code = discard_all(dir);
+        if (code) return;
+
+        cbu::log_success("Unsaved changes discarded succesfully");
     });
     if (code) return code;
 
-    cbu::log_success("Unsaved changes discarded succesfully");
 
     return code;
 }
