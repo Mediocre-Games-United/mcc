@@ -47,6 +47,7 @@ struct GitStatus {
     bool is_attached = false;
     bool is_remote = false;
     bool has_unsaved = false;
+    bool has_any_changes = false;
     S64 ahead = 0;
     S64 behind = 0;
 
@@ -92,6 +93,7 @@ static U8 read_current_git_status(fpath dir,GitStatus &status) {
     status.deleted.clear();
     status.is_remote = false;
     status.has_unsaved = false;
+    status.has_any_changes = false;
 
     for (string line : separate_lines(output)) {
         cbu::log_debug(line);
@@ -125,6 +127,7 @@ static U8 read_current_git_status(fpath dir,GitStatus &status) {
             cbu::log_verbose(std::format("Git status {}",split[2]));
             if (split[2][0] == 'S') {
                 status.modified_submodules.push_back(std::format("Submodule: \"{}\"",split[8]));
+                status.has_any_changes = true;
             }
             else {
                 status.has_unsaved = true;
@@ -146,6 +149,7 @@ static U8 read_current_git_status(fpath dir,GitStatus &status) {
         } else if (line.starts_with("?")) {
             auto split = cbu::string_split(line," ");
             status.untracked.push_back(split[1]);
+            status.has_any_changes = true;
         }
     }
 
@@ -513,7 +517,7 @@ U8 mcc::git::commit_all(string msg) {
         GitStatus status = get_general_status(dir,false);
 
         if (!status.valid) { code = -1; return; }
-        if (!status.has_unsaved) {
+        if (!status.has_any_changes) {
             cbu::log_success("No local changes to commit!");
             return;
         }
@@ -542,7 +546,7 @@ U8 mcc::git::commit_all_sub(string sub,string msg) {
         GitStatus status = get_general_status(dir,false);
 
         if (!status.valid) { code = -1; return; }
-        if (!status.has_unsaved) {
+        if (!status.has_any_changes) {
             cbu::log_success("No local changes to commit!");
             return;
         }
