@@ -364,10 +364,7 @@ void mcc::config::background() {
         if (!cfg) return;
 
         if (!cfg->is_temp) {
-            auto fmt = ConfigFileFormat();
-
-            update_config(cfg);
-            fmt.save_config(cfg);
+            cfg->reload_config_from_file();
         } else {
             update_config(cfg);
         }

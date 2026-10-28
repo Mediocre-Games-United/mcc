@@ -25,6 +25,8 @@ namespace mcc {
         interrupt_mutex.unlock();
         return true;
     }
+    void pre_command_checks();
+    void post_command_checks();
 
     struct cmdinfo {
         string help_example;
@@ -135,8 +137,10 @@ namespace mcc {
                 U8 res = cmdexecutor<T...>::decode(&args, vars);
                 if (res) return res;
 
+                pre_command_checks();
                 U8 r = std::apply(callback, args);
                 string txt = std::format("Command {} returned code {}", name, r);
+                post_command_checks();
 
                 if (r) cbu::log_error(false, txt);
                 else cbu::log_success(txt);

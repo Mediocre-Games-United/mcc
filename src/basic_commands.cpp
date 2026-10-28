@@ -12,6 +12,7 @@
 #include "state.hpp"
 #include "stringmath.hpp"
 #include "shell.hpp"
+#include "version.hpp"
 #include <cstdint>
 #include <cstdlib>
 #include <filesystem>
@@ -46,7 +47,7 @@ static U8 list_current() {
     }
 
     mcc::state::state_safe([]() {
-        cbu::log_info(std::format("Current config {} at {}",mcc::state::active_config->get_name(),cbu::path_to_utf8(mcc::state::current_project)));
+        cbu::log_info(std::format("Current config {} {} at {}",mcc::state::active_config->get_name(),mcc::version::get_version_string(mcc::state::active_config->version,"."),cbu::path_to_utf8(mcc::state::current_project)));
     });
 
     return 0;
