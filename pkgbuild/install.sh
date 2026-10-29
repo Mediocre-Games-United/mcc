@@ -1,5 +1,5 @@
 cd /tmp
-git clone https://github.com/Mediocre-Games-United/mcc-build.git
-cd mcc-build
+git clone https://github.com/Mediocre-Games-United/mcc.git
+cd mcc/pkgbuild
 makepkg -si
-rm -rf /tmp/mcc-build
+rm -rf /tmp/mcc
