@@ -1,7 +1,10 @@
+#include "logger.hpp"
 #include "unit_test.hpp"
 
 using namespace cbu::test;
 
-void test_main(test_result &res,int argc,char **argv) {
+void cbu::test::test_main(test_result &res,int argc,char **argv) {
+    cbu::log_info("Hello from test!");
+
     res.set_success();
 }

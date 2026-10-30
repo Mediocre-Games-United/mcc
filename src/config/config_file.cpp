@@ -218,6 +218,17 @@ static bool subprojects_have_src_file(SourceFileObject &src,vector<cf*> &subconf
 
     return false;
 }
+static bool testfiles_have_src_file(SourceFileObject &src,vector<SourceFileObject> &testfiles) {
+    for (auto &t : testfiles) {
+        if (src.name != t.name) continue;
+
+        cbu::log_verbose(std::format("Testfile {} matches with t {}",t.name,src.name));
+        return true;
+    }
+
+    return false;
+}
+
 static bool subprojects_have_test_file(SourceFileObject &test,vector<cf*> &subconfigs) {
     for (auto &s : subconfigs) {
         for (auto &ts : s->test_files) {
@@ -380,7 +391,7 @@ void mcc::config::update_config(cf *obj) {
     vector<SourceFileObject> test_remove_queue{};
     for (auto &s : subconfigs) update_config(s);
     for (auto &s : sourcefiles) {
-        if (std::filesystem::exists(lpath / s.path) and !subprojects_have_src_file(s,subconfigs)) continue;
+        if (std::filesystem::exists(lpath / s.path) and !subprojects_have_src_file(s,subconfigs) and !testfiles_have_src_file(s,testfiles)) continue;
         remove_queue.push_back(s);
     }
     for (auto &s : testfiles) {
