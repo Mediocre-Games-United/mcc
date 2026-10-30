@@ -12,6 +12,7 @@
 #include "state.hpp"
 #include "stringmath.hpp"
 #include "shell.hpp"
+#include "version.hpp"
 #include <cstdint>
 #include <cstdlib>
 #include <filesystem>
@@ -46,8 +47,13 @@ static U8 list_current() {
     }
 
     mcc::state::state_safe([]() {
-        cbu::log_info(std::format("Current config {} at {}",mcc::state::active_config->get_name(),cbu::path_to_utf8(mcc::state::current_project)));
+        cbu::log_info(std::format("Current config {} {} at {}",mcc::state::active_config->get_name(),mcc::version::get_version_string(mcc::state::active_config->version,"."),cbu::path_to_utf8(mcc::state::current_project)));
     });
+
+    return 0;
+}
+static U8 echo(string i) {
+    cbu::cli_output(i);
 
     return 0;
 }
@@ -57,6 +63,7 @@ static std::unordered_map<cbu::StringName,mcc::compiler::Platform> build_platfor
 
 void mcc::basic_commands::init() {
     mcc::add_command<>("help",&list_all_commands,{},"Displays this help menu :woah:");
+    mcc::add_command<string>("echo",&echo,{},"Echoes the received input");
     mcc::add_command<>("version",&list_version,{},"Displays the program version");
     mcc::add_command<>("current",&list_current,{},"Displays the current config");
     mcc::add_command<string>("h",&list_cmd,{"CommandName"},"Displays a help menu for 1 command");
@@ -71,6 +78,7 @@ void mcc::basic_commands::init() {
     mcc::add_command<>("install",&install,{},"Install required dependencies");
     mcc::add_command<>("clean",&clean_all,{},"Remove all build & export files");
     mcc::add_command<>("gsync",&mcc::git::sync,{},"Safe push & pull from git remotes");
+    mcc::add_command<string>("subsync",&mcc::git::subsync,{"SubModule"},"Safe push & pull from git remotes in a submodule");
     mcc::add_command<>("gundo",&mcc::git::undo,{},"Undo local commit");
     mcc::add_command<string>("subundo",&mcc::git::subundo,{"SubModule"},"Undo local commit in submodule");
     mcc::add_command<>("gstatus",&mcc::git::status,{},"Show git status");

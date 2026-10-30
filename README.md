@@ -6,7 +6,15 @@ Currently only for Linux. Windows may work (probably won't) but is very untested
 
 ## INSTALLATION & USAGE
 
-Follow the instructions at https://github.com/Mediocre-Games-United/mcc-build
+Installation Command
+
+```bash
+cd /tmp
+git clone https://github.com/Mediocre-Games-United/mcc.git
+cd mcc/pkgbuild
+makepkg -si
+rm -rf /tmp/mcc
+```
 
 To use, simply type mcc in any terminal for interactive mode.
 

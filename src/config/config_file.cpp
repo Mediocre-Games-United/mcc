@@ -20,15 +20,35 @@
 #include <format>
 #include <queue>
 #include <system_error>
+#include <unordered_set>
 #include "stringmath.hpp"
 #include "vectormath.hpp"
 
 using namespace mcc::config;
 
-static umap<cbu::StringName,size_t> duplicate_config_ids;
+static umap<cbu::StringName,std::unordered_set<size_t>> duplicate_config_ids{};
+static size_t find_available_config_id(cbu::StringName name) {
+    if (!duplicate_config_ids.contains(name)) {
+        duplicate_config_ids[name].insert(0);
+
+        return 0;
+    }
+
+    size_t i = 0;
+    while (true) {
+        if (!duplicate_config_ids[name].contains(i)) {
+            duplicate_config_ids[name].insert(i);
+            break;
+        }
+
+        i ++;
+    }
+
+    return i;
+}
+
 string ConfigObject::get_name() {
-    if (!duplicate_config_ids.contains(name)) return name;
-    if (duplicate_config_ids[name] == 0) return name;
+    if (!duplicate_config_ids.contains(name) or duplicate_config_ids[name].size() <= 1) return name;
 
     return std::format("{}@{}",name,id);
 }
@@ -36,23 +56,32 @@ void ConfigObject::register_name() {
     if (is_registered) return;
 
     is_registered = true;
-    if (duplicate_config_ids.contains(name)) {
-        duplicate_config_ids[name] += 1;
-        id = duplicate_config_ids[name];
-
-        return;
-    }
-
-    duplicate_config_ids[name] = 0;
-    id = 0;
+    id = find_available_config_id(name);
 }
 void ConfigObject::remove_name() {
     if (!is_registered) return;
     if (!duplicate_config_ids.contains(name)) return;
 
     is_registered = false;
-    duplicate_config_ids[name] -= 1;
-    if (duplicate_config_ids[name] <= 0) duplicate_config_ids.erase(name);
+    duplicate_config_ids[name].erase(id);
+    if (duplicate_config_ids[name].empty()) duplicate_config_ids.erase(name);
+}
+void ConfigObject::reload_config_from_file() {
+    if (is_temp) return;
+
+    cbu::log_debug("Reloading config from file...");
+    if (!std::filesystem::exists(directory / FNAME)) {
+        cbu::log_warn("Failed to reload config from file! File does not exist anymore");
+        return;
+    }
+
+    auto fmt = ConfigFileFormat();
+    ConfigObject *n = fmt.load_config(directory / FNAME);
+
+    hotswap(*n);
+    update_config(this);
+
+    delete n;
 }
 
 ConfigContainer *mcc::config::current_config = NULL;
@@ -335,10 +364,7 @@ void mcc::config::background() {
         if (!cfg) return;
 
         if (!cfg->is_temp) {
-            auto fmt = ConfigFileFormat();
-
-            update_config(cfg);
-            fmt.save_config(cfg);
+            cfg->reload_config_from_file();
         } else {
             update_config(cfg);
         }
@@ -415,12 +441,15 @@ U8 mcc::config::cmd() {
     return 0;
 }
 bool mcc::config::valid() {
-    bool v;
-    mcc::state::state_safe([&v]() {
-        v = mcc::state::active_config;
+    bool exists = false;
+    mcc::state::state_safe([&exists]() {
+        if (!mcc::state::active_config) return;
+
+        exists = true;
+        mcc::state::active_config->reload_config_from_file();
     });
 
-    return v;
+    return exists;
 }
 
 

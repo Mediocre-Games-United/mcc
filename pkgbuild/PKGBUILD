@@ -1,0 +1,22 @@
+pkgname=mcc
+pkgver=0.6.2
+pkgrel=6
+pkgdesc="mcc compiler collection build systems"
+arch=("x86_64")
+depends=("glibc" "gcc" "mingw-w64-gcc" "zip" "tar" "gzip" "curl" "github-cli")
+options=('!debug')
+makedepends=("tar" "git")
+
+source=('git+https://github.com/Mediocre-Games-United/mcc.git' 'bin.tar.gz::https://github.com/Mediocre-Games-United/mcc/releases/download/v0.6.2/mcc-release-v0.6.2-linux-x86_64.tar.gz')
+sha256sums=('SKIP' 'SKIP')
+
+package() {
+    cd $srcdir
+    tar -xzf bin.tar.gz
+
+    install -Dm755 "export/launcher" "$pkgdir/usr/bin/mcc"
+
+    cd "$srcdir/mcc"
+    install -Dm644 "mcc.desktop" "$pkgdir/usr/share/applications/mcc.desktop"
+    install -Dm644 "application-x-mcc.xml" "$pkgdir/usr/share/mime/packages/x-mcc.xml"
+}

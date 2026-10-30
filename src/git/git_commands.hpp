@@ -4,6 +4,7 @@
 
 namespace mcc::git {
     U8 sync();
+    U8 subsync(string sub);
     U8 undo();
     U8 subundo(string sub);
     U8 status();
@@ -15,6 +16,5 @@ namespace mcc::git {
     U8 merge(string base,string feature);
     U8 fix();
     U8 clone(string target,string url);
-    U8 discard();
     U8 clean();
 }
