@@ -36,7 +36,7 @@ static U8 export_program();
 static U8 publish_program();
 static U8 clean_all();
 static U8 install();
-static U8 test();
+static U8 test_all();
 static U8 list_version() {
     cbu::cli_output(std::format("Version {}",FULL_VERSION_STRING));
 
@@ -78,7 +78,7 @@ void mcc::basic_commands::init() {
     mcc::add_command<>("export",&export_program,{},"Builds the program and exports in the config's export format(s) and platform(s), ready to install/execute/publish.");
     mcc::add_command<>("publish",&publish_program,{},"Exports and publishes the program in the config's export format(s), shorthand for package, export, publish");
     mcc::add_command<>("install",&install,{},"Install required dependencies");
-    mcc::add_command<>("test",&test,{},"Runs all unit tests");
+    mcc::add_command<>("test",&test_all,{},"Runs all unit tests");
     mcc::add_command<>("clean",&clean_all,{},"Remove all build & export files");
     mcc::add_command<>("gsync",&mcc::git::sync,{},"Safe push & pull from git remotes");
     mcc::add_command<string>("subsync",&mcc::git::subsync,{"SubModule"},"Safe push & pull from git remotes in a submodule");
@@ -267,7 +267,7 @@ static U8 install() {
 
     return code;
 }
-static U8 test() {
+static U8 test_all() {
     if (!mcc::config::valid()) {
         cbu::log_error(false,"No valid config found. Generate one with `config`");
 

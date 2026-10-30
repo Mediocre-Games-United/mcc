@@ -26,7 +26,7 @@ static U8 run_test(mcc::config::ConfigObject *cfg) {
     std::atomic<bool> succesful = true;
     bool did_compile = false;
     for (auto t : cfg->test_files) {
-        string flags = std::format("-DCURRENT_TEST_NAME=\"\"{}\"\"",t.name);
+        string flags = std::format("-DCURRENT_TEST_NAME=\"\\\"{}\\\"\"",t.name);
 
         work.push_back([t,build_path,srcdir,&succesful,&did_compile,cfg,flags]() {
             fpath opath = fpath("tests") / t.name;
