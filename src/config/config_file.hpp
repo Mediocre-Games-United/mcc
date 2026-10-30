@@ -157,6 +157,7 @@ namespace mcc::config {
         vector<SourceFileObject> test_files{}; // should not include main_source or source_files
         vector<ExternalObject> external_objects{}; // libraries that are linked and included when compiling
         SourceFileObject main_source; // used as main for mode 2, otherwise ignored. optionally compiled multiple times
+        SourceFileObject test_main_source; // test main
 
         mcc::version::Version version = {0,1,0};
 

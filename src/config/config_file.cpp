@@ -230,7 +230,7 @@ static bool subprojects_have_test_file(SourceFileObject &test,vector<cf*> &subco
 
     return false;
 }
-static void config_recurse_src_files(vector<cf*> &subconfigs,SourceFileObject &main,vector<SourceFileObject> &sourcefiles,vector<SourceFileObject> &testfiles,fpath root,fpath path,bool parent_no_match = true) {
+static void config_recurse_src_files(vector<cf*> &subconfigs,SourceFileObject &main,SourceFileObject &test_main,vector<SourceFileObject> &sourcefiles,vector<SourceFileObject> &testfiles,fpath root,fpath path,bool parent_no_match = true) {
     bool no_match = parent_no_match;
     if (no_match) {
         for (auto &s : subconfigs) {
@@ -246,12 +246,22 @@ static void config_recurse_src_files(vector<cf*> &subconfigs,SourceFileObject &m
         if (std::filesystem::is_directory(s)) {
             if (nm == ".mcc" or nm == ".git" or nm == "pkgbuild" or nm == "latest") continue;
 
-            config_recurse_src_files(subconfigs,main,sourcefiles,testfiles,root,s,no_match);
+            config_recurse_src_files(subconfigs,main,test_main,sourcefiles,testfiles,root,s,no_match);
             continue;
         }
         if (!std::filesystem::is_regular_file(s)) continue;
 
         fpath p = std::filesystem::relative(s,root);
+        if (nm == "unit_test_main.cpp") {
+            if (test_main) continue;
+
+            cbu::log_verbose(std::format("Found test main at {}",cbu::path_to_utf8(s)));
+            test_main = SourceFileObject{
+                .path = p,
+                .name = "unit_test_main"
+            };
+            continue;
+        }
         if (nm.ends_with(".test.cpp")) {
             string name = cbu::path_to_utf8(s.stem());
             cbu::log_verbose(std::format("Found test file {} with name {}",cbu::path_to_utf8(p),name));
@@ -361,9 +371,10 @@ void mcc::config::update_config(cf *obj) {
     vector<SourceFileObject> testfiles = obj->test_files;
 
     SourceFileObject main;
+    SourceFileObject test_main;
     auto lpath = obj->directory / obj->src_directory;
     config_recurse_sub_projects(subconfigs,lpath,obj->directory / FNAME);
-    config_recurse_src_files(subconfigs,main,sourcefiles,testfiles,lpath,lpath);
+    config_recurse_src_files(subconfigs,main,test_main,sourcefiles,testfiles,lpath,lpath);
 
     vector<SourceFileObject> remove_queue{};
     vector<SourceFileObject> test_remove_queue{};
@@ -387,6 +398,7 @@ void mcc::config::update_config(cf *obj) {
     obj->sub_projects = subconfigs;
 
     obj->main_source = main;
+    obj->test_main_source = test_main;
     auto fmt = ConfigFileFormat();
     fmt.save_config(obj);
 

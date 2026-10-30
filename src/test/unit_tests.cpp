@@ -4,6 +4,7 @@
 #include "logger.hpp"
 #include "packager.hpp"
 #include "workers.hpp"
+#include <format>
 #include <functional>
 
 static mcc::compiler::BuildType buildtype = mcc::compiler::BuildType::BUILD_EDITOR;
@@ -25,12 +26,30 @@ static U8 run_test(mcc::config::ConfigObject *cfg) {
     std::atomic<bool> succesful = true;
     bool did_compile = false;
     for (auto t : cfg->test_files) {
-        work.push_back([t,build_path,srcdir]() {
+        string flags = std::format("-DCURRENT_TEST_NAME=\"\"{}\"\"",t.name);
+
+        work.push_back([t,build_path,srcdir,&succesful,&did_compile,cfg,flags]() {
+            fpath opath = fpath("tests") / t.name;
+
             U8 code = mcc::compiler::build_object(srcdir,build_path,{
                 .src_path = t.path,
-                .obj_path = opath + ".o",
-                .dep_path = opath + ".d",
-            })
+                .obj_path = opath / "test.o",
+                .dep_path = opath / "test.d"
+            },&did_compile,cfg->version,flags);
+            if (code) {
+                succesful = false;
+                return;
+            }
+
+            code = mcc::compiler::build_object(srcdir,build_path,{
+                .src_path = cfg->test_main_source.path,
+                .obj_path = opath / "main.o",
+                .dep_path = opath / "main.d"
+            },&did_compile,cfg->version,flags);
+            if (code) {
+                succesful = false;
+                return;
+            }
         });
     }
 
@@ -40,6 +59,11 @@ static U8 run_test(mcc::config::ConfigObject *cfg) {
         return 0;
     }
     cbu::run_tasks_sync(work);
+
+    if (!succesful) {
+        cbu::log_error(false,"Failed to build tests");
+        return 1;
+    }
 
     return 0;
 }
