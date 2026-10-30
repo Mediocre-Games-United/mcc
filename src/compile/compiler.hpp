@@ -14,6 +14,7 @@ namespace mcc::compiler {
     extern const char *platform_exe[size_t(Platform::PLATFORM_NONE)];
     extern const char *platform_shared[size_t(Platform::PLATFORM_NONE)];
 
+    U8 build_object(fpath src_path,fpath build_path,mcc::config::SourceCompileTarget tgt,bool *did_compile,mcc::version::Version version,string flags = "");
     U8 build_all(mcc::config::ConfigObject *cfg,BuildType type,Platform pt,mcc::version::Version &version,mcc::config::ExportType exp,bool overwrite_version = true);
 
     inline string get_shared_lib_name(string name,Platform pt) {

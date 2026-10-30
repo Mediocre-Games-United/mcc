@@ -122,7 +122,7 @@ static const string RELEASE_FLAGS = "-O3 -DNDEBUG ";
 static string get_version_defines(mcc::version::Version version) {
     return std::format("-DVERSION_MAJOR={} -DVERSION_MINOR={} -DVERSION_PATCH={} -DGIT_COMMIT={} -DBUILD_TIME={}",version.major,version.minor,version.patch,version.git_commit,version.build_date);
 }
-static U8 build_object(fpath src_path,fpath build_path,mcc::config::SourceCompileTarget tgt,bool *did_compile,mcc::version::Version version,string flags = "") {
+U8 build_object(fpath src_path,fpath build_path,mcc::config::SourceCompileTarget tgt,bool *did_compile,mcc::version::Version version,string flags) {
     fpath abs_src_path = src_path / tgt.src_path;
     fpath abs_obj_path = build_path / tgt.obj_path;
     fpath abs_dep_path = build_path / tgt.dep_path;

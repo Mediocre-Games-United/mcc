@@ -154,6 +154,7 @@ namespace mcc::config {
         vector<ExportClass> export_types{};
         vector<ConfigObject*> sub_projects{};
         vector<SourceFileObject> source_files{}; // should not include main_source
+        vector<SourceFileObject> test_files{}; // should not include main_source or source_files
         vector<ExternalObject> external_objects{}; // libraries that are linked and included when compiling
         SourceFileObject main_source; // used as main for mode 2, otherwise ignored. optionally compiled multiple times
 
