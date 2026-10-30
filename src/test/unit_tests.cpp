@@ -15,7 +15,15 @@ static mcc::compiler::Platform platform = mcc::compiler::Platform::PLATFORM_LINU
 #endif
 static mcc::config::ExportType exptype = mcc::config::ExportType::EXPORT_NONE;
 
+static U8 link_test(mcc::config::ConfigObject *cfg,fpath testpath) {
+    if (cfg->model == mcc::config::ConfigModel::SINGLE_EXECUTABLE) {
+        vector<fpath> objs{};
+        for (auto &o : )
 
+    }
+
+    return 0;
+}
 static U8 run_test(mcc::config::ConfigObject *cfg) {
     cbu::log_info("Building tests");
     vector<std::function<void()>> work{};
@@ -26,7 +34,7 @@ static U8 run_test(mcc::config::ConfigObject *cfg) {
     std::atomic<bool> succesful = true;
     bool did_compile = false;
     for (auto t : cfg->test_files) {
-        string flags = std::format("-DCURRENT_TEST_NAME=\"\\\"{}\\\"\"",t.name);
+        string flags = std::format("-DIS_IN_TEST=1 -DCURRENT_TEST_NAME=\"\\\"{}\\\"\"",t.name);
 
         work.push_back([t,build_path,srcdir,&succesful,&did_compile,cfg,flags]() {
             fpath opath = fpath("tests") / t.name;
@@ -46,6 +54,12 @@ static U8 run_test(mcc::config::ConfigObject *cfg) {
                 .obj_path = opath / "main.o",
                 .dep_path = opath / "main.d"
             },&did_compile,cfg->version,flags);
+            if (code) {
+                succesful = false;
+                return;
+            }
+
+            code = link_test(cfg,opath);
             if (code) {
                 succesful = false;
                 return;

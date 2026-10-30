@@ -395,6 +395,7 @@ void mcc::config::update_config(cf *obj) {
     }
 
     obj->source_files = sourcefiles;
+    obj->test_files = testfiles;
     obj->sub_projects = subconfigs;
 
     obj->main_source = main;
