@@ -30,7 +30,7 @@ U8 mcc::libs::copy_libs(fpath target_path,fpath exe_file,mcc::config::ConfigObje
         std::filesystem::remove(ln,ec);
         if (ec) cbu::log_warn(ec.message());
     }
-    std::filesystem::create_directory_symlink(exe_file.parent_path(),ln,ec);
+    std::filesystem::create_directory_symlink((build_path / exe_file).parent_path(),ln,ec);
     if (ec) cbu::log_warn(ec.message());
 #endif
 
