@@ -49,6 +49,9 @@ static U8 link_test(mcc::config::ConfigObject *cfg,mcc::version::Version ver,fpa
     U8 code = mcc::libs::copy_libs(build_path / testpath,exe_path,cfg,buildtype,platform,exptype,ver);
     if (code) return code;
 
+    code = mcc::packager::package(build_path / testpath,cfg,buildtype,platform,exptype,ver);
+    if (code) return code;
+
     return 0;
 }
 static std::mutex progress_mutex{};
