@@ -391,11 +391,16 @@ void mcc::config::update_config(cf *obj) {
     vector<SourceFileObject> test_remove_queue{};
     for (auto &s : subconfigs) update_config(s);
     for (auto &s : sourcefiles) {
-        if (std::filesystem::exists(lpath / s.path) and !subprojects_have_src_file(s,subconfigs) and !testfiles_have_src_file(s,testfiles)) continue;
-        remove_queue.push_back(s);
+        if (!std::filesystem::exists(lpath / s.path) or subprojects_have_src_file(s,subconfigs) or testfiles_have_src_file(s,testfiles)) {
+            cbu::log_debug(std::format("Removing {}",s.name));
+            remove_queue.push_back(s);
+        }
+
     }
     for (auto &s : testfiles) {
-        if (std::filesystem::exists(lpath / s.path) and !subprojects_have_test_file(s,subconfigs)) continue;
+        if (std::filesystem::exists(lpath / s.path)) {
+            if (!subprojects_have_test_file(s,subconfigs)) continue;
+        }
         test_remove_queue.push_back(s);
     }
     for (auto &s : remove_queue) {
