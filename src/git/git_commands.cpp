@@ -131,6 +131,7 @@ static U8 read_current_git_status(fpath dir,GitStatus &status) {
             }
             else {
                 status.has_unsaved = true;
+                status.has_any_changes = true;
 
                 if (split[1][0] == 'M') { // modified, staged
                     status.modified.push_back(split[8]);

@@ -12,6 +12,7 @@
 #include "state.hpp"
 #include "stringmath.hpp"
 #include "shell.hpp"
+#include "unit_tests.hpp"
 #include "version.hpp"
 #include <cstdint>
 #include <cstdlib>
@@ -35,6 +36,7 @@ static U8 export_program();
 static U8 publish_program();
 static U8 clean_all();
 static U8 install();
+static U8 test_all();
 static U8 list_version() {
     cbu::cli_output(std::format("Version {}",FULL_VERSION_STRING));
 
@@ -76,6 +78,7 @@ void mcc::basic_commands::init() {
     mcc::add_command<>("export",&export_program,{},"Builds the program and exports in the config's export format(s) and platform(s), ready to install/execute/publish.");
     mcc::add_command<>("publish",&publish_program,{},"Exports and publishes the program in the config's export format(s), shorthand for package, export, publish");
     mcc::add_command<>("install",&install,{},"Install required dependencies");
+    mcc::add_command<>("test",&test_all,{},"Runs all unit tests");
     mcc::add_command<>("clean",&clean_all,{},"Remove all build & export files");
     mcc::add_command<>("gsync",&mcc::git::sync,{},"Safe push & pull from git remotes");
     mcc::add_command<string>("subsync",&mcc::git::subsync,{"SubModule"},"Safe push & pull from git remotes in a submodule");
@@ -260,6 +263,22 @@ static U8 install() {
 
         mcc::config::update_config(mcc::state::active_config);
         code = mcc::installer::install_all(mcc::state::active_config);
+    });
+
+    return code;
+}
+static U8 test_all() {
+    if (!mcc::config::valid()) {
+        cbu::log_error(false,"No valid config found. Generate one with `config`");
+
+        return 1;
+    }
+    U8 code;
+    mcc::state::state_safe([&code]() {
+        log_config(mcc::state::active_config);
+
+        mcc::config::update_config(mcc::state::active_config);
+        code = mcc::test::run_all_tests(mcc::state::active_config);
     });
 
     return code;

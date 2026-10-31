@@ -14,6 +14,12 @@ namespace mcc::compiler {
     extern const char *platform_exe[size_t(Platform::PLATFORM_NONE)];
     extern const char *platform_shared[size_t(Platform::PLATFORM_NONE)];
 
+    inline fpath get_obj_path(fpath src_rel,string ext) {
+        return "obj" / src_rel.parent_path() / (cbu::path_to_utf8(src_rel.stem()) + ext);
+    }
+
+    U8 link_object(fpath build_path,fpath output,string link_obj_files,mcc::config::ConfigObject *cfg,mcc::compiler::Platform pt,string link_flags_extra = "");
+    U8 build_object(fpath src_path,fpath build_path,mcc::config::SourceCompileTarget tgt,bool *did_compile,mcc::version::Version version,string flags = "");
     U8 build_all(mcc::config::ConfigObject *cfg,BuildType type,Platform pt,mcc::version::Version &version,mcc::config::ExportType exp,bool overwrite_version = true);
 
     inline string get_shared_lib_name(string name,Platform pt) {

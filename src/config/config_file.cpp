@@ -218,7 +218,30 @@ static bool subprojects_have_src_file(SourceFileObject &src,vector<cf*> &subconf
 
     return false;
 }
-static void config_recurse_src_files(vector<cf*> &subconfigs,SourceFileObject &main,vector<SourceFileObject> &sourcefiles,fpath root,fpath path,bool parent_no_match = true) {
+static bool testfiles_have_src_file(SourceFileObject &src,vector<SourceFileObject> &testfiles) {
+    for (auto &t : testfiles) {
+        if (src.name != t.name) continue;
+
+        cbu::log_verbose(std::format("Testfile {} matches with t {}",t.name,src.name));
+        return true;
+    }
+
+    return false;
+}
+
+static bool subprojects_have_test_file(SourceFileObject &test,vector<cf*> &subconfigs) {
+    for (auto &s : subconfigs) {
+        for (auto &ts : s->test_files) {
+            if (ts.name != test.name) continue;
+
+            cbu::log_verbose(std::format("Subproject {} test {} matches with t {}",s->get_name(),ts.name,test.name));
+            return true;
+        }
+    }
+
+    return false;
+}
+static void config_recurse_src_files(vector<cf*> &subconfigs,SourceFileObject &main,SourceFileObject &test_main,vector<SourceFileObject> &sourcefiles,vector<SourceFileObject> &testfiles,fpath root,fpath path,bool parent_no_match = true) {
     bool no_match = parent_no_match;
     if (no_match) {
         for (auto &s : subconfigs) {
@@ -230,18 +253,50 @@ static void config_recurse_src_files(vector<cf*> &subconfigs,SourceFileObject &m
     }
 
     for (auto &s : cbu::iterate_dir(path)) {
+        string nm = cbu::path_to_utf8(s.filename());
         if (std::filesystem::is_directory(s)) {
-            string name = cbu::path_to_utf8(s.filename());
-            if (name == ".mcc" || name == ".git") continue;
+            if (nm == ".mcc" or nm == ".git" or nm == "pkgbuild" or nm == "latest") continue;
 
-            config_recurse_src_files(subconfigs,main,sourcefiles,root,s,no_match);
+            config_recurse_src_files(subconfigs,main,test_main,sourcefiles,testfiles,root,s,no_match);
             continue;
         }
         if (!std::filesystem::is_regular_file(s)) continue;
-        string ext = s.extension().string();
-        if (ext == ".cpp" || ext == ".c") {
+
+        fpath p = std::filesystem::relative(s,root);
+        if (nm == "unit_test_main.cpp") {
+            if (test_main) continue;
+
+            cbu::log_verbose(std::format("Found test main at {}",cbu::path_to_utf8(p)));
+            test_main = SourceFileObject{
+                .path = p,
+                .name = "unit_test_main"
+            };
+            continue;
+        }
+        if (nm.ends_with(".test.cpp")) {
             string name = cbu::path_to_utf8(s.stem());
-            fpath p = std::filesystem::relative(s,root);
+            cbu::log_verbose(std::format("Found test file {} with name {}",cbu::path_to_utf8(p),name));
+
+            bool file_exists = false;
+            for (auto &sr : testfiles) {
+                if (sr.path == p) {
+                    file_exists = true;
+                    break;
+                }
+            }
+            if (file_exists) continue;
+            if (!no_match) continue;
+
+            testfiles.push_back(SourceFileObject{
+                .path = p,
+                .name = name
+            });
+
+            continue;
+        }
+        string ext = s.extension().string();
+        if (ext == ".cpp") {
+            string name = cbu::path_to_utf8(s.stem());
 
             // cbu::log_debug(std::format("Found source file {} with name {}",cbu::path_to_utf8(p),name));
             bool file_exists = false;
@@ -272,7 +327,7 @@ static void config_recurse_src_files(vector<cf*> &subconfigs,SourceFileObject &m
             });
 
             continue;
-        } if (ext == ".hpp" || ext == ".h") {
+        } if (ext == ".hpp" or ext == ".h") {
             // cbu::log_debug(std::format("Found header file {}",cbu::path_to_utf8(s)));
             continue;
         }
@@ -324,26 +379,49 @@ static void config_recurse_sub_projects(vector<cf*> &subconfigs,fpath path,fpath
 void mcc::config::update_config(cf *obj) {
     vector<cf*> subconfigs = obj->sub_projects;
     vector<SourceFileObject> sourcefiles = obj->source_files;
+    vector<SourceFileObject> testfiles = obj->test_files;
 
-    SourceFileObject main;
+    SourceFileObject main{};
+    SourceFileObject test_main{};
     auto lpath = obj->directory / obj->src_directory;
     config_recurse_sub_projects(subconfigs,lpath,obj->directory / FNAME);
-    config_recurse_src_files(subconfigs,main,sourcefiles,lpath,lpath);
+    config_recurse_src_files(subconfigs,main,test_main,sourcefiles,testfiles,lpath,lpath);
 
     vector<SourceFileObject> remove_queue{};
+    vector<SourceFileObject> test_remove_queue{};
     for (auto &s : subconfigs) update_config(s);
     for (auto &s : sourcefiles) {
-        if (std::filesystem::exists(lpath / s.path) and !subprojects_have_src_file(s,subconfigs)) continue;
+        if (std::filesystem::exists(lpath / s.path) and !subprojects_have_src_file(s,subconfigs) and !testfiles_have_src_file(s,testfiles)) continue;
         remove_queue.push_back(s);
+    }
+    for (auto &s : testfiles) {
+        if (std::filesystem::exists(lpath / s.path) and !subprojects_have_test_file(s,subconfigs)) continue;
+        test_remove_queue.push_back(s);
     }
     for (auto &s : remove_queue) {
         cbu::vector_erase_value(sourcefiles,s);
     }
+    for (auto &s : test_remove_queue) {
+        cbu::vector_erase_value(testfiles,s);
+    }
 
     obj->source_files = sourcefiles;
+    obj->test_files = testfiles;
     obj->sub_projects = subconfigs;
 
     obj->main_source = main;
+    obj->test_main_source = test_main;
+    if (test_main) {
+        for (auto &s : subconfigs) {
+            fpath a = obj->directory / obj->src_directory / test_main.path;
+            fpath r = std::filesystem::relative(a,s->directory / s->src_directory);
+
+            s->test_main_source = test_main;
+            s->test_main_source.path = r;
+        }
+    }
+
+    // cbu::log_verbose(std::format("Test main {}@{}",obj->test_main_source.name,cbu::path_to_utf8(obj->test_main_source.path)));
     auto fmt = ConfigFileFormat();
     fmt.save_config(obj);
 

@@ -66,13 +66,10 @@ static void iterate_lang_srcs_recursive(fpath src_dir,fpath cdir,fpath tgt_dir) 
         }
     }
 }
-U8 mcc::packager::package_all(mcc::config::ConfigObject *cfg,mcc::compiler::BuildType type,mcc::compiler::Platform pt,mcc::config::ExportType exp,mcc::version::Version version) {
-    fpath build_path = mcc::compiler::get_build_path(cfg,type,pt,exp,version);
 
-    cbu::log_info(std::format("Build path: {}",cbu::path_to_utf8(build_path)));
-
-    fpath res_path = build_path / "resources";
-    fpath lang_path = build_path / "lang";
+U8 mcc::packager::package(fpath target_path,mcc::config::ConfigObject *cfg,mcc::compiler::BuildType type,mcc::compiler::Platform pt,mcc::config::ExportType exp,mcc::version::Version version) {
+    fpath res_path = target_path / "resources";
+    fpath lang_path = target_path / "lang";
 
     fpath res_src_path = cfg->directory / "resources";
     fpath lang_src_path = cfg->directory / "lang";
@@ -83,22 +80,20 @@ U8 mcc::packager::package_all(mcc::config::ConfigObject *cfg,mcc::compiler::Buil
         fpath rpath = build_path / "resources";
         fpath lpath = build_path / "lang";
 
-        // if (std::filesystem::exists(rpath)) {
-            iterate_res_srcs_recursive(rpath,rpath,res_path);
-        // } if (std::filesystem::exists(lpath)) {
-            iterate_lang_srcs_recursive(lpath,lpath,lang_path);
-        // }
+        iterate_res_srcs_recursive(rpath,rpath,res_path);
+        iterate_lang_srcs_recursive(lpath,lpath,lang_path);
     }
 
 
-    // if (std::filesystem::exists(res_src_path)) {
-        iterate_res_srcs_recursive(res_src_path,res_src_path,res_path);
-    // } if (std::filesystem::exists(lang_src_path)) {
-        iterate_lang_srcs_recursive(lang_src_path,lang_src_path,lang_path);
-    // }
-
+    iterate_res_srcs_recursive(res_src_path,res_src_path,res_path);
+    iterate_lang_srcs_recursive(lang_src_path,lang_src_path,lang_path);
 
     return 0;
+}
+U8 mcc::packager::package_all(mcc::config::ConfigObject *cfg,mcc::compiler::BuildType type,mcc::compiler::Platform pt,mcc::config::ExportType exp,mcc::version::Version version) {
+    fpath build_path = mcc::compiler::get_build_path(cfg,type,pt,exp,version);
+
+    return package(build_path,cfg,type,pt,exp,version);
 }
 
 static void copy_all_packaged_recursive(fpath root,fpath cdir,fpath target) {
