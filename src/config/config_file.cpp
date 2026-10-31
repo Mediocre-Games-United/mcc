@@ -266,7 +266,7 @@ static void config_recurse_src_files(vector<cf*> &subconfigs,SourceFileObject &m
         if (nm == "unit_test_main.cpp") {
             if (test_main) continue;
 
-            cbu::log_verbose(std::format("Found test main at {}",cbu::path_to_utf8(s)));
+            cbu::log_verbose(std::format("Found test main at {}",cbu::path_to_utf8(p)));
             test_main = SourceFileObject{
                 .path = p,
                 .name = "unit_test_main"
@@ -381,8 +381,8 @@ void mcc::config::update_config(cf *obj) {
     vector<SourceFileObject> sourcefiles = obj->source_files;
     vector<SourceFileObject> testfiles = obj->test_files;
 
-    SourceFileObject main;
-    SourceFileObject test_main;
+    SourceFileObject main{};
+    SourceFileObject test_main{};
     auto lpath = obj->directory / obj->src_directory;
     config_recurse_sub_projects(subconfigs,lpath,obj->directory / FNAME);
     config_recurse_src_files(subconfigs,main,test_main,sourcefiles,testfiles,lpath,lpath);
@@ -411,6 +411,17 @@ void mcc::config::update_config(cf *obj) {
 
     obj->main_source = main;
     obj->test_main_source = test_main;
+    if (test_main) {
+        for (auto &s : subconfigs) {
+            fpath a = obj->directory / obj->src_directory / test_main.path;
+            fpath r = std::filesystem::relative(a,s->directory / s->src_directory);
+
+            s->test_main_source = test_main;
+            s->test_main_source.path = r;
+        }
+    }
+
+    // cbu::log_verbose(std::format("Test main {}@{}",obj->test_main_source.name,cbu::path_to_utf8(obj->test_main_source.path)));
     auto fmt = ConfigFileFormat();
     fmt.save_config(obj);
 

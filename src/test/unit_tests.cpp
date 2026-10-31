@@ -2,9 +2,11 @@
 #include "compiler.hpp"
 #include "config_file.hpp"
 #include "file.hpp"
+#include "libs.hpp"
 #include "logger.hpp"
 #include "packager.hpp"
 #include "shell.hpp"
+#include "version.hpp"
 #include "workers.hpp"
 #include <format>
 #include <functional>
@@ -17,9 +19,11 @@ static mcc::compiler::Platform platform = mcc::compiler::Platform::PLATFORM_LINU
 #endif
 static mcc::config::ExportType exptype = mcc::config::ExportType::EXPORT_NONE;
 
-static U8 link_test(mcc::config::ConfigObject *cfg,fpath testpath) {
-    fpath build_path = mcc::compiler::get_build_path(cfg,buildtype,platform,exptype,cfg->version);
+static U8 link_test(mcc::config::ConfigObject *cfg,mcc::version::Version ver,fpath testpath) {
+    fpath build_path = mcc::compiler::get_build_path(cfg,buildtype,platform,exptype,ver);
 
+    string nm = mcc::compiler::get_exe_name("run_test",platform);
+    fpath exe_path = testpath / nm;
     if (cfg->model == mcc::config::ConfigModel::SINGLE_EXECUTABLE) {
         string objs = std::format("{}/main.o {}/test.o ",cbu::path_to_utf8(testpath),cbu::path_to_utf8(testpath));
         for (auto &o : cfg->source_files) {
@@ -28,11 +32,22 @@ static U8 link_test(mcc::config::ConfigObject *cfg,fpath testpath) {
             objs += std::format("{} ",cbu::path_to_utf8(ofile));
         }
 
-        U8 c = mcc::compiler::link_object(build_path,testpath / mcc::compiler::get_exe_name("run_test",platform),objs,cfg,platform);
+        U8 c = mcc::compiler::link_object(build_path,exe_path,objs,cfg,platform);
         if (c) return c;
     } else {
+        string objs = std::format("{}/main.o {}/test.o -L{}/out -l{}",cbu::path_to_utf8(testpath),cbu::path_to_utf8(testpath),cbu::path_to_utf8(build_path),cfg->get_raw_name());
+        for (auto &c : cfg->sub_projects) {
+            fpath sub_build_path = mcc::compiler::get_build_path(c,buildtype,platform,exptype,ver);
+            objs = std::format("{} -L{}/out -l{}",objs,cbu::path_to_utf8(sub_build_path),c->get_raw_name());
+        }
 
+        U8 c = mcc::compiler::link_object(build_path,exe_path,objs,cfg,platform);
+        if (c) return c;
     }
+
+
+    U8 code = mcc::libs::copy_libs(build_path / testpath,exe_path,cfg,buildtype,platform,exptype,ver);
+    if (code) return code;
 
     return 0;
 }
@@ -46,12 +61,19 @@ static void log_test_progress() {
     cbu::log_info(std::format("Progress: {}/{} ({:.2f}%)",progress_index,progress_max,F64(progress_index) / F64(progress_max) * 100.0));
     progress_mutex.unlock();
 }
-static U8 run_test(mcc::config::ConfigObject *cfg) {
+static U8 run_test(mcc::config::ConfigObject *cfg,mcc::version::Version ver) {
+    for (auto &c : cfg->sub_projects) {
+        U8 code = run_test(c,ver);
+        if (code) return code;
+    }
+
     cbu::log_info("Building tests");
+
+    cbu::log_verbose(std::format("Test main: {}",cbu::path_to_utf8(cfg->test_main_source.path)));
     vector<std::function<void()>> work{};
     vector<std::function<void()>> test_work{};
 
-    fpath build_path = mcc::compiler::get_build_path(cfg,buildtype,platform,exptype,cfg->version);
+    fpath build_path = mcc::compiler::get_build_path(cfg,buildtype,platform,exptype,ver);
     fpath srcdir = cfg->directory / cfg->src_directory;
 
     std::atomic<bool> succesful = true;
@@ -62,13 +84,13 @@ static U8 run_test(mcc::config::ConfigObject *cfg) {
         string flags = std::format("-DIS_IN_TEST=1 -DCURRENT_TEST_NAME=\"\\\"{}\\\"\"",t.name);
 
         fpath opath = fpath("tests") / t.name;
-        work.push_back([opath,t,build_path,srcdir,&succesful,&did_compile,cfg,flags]() {
+        work.push_back([opath,t,build_path,srcdir,&succesful,&did_compile,&ver,cfg,flags]() {
 
             U8 code = mcc::compiler::build_object(srcdir,build_path,{
                 .src_path = t.path,
                 .obj_path = opath / "test.o",
                 .dep_path = opath / "test.d"
-            },&did_compile,cfg->version,flags);
+            },&did_compile,ver,flags);
             if (code) {
                 succesful = false;
                 return;
@@ -78,13 +100,13 @@ static U8 run_test(mcc::config::ConfigObject *cfg) {
                 .src_path = cfg->test_main_source.path,
                 .obj_path = opath / "main.o",
                 .dep_path = opath / "main.d"
-            },&did_compile,cfg->version,flags);
+            },&did_compile,ver,flags);
             if (code) {
                 succesful = false;
                 return;
             }
 
-            code = link_test(cfg,opath);
+            code = link_test(cfg,ver,opath);
             if (code) {
                 succesful = false;
                 return;
@@ -138,5 +160,5 @@ U8 mcc::test::run_all_tests(mcc::config::ConfigObject *cfg) {
     c = mcc::packager::package_all(cfg,buildtype,platform,exptype,cfg->version);
     if (c) return c;
 
-    return run_test(cfg);
+    return run_test(cfg,cfg->version);
 }

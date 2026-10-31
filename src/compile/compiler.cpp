@@ -251,8 +251,8 @@ static string get_LINKER_INCLUDES(mcc::config::ConfigObject *cfg,mcc::compiler::
 }
 U8 mcc::compiler::link_object(fpath build_path,fpath output,string link_obj_files,mcc::config::ConfigObject *cfg,mcc::compiler::Platform pt,string link_flags_extra) {
     string linker_output;
-    string linker_cmd = std::format("{} {} {} -o {} {} {} {} ",CXX,CXX_FLAGS,link_obj_files,
-                                    cbu::path_to_utf8(output),get_LINKER_INCLUDES(cfg,pt),LINKER_FLAGS,link_flags_extra);
+    string linker_cmd = std::format("{} {} {} {} {} {} -o {}",CXX,CXX_FLAGS,link_obj_files,
+                                    get_LINKER_INCLUDES(cfg,pt),LINKER_FLAGS,link_flags_extra,cbu::path_to_utf8(output));
 
     U8 linker_res = cbu::run_shell_command(build_path,linker_cmd,&linker_output);
     if (linker_res) {
@@ -483,7 +483,7 @@ U8 mcc::compiler::build_all(mcc::config::ConfigObject *cfg,BuildType type,Platfo
             if (link_object(build_path,link_path,link_obj_files,cfg,pt,link_flags_extra)) return -1;
 
             if (cfg->model == mcc::config::ConfigModel::SINGLE_EXECUTABLE) {
-                U8 r = mcc::libs::copy_libs(link_path,cfg,type,pt,exp,version);
+                U8 r = mcc::libs::copy_libs(build_path,link_path,cfg,type,pt,exp,version);
                 if (r) {
                     cbu::log_warn(std::format("Copylibs failed"));
                     return -1;
@@ -546,7 +546,7 @@ U8 mcc::compiler::build_all(mcc::config::ConfigObject *cfg,BuildType type,Platfo
         auto link_step = [&link_path,build_path,link_obj_files,pt,cfg](string name,string o) -> U8 {
             link_path = build_path / std::format("{}{}",name,platform_exe[int(pt)]);
 
-            return link_object(build_path,link_path,link_obj_files,cfg,pt);
+            return link_object(build_path,link_path,std::format("{} {}",link_obj_files,o),cfg,pt);
         };
 
         U8 linker_res = link_step("launcher","obj/main_launcher.o");
@@ -556,7 +556,7 @@ U8 mcc::compiler::build_all(mcc::config::ConfigObject *cfg,BuildType type,Platfo
         linker_res = link_step(app_name,"obj/main.o");
         if (linker_res) return linker_res;
 
-        U8 lib_res = mcc::libs::copy_libs(link_path,cfg,type,pt,exp,version);
+        U8 lib_res = mcc::libs::copy_libs(build_path,link_path,cfg,type,pt,exp,version);
         if (lib_res) {
             cbu::log_warn(std::format("Copylibs failed"));
             return -1;

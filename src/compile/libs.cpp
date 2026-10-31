@@ -15,7 +15,7 @@ using namespace mcc::config;
 static string get_extract_cmd_win(fpath exe_file) {
     return std::format("x86_64-w64-mingw32-objdump -p {} | awk \'$1 == \"DLL\" && $2 == \"Name:\" {{ print $3 }}\'",cbu::path_to_utf8(exe_file));
 }
-U8 mcc::libs::copy_libs(fpath exe_file,mcc::config::ConfigObject *cfg,mcc::compiler::BuildType tp,mcc::compiler::Platform pt,mcc::config::ExportType exp,mcc::version::Version version) {
+U8 mcc::libs::copy_libs(fpath target_path,fpath exe_file,mcc::config::ConfigObject *cfg,mcc::compiler::BuildType tp,mcc::compiler::Platform pt,mcc::config::ExportType exp,mcc::version::Version version) {
     fpath build_path = mcc::compiler::get_build_path(cfg,tp,pt,exp,version);
     cbu::log_info("Copying libs...");
 
@@ -24,20 +24,20 @@ U8 mcc::libs::copy_libs(fpath exe_file,mcc::config::ConfigObject *cfg,mcc::compi
     // windows link
 #else
     fpath ln = cfg->directory / "latest";
-    if (std::filesystem::exists(ln)) {
-        if (std::filesystem::is_symlink(ln)) {
-            std::filesystem::remove(ln);
-            std::filesystem::create_directory_symlink(exe_file.parent_path(),ln);
-        }
-    } else {
-        std::filesystem::create_directory_symlink(exe_file.parent_path(),ln);
+    std::error_code ec;
+    if (std::filesystem::is_symlink(ln,ec)) {
+        if (ec) cbu::log_warn(ec.message());
+        std::filesystem::remove(ln,ec);
+        if (ec) cbu::log_warn(ec.message());
     }
+    std::filesystem::create_directory_symlink(exe_file.parent_path(),ln,ec);
+    if (ec) cbu::log_warn(ec.message());
 #endif
 
     U8 code = 0;
     switch (pt) {
         case mcc::compiler::Platform::PLATFORM_LINUX: {
-            std::filesystem::create_directories(build_path / "lib");
+            std::filesystem::create_directories(target_path / "lib");
             code = cbu::run_shell_command(build_path,std::format("ldd {}",cbu::path_to_utf8(exe_file)),&output);
             cbu::log_info(output);
             string name;
@@ -66,7 +66,7 @@ U8 mcc::libs::copy_libs(fpath exe_file,mcc::config::ConfigObject *cfg,mcc::compi
                     is_name = false;
                     is_path = true;
                     continue;
-                } if (c == '(') {
+                } if (c == '(' or (is_path and c == '\n')) {
                     cbu::trim(name);
                     cbu::trim(path);
                     cbu::log_debug(std::format("Found name {} with path {}",name,path));
@@ -80,11 +80,11 @@ U8 mcc::libs::copy_libs(fpath exe_file,mcc::config::ConfigObject *cfg,mcc::compi
                         // continue;
                     }
 
-                    fpath tgt = build_path / "lib" / nm;
+                    fpath tgt = target_path / "lib" / nm;
 
                     for (auto &s : cfg->sub_projects) {
                         if (nm == std::format("{}.so",s->get_raw_name())) {
-                            tgt = build_path / nm;
+                            tgt = target_path / nm;
 
                             break;
                         }
@@ -108,7 +108,7 @@ U8 mcc::libs::copy_libs(fpath exe_file,mcc::config::ConfigObject *cfg,mcc::compi
                     std::filesystem::copy_file(path,tgt,std::filesystem::copy_options::overwrite_existing,ec);
                     if (ec) cbu::log_warn(ec.message());
                     continue;
-                } if (c == ')') {
+                } if (c == ')' or c == '\n') {
                     is_name = true;
                     name = "";
                     path = "";
@@ -141,7 +141,7 @@ U8 mcc::libs::copy_libs(fpath exe_file,mcc::config::ConfigObject *cfg,mcc::compi
                 string nm = s->get_raw_name() + ".dll";
 
                 std::error_code ec;
-                std::filesystem::copy_file(bpath / nm,build_path / nm,std::filesystem::copy_options::overwrite_existing,ec);
+                std::filesystem::copy_file(bpath / nm,target_path / nm,std::filesystem::copy_options::overwrite_existing,ec);
                 if (ec) cbu::log_warn(ec.message());
 
             }
@@ -155,7 +155,7 @@ U8 mcc::libs::copy_libs(fpath exe_file,mcc::config::ConfigObject *cfg,mcc::compi
                 fpath cand = tld / "lib" / nm;
                 std::error_code ec;
                 if (std::filesystem::exists(cand)) {
-                    std::filesystem::copy_file(cand,build_path / nm,ec);
+                    std::filesystem::copy_file(cand,target_path / nm,ec);
                     if (ec) cbu::log_warn(ec.message());
                     continue;
                 }
@@ -165,7 +165,7 @@ U8 mcc::libs::copy_libs(fpath exe_file,mcc::config::ConfigObject *cfg,mcc::compi
                     return -1;
                 }
 
-                std::filesystem::copy_file(cand,build_path / nm,ec);
+                std::filesystem::copy_file(cand,target_path / nm,ec);
                 if (ec) cbu::log_warn(ec.message());
             }
 
@@ -191,7 +191,7 @@ U8 mcc::libs::copy_libs(fpath exe_file,mcc::config::ConfigObject *cfg,mcc::compi
                 fpath tpath = fpath("/usr/x86_64-w64-mingw32/bin") / s;
 
                 std::error_code ec;
-                std::filesystem::copy_file(tpath,build_path / s,std::filesystem::copy_options::overwrite_existing,ec);
+                std::filesystem::copy_file(tpath,target_path / s,std::filesystem::copy_options::overwrite_existing,ec);
                 if (ec) cbu::log_warn(ec.message());
             }
 
@@ -202,7 +202,6 @@ U8 mcc::libs::copy_libs(fpath exe_file,mcc::config::ConfigObject *cfg,mcc::compi
     }
 
 
-    std::error_code ec;
     if (cfg->model == ConfigModel::EXECUTABLES_WITH_SHARED) {
         string nm = compiler::get_shared_lib_name(cfg->get_raw_name(),pt);
         if (pt == compiler::Platform::PLATFORM_LINUX) {
@@ -211,7 +210,7 @@ U8 mcc::libs::copy_libs(fpath exe_file,mcc::config::ConfigObject *cfg,mcc::compi
             if (ec) cbu::log_warn(ec.message());
         }
 
-        std::filesystem::copy_file(build_path / "out" / nm,build_path / nm,std::filesystem::copy_options::overwrite_existing,ec);
+        std::filesystem::copy_file(build_path / "out" / nm,target_path / nm,std::filesystem::copy_options::overwrite_existing,ec);
         if (ec) cbu::log_warn(ec.message());
     }
     for (auto &s : cfg->sub_projects) {
@@ -223,7 +222,7 @@ U8 mcc::libs::copy_libs(fpath exe_file,mcc::config::ConfigObject *cfg,mcc::compi
             if (ec) cbu::log_warn(ec.message());
         }
 
-        std::filesystem::copy_file(sub_build_path / "out" / nm,build_path / nm,std::filesystem::copy_options::overwrite_existing,ec);
+        std::filesystem::copy_file(sub_build_path / "out" / nm,target_path / nm,std::filesystem::copy_options::overwrite_existing,ec);
         if (ec) cbu::log_warn(ec.message());
     }
 
