@@ -31,7 +31,7 @@ void mcc::config_commands::config_parent_dir_cmd() {
     }
 
     fpath relpath = std::filesystem::relative(parentpath,cfg->directory);
-    cbu::log_debug(std::format("Relative path: {}",cbu::path_to_utf8(relpath)));
+    cbu::log_debug(std::format("Relative path: {}",relpath));
 
     cfg->has_parent_directory = true;
     cfg->parent_directory = relpath;
@@ -170,7 +170,7 @@ bool download_and_extract_binary(
         temp_path,
         std::format(
             "curl --fail --location --output \"{}\" \"{}\"",
-            archive_path.string(),
+            archive_path,
                     url
         ),
         nullptr
@@ -195,8 +195,8 @@ bool download_and_extract_binary(
         temp_path,
         std::format(
             "tar -xzf \"{}\" -C \"{}\"",
-            archive_path.string(),
-                    extract_path.string()
+            archive_path,
+                    extract_path
         ),
         nullptr
     );

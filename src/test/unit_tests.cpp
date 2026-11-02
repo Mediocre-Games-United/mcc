@@ -25,20 +25,20 @@ static U8 link_test(mcc::config::ConfigObject *cfg,mcc::version::Version ver,fpa
     string nm = mcc::compiler::get_exe_name("run_test",platform);
     fpath exe_path = testpath / nm;
     if (cfg->model == mcc::config::ConfigModel::SINGLE_EXECUTABLE) {
-        string objs = std::format("{}/main.o {}/test.o ",cbu::path_to_utf8(testpath),cbu::path_to_utf8(testpath));
+        string objs = std::format("{}/main.o {}/test.o ",(testpath),(testpath));
         for (auto &o : cfg->source_files) {
             fpath ofile = mcc::compiler::get_obj_path(o.path,".o");
 
-            objs += std::format("{} ",cbu::path_to_utf8(ofile));
+            objs += std::format("{} ",(ofile));
         }
 
         U8 c = mcc::compiler::link_object(build_path,exe_path,objs,cfg,platform);
         if (c) return c;
     } else {
-        string objs = std::format("{}/main.o {}/test.o -L{}/out -l{}",cbu::path_to_utf8(testpath),cbu::path_to_utf8(testpath),cbu::path_to_utf8(build_path),cfg->get_raw_name());
+        string objs = std::format("{}/main.o {}/test.o -L{}/out -l{}",(testpath),(testpath),(build_path),cfg->get_raw_name());
         for (auto &c : cfg->sub_projects) {
             fpath sub_build_path = mcc::compiler::get_build_path(c,buildtype,platform,exptype,ver);
-            objs = std::format("{} -L{}/out -l{}",objs,cbu::path_to_utf8(sub_build_path),c->get_raw_name());
+            objs = std::format("{} -L{}/out -l{}",objs,(sub_build_path),c->get_raw_name());
         }
 
         U8 c = mcc::compiler::link_object(build_path,exe_path,objs,cfg,platform);
@@ -72,7 +72,7 @@ static U8 run_test(mcc::config::ConfigObject *cfg,mcc::version::Version ver) {
 
     cbu::log_info("Building tests");
 
-    cbu::log_verbose(std::format("Test main: {}",cbu::path_to_utf8(cfg->test_main_source.path)));
+    cbu::log_verbose(std::format("Test main: {}",(cfg->test_main_source.path)));
     vector<std::function<void()>> work{};
     vector<std::function<void()>> test_work{};
 
@@ -118,7 +118,7 @@ static U8 run_test(mcc::config::ConfigObject *cfg,mcc::version::Version ver) {
         test_work.push_back([build_path,opath,&succesful]() {
             string output;
 
-            if (cbu::run_shell_command(build_path,std::format("{}/{}",cbu::path_to_utf8(opath),mcc::compiler::get_exe_name("run_test",platform)),NULL)) {
+            if (cbu::run_shell_command(build_path,std::format("{}/{}",(opath),mcc::compiler::get_exe_name("run_test",platform)),NULL)) {
                 succesful = false;
                 return;
             }

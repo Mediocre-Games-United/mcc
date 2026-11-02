@@ -10,11 +10,10 @@
 #include "commands.hpp"
 #include "publish/publish.hpp"
 #include "state.hpp"
-#include "stringmath.hpp"
+#include "base_string.hpp"
 #include "shell.hpp"
 #include "unit_tests.hpp"
 #include "version.hpp"
-#include <cstdint>
 #include <cstdlib>
 #include <filesystem>
 #include <format>
@@ -49,7 +48,7 @@ static U8 list_current() {
     }
 
     mcc::state::state_safe([]() {
-        cbu::log_info(std::format("Current config {} {} at {}",mcc::state::active_config->get_name(),mcc::version::get_version_string(mcc::state::active_config->version,"."),cbu::path_to_utf8(mcc::state::current_project)));
+        cbu::log_info(std::format("Current config {} {} at {}",mcc::state::active_config->get_name(),mcc::version::get_version_string(mcc::state::active_config->version,"."),(mcc::state::current_project)));
     });
 
     return 0;
@@ -213,7 +212,7 @@ static U8 run_program() {
     });
 
     cbu::log_info("Starting program...");
-    U8 code = cbu::run_shell_command(build_path,std::format("{}/launcher",cbu::path_to_utf8(build_path)),NULL);
+    U8 code = cbu::run_shell_command(build_path,std::format("{}/launcher",(build_path)),NULL);
     if (code) {
         cbu::log_error(false,std::format("Program exited with code {}",code));
     } else cbu::log_success("Program exited with code 0!");

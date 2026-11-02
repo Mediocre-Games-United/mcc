@@ -16,7 +16,7 @@ void mcc::config_commands::list_configs_cmd() {
         return;
     }
     for (auto &s : mcc::config::current_config->loaded_configs) {
-        cbu::cli_output(std::format("---\n{} - {} at {}",s->get_name(),mcc::version::get_version_string(s->version,"."),cbu::path_to_utf8(s->directory)));
+        cbu::cli_output(std::format("---\n{} - {} at {}",s->get_name(),mcc::version::get_version_string(s->version,"."),s->directory));
     }
 }
 void mcc::config_commands::list_config_cmd() {
@@ -33,7 +33,7 @@ void mcc::config_commands::list_config_cmd() {
         return;
     }
 
-    cbu::cli_output(std::format("{} - {} at {}\n---",cfg->get_name(),mcc::version::get_version_string(cfg->version,"."),cbu::path_to_utf8(cfg->directory)));
+    cbu::cli_output(std::format("{} - {} at {}\n---",cfg->get_name(),mcc::version::get_version_string(cfg->version,"."),cfg->directory));
 
     size_t source_count = 0;
     size_t external_count = 0;
@@ -211,8 +211,8 @@ void mcc::config_commands::new_config_cmd() {
     config::ConfigObject *cfg = new config::ConfigObject();
     cbu::log_debug(std::format("Creating config {} at path {} with src {}",
                                name,
-                               cbu::path_to_utf8(project_path),
-                               cbu::path_to_utf8(src_path)));
+                               project_path,
+                               src_path));
     cfg->set_name(name);
     cfg->directory = project_path;
     cfg->src_directory = src_path;

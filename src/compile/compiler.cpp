@@ -19,8 +19,9 @@ static vector<fpath> parse_depfile(const string& depfile)
     vector<fpath> dependencies;
 
     // Find the colon separating the target from its dependencies.
-    const std::size_t colon = depfile.find(':');
-    if (colon == string::npos) {
+    size_t colon;
+    bool found = depfile.find(':',&colon);
+    if (!found) {
         return dependencies;
     }
 
@@ -158,7 +159,7 @@ U8 mcc::compiler::build_object(fpath src_path,fpath build_path,mcc::config::Sour
 
                 if (!std::filesystem::exists(abs_dep)) {
                     // A deleted or missing dependency should cause recompilation.
-                    cbu::log_verbose(std::format("Dependency {} not found!",cbu::path_to_utf8(abs_dep)));
+                    cbu::log_verbose(std::format("Dependency {} not found!",abs_dep));
                     should_compile = true;
                     break;
                 }
@@ -187,10 +188,10 @@ U8 mcc::compiler::build_object(fpath src_path,fpath build_path,mcc::config::Sour
     string output;
     string cmd = std::format("{} -MMD -MP {} {} {} {} {} -c {} -o {}",
                              CXX,CXX_FLAGS,INCLUDES,DEFINES,flags,get_version_defines(version),
-                             cbu::path_to_utf8(abs_src_path),cbu::path_to_utf8(abs_obj_path));
+                             abs_src_path,abs_obj_path);
     auto code = cbu::run_shell_command(build_path,cmd,&output);
 
-    cbu::log_debug(std::format("Got code {} for {}",code,cbu::path_to_utf8(tgt.obj_path)));
+    cbu::log_debug(std::format("Got code {} for {}",code,tgt.obj_path));
     if (code) {
         cbu::log_warn(output);
     }
@@ -243,7 +244,7 @@ static string get_LINKER_INCLUDES(mcc::config::ConfigObject *cfg,mcc::compiler::
 
             cbu::log_info(std::format("Adding {} to flags",s.win_ext_binary.download_url));
             fpath tld = get_external_binary_path(cfg,s.name,mcc::compiler::Platform::PLATFORM_WINDOWS) / "extracted" / s.win_ext_binary.tld;
-            LINKER_INCLUDES += std::format(" -L{} -L{} -l{} ",cbu::path_to_utf8(tld / "bin"),cbu::path_to_utf8(tld / "lib"),s.win_ext_binary.bin_name);
+            LINKER_INCLUDES += std::format(" -L{} -L{} -l{} ",tld / "bin",tld / "lib",s.win_ext_binary.bin_name);
         }
     }
 
@@ -252,7 +253,7 @@ static string get_LINKER_INCLUDES(mcc::config::ConfigObject *cfg,mcc::compiler::
 U8 mcc::compiler::link_object(fpath build_path,fpath output,string link_obj_files,mcc::config::ConfigObject *cfg,mcc::compiler::Platform pt,string link_flags_extra) {
     string linker_output;
     string linker_cmd = std::format("{} {} {} {} {} {} -o {}",CXX,CXX_FLAGS,link_obj_files,
-                                    get_LINKER_INCLUDES(cfg,pt),LINKER_FLAGS,link_flags_extra,cbu::path_to_utf8(output));
+                                    get_LINKER_INCLUDES(cfg,pt),LINKER_FLAGS,link_flags_extra,output);
 
     U8 linker_res = cbu::run_shell_command(build_path,linker_cmd,&linker_output);
     if (linker_res) {
@@ -267,9 +268,9 @@ U8 mcc::compiler::link_object(fpath build_path,fpath output,string link_obj_file
 static void get_includes_recurse(string &output,fpath dir) {
     if (!std::filesystem::is_directory(dir)) return;
 
-    string stem = cbu::path_to_utf8(dir.stem());
+    string stem = dir.stem();
     if (stem == ".git" || stem == "build" || stem == "export" || stem == ".mcc") return;
-    output += std::format(" -I{}",cbu::path_to_utf8(dir));
+    output += std::format(" -I{}",dir);
 
     for (auto &s : cbu::iterate_dir(dir)) {
         get_includes_recurse(output,s);
@@ -288,8 +289,8 @@ U8 mcc::compiler::build_all(mcc::config::ConfigObject *cfg,BuildType type,Platfo
 
         cbu::run_shell_command("/","date -u +\"%d-%m-%Y\"",&date);
 
-        cbu::trim(commit_id);
-        cbu::trim(date);
+        commit_id.trim();
+        date.trim();
         version.build_date = date;
         version.git_commit = commit_id;
     }
@@ -332,17 +333,17 @@ U8 mcc::compiler::build_all(mcc::config::ConfigObject *cfg,BuildType type,Platfo
     get_includes_recurse(inc,cfg->directory);
     cbu::log_verbose(std::format("inc: {}",inc));
 
-    INCLUDES = std::format("-I{} {} ",cbu::path_to_utf8(cfg->directory / "include"),inc);
+    INCLUDES = std::format("-I{} {} ",(cfg->directory / "include"),inc);
     if (cfg->has_parent_directory) {
         fpath pdir = cfg->directory / cfg->parent_directory;
 
         INCLUDES = std::format("{} -I{} -I{}",INCLUDES,
-                               cbu::path_to_utf8(pdir / "src"),
-                               cbu::path_to_utf8(pdir / "include"));
+                               (pdir / "src"),
+                               (pdir / "include"));
     }
 
     vector<std::optional<cbu::WorkObject>> work;
-    cbu::log_info(std::format("Build path: {}, platform: {}",cbu::path_to_utf8(build_path),int(pt)));
+    cbu::log_info(std::format("Build path: {}, platform: {}",(build_path),int(pt)));
 
     string flags = "";
     if (cfg->model != mcc::config::ConfigModel::SINGLE_EXECUTABLE) {
@@ -397,7 +398,7 @@ U8 mcc::compiler::build_all(mcc::config::ConfigObject *cfg,BuildType type,Platfo
 
             cbu::log_info(std::format("Adding {} to flags",s.win_ext_binary.download_url));
             fpath tld = get_external_binary_path(cfg,s.name,Platform::PLATFORM_WINDOWS) / "extracted" / s.win_ext_binary.tld;
-            INCLUDES += std::format(" -I{} ",cbu::path_to_utf8(tld / "include"));
+            INCLUDES += std::format(" -I{} ",(tld / "include"));
         }
     }
 
@@ -416,10 +417,10 @@ U8 mcc::compiler::build_all(mcc::config::ConfigObject *cfg,BuildType type,Platfo
 
         mcc::config::SourceCompileTarget *tgt = new mcc::config::SourceCompileTarget{
             .src_path = s.path,
-            .obj_path = cbu::path_to_utf8(get_obj_path(s.path,".o")),
-            .dep_path = cbu::path_to_utf8(get_obj_path(s.path,".d"))
+            .obj_path = (get_obj_path(s.path,".o")),
+            .dep_path = (get_obj_path(s.path,".d"))
         };
-        link_obj_files += std::format(" {} ",cbu::path_to_utf8(tgt->obj_path));
+        link_obj_files += std::format(" {} ",(tgt->obj_path));
 
         work.push_back(cbu::WorkObject{
             .call = [tgt,&succesful,&src_path,&build_path,&flags,&any_compiled,version]() {
@@ -445,10 +446,10 @@ U8 mcc::compiler::build_all(mcc::config::ConfigObject *cfg,BuildType type,Platfo
             for (auto &s: cfg->sub_projects) {
                 fpath build_path = get_build_path(s,type,pt,exp,version);
                 if (pt == Platform::PLATFORM_WINDOWS) {
-                    link_obj_files = std::format("{} {}/out/lib{}.dll.a",link_obj_files,cbu::path_to_utf8(build_path),s->get_raw_name());
+                    link_obj_files = std::format("{} {}/out/lib{}.dll.a",link_obj_files,(build_path),s->get_raw_name());
                 }
                 else {
-                    link_obj_files = std::format("{} -L{} -l{}",link_obj_files,cbu::path_to_utf8(build_path / "out"),s->get_raw_name());
+                    link_obj_files = std::format("{} -L{} -l{}",link_obj_files,(build_path / "out"),s->get_raw_name());
                 }
             }
         }
@@ -456,7 +457,7 @@ U8 mcc::compiler::build_all(mcc::config::ConfigObject *cfg,BuildType type,Platfo
     } else {
         link_path = build_path / std::format("launcher{}",platform_exe[int(pt)]);
     }
-    cbu::log_info(std::format("Link path: {}",cbu::path_to_utf8(link_path)));
+    cbu::log_info(std::format("Link path: {}",(link_path)));
 
     if (work.empty()) {
         if (cfg->model != mcc::config::ConfigModel::EXECUTABLES_WITH_SHARED) {
@@ -528,9 +529,9 @@ U8 mcc::compiler::build_all(mcc::config::ConfigObject *cfg,BuildType type,Platfo
         }
         if (pt == Platform::PLATFORM_WINDOWS) {
             link_path = build_path / std::format("out/lib{}.dll.a",cfg->get_raw_name());
-            link_obj_files = std::format("{}",cbu::path_to_utf8(link_path));
+            link_obj_files = std::format("{}",(link_path));
         } else {
-            link_obj_files = std::format("-L{} -l{}",cbu::path_to_utf8(link_path.parent_path()),cfg->get_raw_name());
+            link_obj_files = std::format("-L{} -l{}",(link_path.parent_path()),cfg->get_raw_name());
         }
 
 
@@ -538,9 +539,9 @@ U8 mcc::compiler::build_all(mcc::config::ConfigObject *cfg,BuildType type,Platfo
             cbu::log_info(std::format("Including subproject dll {}",s->get_name()));
             fpath build_path = get_build_path(s,type,pt,exp,version);
             if (pt == Platform::PLATFORM_WINDOWS) {
-                link_obj_files = std::format("{} {}/out/lib{}.dll.a",link_obj_files,cbu::path_to_utf8(build_path),s->get_raw_name());
+                link_obj_files = std::format("{} {}/out/lib{}.dll.a",link_obj_files,(build_path),s->get_raw_name());
             }
-            else link_obj_files = std::format("{} -L{} -l{}",link_obj_files,cbu::path_to_utf8(build_path / "out"),s->get_raw_name());
+            else link_obj_files = std::format("{} -L{} -l{}",link_obj_files,(build_path / "out"),s->get_raw_name());
         }
 
         auto link_step = [&link_path,build_path,link_obj_files,pt,cfg](string name,string o) -> U8 {

@@ -20,10 +20,10 @@ static void iterate_res_srcs_recursive(fpath src_dir,fpath cdir,fpath tgt_dir) {
             continue;
         }
 
-        string ext = cbu::path_to_utf8(s.extension());
-        // cbu::log_info(std::format("File {} has extension {}",cbu::path_to_utf8(s),ext));
+        string ext = (s.extension());
+        // cbu::log_info(std::format("File {} has extension {}",(s),ext));
         if (cbu::vector_has_value(banned_extensions,ext)) {
-            cbu::log_info(std::format("Skipped copying {} due to banned extension {}",cbu::path_to_utf8(s),ext));
+            cbu::log_info(std::format("Skipped copying {} due to banned extension {}",(s),ext));
 
             continue;
         }
@@ -42,7 +42,7 @@ static void iterate_res_srcs_recursive(fpath src_dir,fpath cdir,fpath tgt_dir) {
         std::filesystem::copy_file(s,tgt,std::filesystem::copy_options::overwrite_existing,ec);
         if (ec) {
             cbu::log_error(false,std::format("Failed to copy '{}' to '{}' with message '{}'",
-                                             cbu::path_to_utf8(s),cbu::path_to_utf8(tgt),ec.message()));
+                                             (s),(tgt),ec.message()));
         }
     }
 }
@@ -62,7 +62,7 @@ static void iterate_lang_srcs_recursive(fpath src_dir,fpath cdir,fpath tgt_dir) 
         std::filesystem::copy_file(s,tgt,std::filesystem::copy_options::overwrite_existing,ec);
         if (ec) {
             cbu::log_error(false,std::format("Failed to copy '{}' to '{}' with message '{}'",
-                                             cbu::path_to_utf8(s),cbu::path_to_utf8(tgt),ec.message()));
+                                             (s),(tgt),ec.message()));
         }
     }
 }
@@ -98,11 +98,11 @@ U8 mcc::packager::package_all(mcc::config::ConfigObject *cfg,mcc::compiler::Buil
 
 static void copy_all_packaged_recursive(fpath root,fpath cdir,fpath target) {
     for (auto &s : cbu::iterate_dir(cdir)) {
-        string name = cbu::path_to_utf8(s.filename());
+        string name = (s.filename());
         if (std::filesystem::is_directory(s)) {
             if (name == "out") continue;
 
-            cbu::log_verbose(std::format("Recurse {}",cbu::path_to_utf8(s)));
+            cbu::log_verbose(std::format("Recurse {}",(s)));
             copy_all_packaged_recursive(root,s,target);
             continue;
         }
@@ -118,7 +118,7 @@ static void copy_all_packaged_recursive(fpath root,fpath cdir,fpath target) {
         std::filesystem::copy_file(s,tgt,std::filesystem::copy_options::overwrite_existing,ec);
         if (ec) {
             cbu::log_error(false,std::format("Failed to copy '{}' to '{}' with message '{}'",
-                                             cbu::path_to_utf8(s),cbu::path_to_utf8(tgt),ec.message()));
+                                             (s),(tgt),ec.message()));
         }
     }
 }
@@ -150,7 +150,7 @@ U8 mcc::packager::export_all(mcc::config::ConfigObject *cfg) {
         fpath export_path = mcc::compiler::get_export_path(cfg,exp.type,tp,pt,version);
         fpath rpath = export_path / "build";
         fpath tpath = export_path / "export";
-        cbu::log_info(std::format("Export Path: {} rpath {}",cbu::path_to_utf8(export_path),cbu::path_to_utf8(rpath)));
+        cbu::log_info(std::format("Export Path: {} rpath {}",(export_path),(rpath)));
         std::filesystem::remove_all(tpath,ec);
         copy_all_packaged_recursive(rpath,rpath,tpath);
     }

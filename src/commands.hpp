@@ -2,12 +2,10 @@
 
 #include "base_types.hpp"
 #include "logger.hpp"
-#include "stringmath.hpp"
+#include "base_string.hpp"
 #include <cassert>
-#include <cstdint>
 #include <unordered_map>
 #include <vector>
-#include "stringmath.hpp"
 #include <format>
 #include <tuple>
 #include <functional>
@@ -63,7 +61,7 @@ namespace mcc {
         inline static U decode_field(std::vector<string> vars,size_t &offset) {
             if (offset >= vars.size()) cbu::log_error(true,std::format("Argument {} cannot be empty",offset + 1));
             if constexpr (std::is_same_v<U,int>) {
-                int i = atoi(vars[offset].c_str());
+                int i = atoi(vars[offset]);
                 offset += 1;
                 cbu::log_verbose(std::format("Found int {}",i));
                 return i;
@@ -117,11 +115,11 @@ namespace mcc {
                     std::tuple_element_t<arg_count - 1, Args>
                     >;
 
-                    if constexpr (std::is_same_v<LastArg, std::string>) {
+                    if constexpr (std::is_same_v<LastArg, string>) {
                         constexpr std::size_t last_arg = arg_count - 1;
 
                         if (vars.size() > arg_count) {
-                            std::string joined = vars[last_arg];
+                            string joined = vars[last_arg];
                             for (std::size_t i = arg_count; i < vars.size(); ++i) {
                                 joined += ' ';
                                 joined += vars[i];

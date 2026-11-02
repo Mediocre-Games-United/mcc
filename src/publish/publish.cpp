@@ -7,6 +7,7 @@
 #include "packager.hpp"
 #include "shell.hpp"
 #include "vectormath.hpp"
+#include "base_string.hpp"
 #include "version.hpp"
 #include <filesystem>
 #include <format>
@@ -15,7 +16,7 @@
 static U8 push_itchio(mcc::config::ConfigObject *cfg,mcc::version::Version version,mcc::compiler::Platform pt,mcc::compiler::BuildType tp) {
     fpath export_path = mcc::compiler::get_export_path(cfg,mcc::config::ExportType::EXPORT_ITCHIO,tp,pt,version);
 
-    cbu::log_info(std::format("itchio export: {}",cbu::path_to_utf8(export_path)));
+    cbu::log_info(std::format("itchio export: {}",(export_path)));
 
     string cmd = std::format("butler push ./export/ {}/{}:{}-{} --userversion \"{}\"",cfg->itchio_username,cfg->itchio_project,mcc::compiler::platform_names[int(pt)],mcc::compiler::build_type_names[int(tp)],mcc::version::get_version_string(version,"."));
     U8 code = cbu::run_shell_command(export_path,cmd,NULL);
@@ -66,12 +67,12 @@ static U8 publish_github(mcc::config::ConfigObject *cfg,mcc::version::Version ve
     }
 
     string pkgs;
-    string tmp = cbu::path_to_utf8(mcc::compiler::get_temp_path(cfg));
+    string tmp = (mcc::compiler::get_temp_path(cfg));
     std::error_code ec;
     for (auto &e : exp) {
         fpath f = mcc::compiler::get_export_path(cfg,mcc::config::ExportType::EXPORT_GITHUB,e.buildtype,e.platform,version) / "github_archive.tar.gz";
 
-        cbu::log_debug(cbu::path_to_utf8(f));
+        cbu::log_debug((f));
         string nm = get_github_pkg_display(cfg,version,e.platform);
         std::filesystem::copy_file(f,std::format("{}/{}",tmp,nm),std::filesystem::copy_options::overwrite_existing,ec);
         if (ec) cbu::log_warn(ec.message());

@@ -1,7 +1,6 @@
 #pragma once
 
-#include "base_types.hpp"
-#include <cstddef>
+#include "base_string.hpp"
 
 namespace mcc::version {
     struct Version {

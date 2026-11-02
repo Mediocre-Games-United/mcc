@@ -1,8 +1,6 @@
 #include "binary.hpp"
 #include "config_file.hpp"
-#include "logger.hpp"
-#include "stringmath.hpp"
-#include <cstdint>
+#include "base_string.hpp"
 #include <format>
 #include "config_file_format.hpp"
 
@@ -19,7 +17,7 @@ cbu::BinaryFileSection *ConfigFileFormatV3::get_sections() {
             cf *c = (cf*) obj;
             c->src_directory = value;
         },[](void *obj) -> string {
-            return cbu::path_to_utf8(((cf*) obj)->src_directory);
+            return ((cf*) obj)->src_directory;
         }),
         new cbu::U8BinarySection([](void *obj,auto value) { // model
             cf *c = (cf*) obj;
@@ -60,7 +58,7 @@ cbu::BinaryFileSection *ConfigFileFormatV3::get_sections() {
                 c->path = value;
             },[](void *obj) -> string {
                 auto *c = (cf*) obj;
-                if (c->main_source) return cbu::path_to_utf8(c->main_source.path);
+                if (c->main_source) return c->main_source.path;
 
                 return "";
             }),
@@ -82,9 +80,9 @@ cbu::BinaryFileSection *ConfigFileFormatV3::get_sections() {
                 new cbu::StringBinarySection([](void *obj,auto value) { // src path
                     auto *c = (mcc::config::SourceFileObject*) obj;
                     c->path = value;
-                    c->name = cbu::path_to_utf8(fpath(value).stem());
+                    c->name = fpath(value).stem();
                 },[](void *obj) -> string {
-                    return cbu::path_to_utf8(((mcc::config::SourceFileObject*) obj)->path);
+                    return ((mcc::config::SourceFileObject*) obj)->path;
                 }),
                 new cbu::U8BinarySection([](void *obj,auto value) {
                     auto *c = (mcc::config::SourceFileObject*) obj;
@@ -192,7 +190,7 @@ cbu::BinaryFileSection *ConfigFileFormatV3::get_sections() {
             cf *c = (cf*) obj;
             if (!c->has_parent_directory) return "";
 
-            return cbu::path_to_utf8(c->parent_directory);
+            return c->parent_directory;
         }),
         new cbu::RepeatingBinarySection([](void *u,size_t *size,size_t *len) -> void* { // export types
             auto *obj = (cf*) u;
@@ -288,7 +286,7 @@ cbu::BinaryFileSection *ConfigFileFormatV2::get_sections() {
             cf *c = (cf*) obj;
             c->src_directory = value;
         },[](void *obj) -> string {
-            return cbu::path_to_utf8(((cf*) obj)->src_directory);
+            return ((cf*) obj)->src_directory;
         }),
         new cbu::U8BinarySection([](void *obj,auto value) { // model
             cf *c = (cf*) obj;
@@ -329,7 +327,7 @@ cbu::BinaryFileSection *ConfigFileFormatV2::get_sections() {
                 c->path = value;
             },[](void *obj) -> string {
                 auto *c = (cf*) obj;
-                if (c->main_source) return cbu::path_to_utf8(c->main_source.path);
+                if (c->main_source) return c->main_source.path;
 
                 return "";
             }),
@@ -351,9 +349,9 @@ cbu::BinaryFileSection *ConfigFileFormatV2::get_sections() {
                 new cbu::StringBinarySection([](void *obj,auto value) { // src path
                     auto *c = (mcc::config::SourceFileObject*) obj;
                     c->path = value;
-                    c->name = cbu::path_to_utf8(fpath(value).stem());
+                    c->name = fpath(value).stem();
                 },[](void *obj) -> string {
-                    return cbu::path_to_utf8(((mcc::config::SourceFileObject*) obj)->path);
+                    return ((mcc::config::SourceFileObject*) obj)->path;
                 }),
                 new cbu::U8BinarySection([](void *obj,auto value) {
                     auto *c = (mcc::config::SourceFileObject*) obj;
@@ -461,7 +459,7 @@ cbu::BinaryFileSection *ConfigFileFormatV2::get_sections() {
             cf *c = (cf*) obj;
             if (!c->has_parent_directory) return "";
 
-            return cbu::path_to_utf8(c->parent_directory);
+            return c->parent_directory;
         }),
         new cbu::RepeatingBinarySection([](void *u,size_t *size,size_t *len) -> void* {
             auto *obj = (cf*) u;
@@ -534,7 +532,7 @@ cbu::BinaryFileSection *ConfigFileFormatV1::get_sections() {
             cf *c = (cf*) obj;
             c->src_directory = value;
         },[](void *obj) -> string {
-            return cbu::path_to_utf8(((cf*) obj)->src_directory);
+            return ((cf*) obj)->src_directory;
         }),
         new cbu::U8BinarySection([](void *obj,auto value) { // model
             cf *c = (cf*) obj;
@@ -575,7 +573,7 @@ cbu::BinaryFileSection *ConfigFileFormatV1::get_sections() {
                 c->path = value;
             },[](void *obj) -> string {
                 auto *c = (cf*) obj;
-                if (c->main_source) return cbu::path_to_utf8(c->main_source.path);
+                if (c->main_source) return c->main_source.path;
 
                 return "";
             }),
@@ -598,7 +596,7 @@ cbu::BinaryFileSection *ConfigFileFormatV1::get_sections() {
                     auto *c = (mcc::config::SourceFileObject*) obj;
                     c->path = value;
                 },[](void *obj) -> string {
-                    return cbu::path_to_utf8((*(mcc::config::SourceFileObject**) obj)->path);
+                    return (*(mcc::config::SourceFileObject**) obj)->path;
                 }),
                 new cbu::U8BinarySection([](void *obj,auto value) {
                     auto *c = (mcc::config::SourceFileObject*) obj;
@@ -626,13 +624,13 @@ cbu::BinaryFileSection *ConfigFileFormatV1::get_sections() {
                     auto *c = (mcc::config::ExternalObject*) obj;
                     c->linux_package.link_name = value;
                 },[](void *obj) -> string {
-                    return cbu::path_to_utf8(((mcc::config::ExternalObject*) obj)->linux_package.link_name);
+                    return ((mcc::config::ExternalObject*) obj)->linux_package.link_name;
                 }),
                 new cbu::StringBinarySection([](void *obj,auto value) { // include path
                     auto *c = (mcc::config::ExternalObject*) obj;
                     c->linux_package.name = value;
                 },[](void *obj) -> string {
-                    return cbu::path_to_utf8(((mcc::config::ExternalObject*) obj)->linux_package.name);
+                    return ((mcc::config::ExternalObject*) obj)->linux_package.name;
                 })
             })
         },false),
@@ -648,7 +646,7 @@ cbu::BinaryFileSection *ConfigFileFormatV1::get_sections() {
             cf *c = (cf*) obj;
             if (!c->has_parent_directory) return "";
 
-            return cbu::path_to_utf8(c->parent_directory);
+            return c->parent_directory;
         }),
         new cbu::RepeatingBinarySection([](void *u,size_t *size,size_t *len) -> void* {
             auto *obj = (cf*) u;

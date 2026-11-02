@@ -4,24 +4,19 @@
 #include "config_file.hpp"
 #include "cli.hpp"
 #include "commands.hpp"
-#include "compiler.hpp"
 #include "config_commands_generic.hpp"
 #include "config_commands_special.hpp"
 #include "config_file_format.hpp"
 #include "file.hpp"
-#include "installer.hpp"
 #include "logger.hpp"
 #include "binary.hpp"
 #include "lsp_file.hpp"
-#include "shell.hpp"
 #include "state.hpp"
-#include <cstdint>
 #include <filesystem>
 #include <format>
-#include <queue>
 #include <system_error>
 #include <unordered_set>
-#include "stringmath.hpp"
+#include "base_string.hpp"
 #include "vectormath.hpp"
 
 using namespace mcc::config;
@@ -103,7 +98,7 @@ public:
                 for (size_t i = 0; i < obj->loaded_configs.size(); i ++) {
                     auto &cfg = obj->loaded_configs[i];
                     p[i].obj = cfg;
-                    p[i].fpath = cbu::path_to_utf8(cfg->directory / string(FNAME));
+                    p[i].fpath = cfg->directory / FNAME;
                 }
 
                 return p;
@@ -123,7 +118,7 @@ public:
             new cbu::StringBinarySection([](void *obj,auto value) { // previous config
                 ((ConfigContainer*) obj)->previous_config = value;
             },[](void *obj) -> string {
-                return cbu::path_to_utf8(((ConfigContainer*) obj)->previous_config);
+                return ((ConfigContainer*) obj)->previous_config;
             })
         });
     }
@@ -253,7 +248,7 @@ static void config_recurse_src_files(vector<cf*> &subconfigs,SourceFileObject &m
     }
 
     for (auto &s : cbu::iterate_dir(path)) {
-        string nm = cbu::path_to_utf8(s.filename());
+        string nm = s.filename();
         if (std::filesystem::is_directory(s)) {
             if (nm == ".mcc" or nm == ".git" or nm == "pkgbuild" or nm == "latest") continue;
 
@@ -266,7 +261,7 @@ static void config_recurse_src_files(vector<cf*> &subconfigs,SourceFileObject &m
         if (nm == "unit_test_main.cpp") {
             if (test_main) continue;
 
-            cbu::log_verbose(std::format("Found test main at {}",cbu::path_to_utf8(p)));
+            cbu::log_verbose(std::format("Found test main at {}",p));
             test_main = SourceFileObject{
                 .path = p,
                 .name = "unit_test_main"
@@ -274,8 +269,8 @@ static void config_recurse_src_files(vector<cf*> &subconfigs,SourceFileObject &m
             continue;
         }
         if (nm.ends_with(".test.cpp")) {
-            string name = cbu::path_to_utf8(s.stem());
-            cbu::log_verbose(std::format("Found test file {} with name {}",cbu::path_to_utf8(p),name));
+            string name = s.stem();
+            cbu::log_verbose(std::format("Found test file {} with name {}",p,name));
 
             bool file_exists = false;
             for (auto &sr : testfiles) {
@@ -294,9 +289,9 @@ static void config_recurse_src_files(vector<cf*> &subconfigs,SourceFileObject &m
 
             continue;
         }
-        string ext = s.extension().string();
+        string ext = s.extension();
         if (ext == ".cpp") {
-            string name = cbu::path_to_utf8(s.stem());
+            string name = s.stem();
 
             // cbu::log_debug(std::format("Found source file {} with name {}",cbu::path_to_utf8(p),name));
             bool file_exists = false;
@@ -313,7 +308,7 @@ static void config_recurse_src_files(vector<cf*> &subconfigs,SourceFileObject &m
             if (name == "main") {
                 if (main) continue;
 
-                cbu::log_verbose(std::format("Found main at {}",cbu::path_to_utf8(s)));
+                cbu::log_verbose(std::format("Found main at {}",s));
                 main = SourceFileObject{
                     .path = p,
                     .name = name
@@ -345,7 +340,7 @@ static void config_recurse_sub_projects(vector<cf*> &subconfigs,fpath path,fpath
         if (std::filesystem::equivalent(s,parent,ec)) continue;
         if (ec) cbu::log_warn(ec.message());
 
-        cbu::log_debug(std::format("Found subconfig {} at {}",FNAME,cbu::path_to_utf8(s)));
+        cbu::log_debug(std::format("Found subconfig {} at {}",FNAME,s));
         auto fmt = ConfigFileFormat();
         cf *cfg = fmt.load_config(s);
 
@@ -589,7 +584,7 @@ bool mcc::config::set_name_current(string name) {
     current_config->previous_config = obj->directory / FNAME;
     auto fmt = ConfigContainerFileFormat();
     fmt.save_configs();
-    cbu::log_success(std::format("Project {} at {} is now current",name,cbu::path_to_utf8(obj->directory)));
+    cbu::log_success(std::format("Project {} at {} is now current",name,obj->directory));
     return true;
 }
 ConfigObject *mcc::config::find_config_by_name(string name) {
