@@ -1,5 +1,4 @@
 #include "state.hpp"
-#include "compiler.hpp"
 #include <mutex>
 
 static std::mutex state_lock;

@@ -1,7 +1,8 @@
 #pragma once
 #include "base_types.hpp"
 #include "logger.hpp"
-#include "stringmath.hpp"
+#include "base_string.hpp"
+#include "file.hpp"
 #include "version.hpp"
 #include <cstdint>
 #include <format>
@@ -37,12 +38,12 @@ namespace mcc::config {
     };
     struct SharedCompileTarget {
         string shared_object_name;
-        std::vector<SourceCompileTarget> objects;
+        vector<SourceCompileTarget> objects;
     };
     struct ExecutableCompileTarget {
         string executable_name;
-        std::vector<SourceCompileTarget> objects;
-        std::vector<SharedCompileTarget> shared;
+        vector<SourceCompileTarget> objects;
+        vector<SharedCompileTarget> shared;
     };
     struct SourceFileObject { // used as a guide to generate SourceCompileTarget objects
         fpath path;
@@ -96,7 +97,8 @@ namespace mcc::config {
         EXPORT_ITCHIO, // Builds with some itchio definitions and files and pushes to itchio
         EXPORT_GITHUB, // Builds default and creates a github release. Creates a draft release first.
         // EXPORT_INSTALLER, // builds and wraps the program in a simple installer (not implemented yet)
-        // EXPORT_PORTABLE, // build into a portable zip/tar.gz file (not implemented yet)
+        EXPORT_PORTABLE, // build into a portable zip/tar.gz file
+        // EXPORT_SHARED_HEADERS, // builds binaries, shared libraries and copies header files into a package
 
         EXPORT_NONE
     };
@@ -203,7 +205,7 @@ namespace mcc::config {
         ~ConfigContainer() { for (auto &s : loaded_configs) delete s; }
         vector<ConfigObject*> loaded_configs;
         fpath previous_config = "";
-        std::queue<ConfigContainerDataBlock*> pending_datablocks;
+        queue<ConfigContainerDataBlock*> pending_datablocks;
     };
     extern ConfigContainer *current_config;
 }

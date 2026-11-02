@@ -120,7 +120,7 @@ int main(int argc,char *argv[]) {
 
 
     fpath e = cbu::get_exe_path();
-    cbu::log_debug(std::format("Exe path: {}",cbu::path_to_utf8(e)));
+    cbu::log_debug(std::format("Exe path: {}",e));
     if (pout.can_proceed and pout.valid) {
         cbu::init();
         mcc::basic_commands::init();

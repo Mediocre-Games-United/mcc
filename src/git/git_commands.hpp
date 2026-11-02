@@ -1,6 +1,7 @@
 #pragma once
 
 #include "base_types.hpp"
+#include "base_string.hpp"
 
 namespace mcc::git {
     U8 sync();

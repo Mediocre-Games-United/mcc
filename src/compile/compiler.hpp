@@ -15,7 +15,7 @@ namespace mcc::compiler {
     extern const char *platform_shared[size_t(Platform::PLATFORM_NONE)];
 
     inline fpath get_obj_path(fpath src_rel,string ext) {
-        return "obj" / src_rel.parent_path() / (cbu::path_to_utf8(src_rel.stem()) + ext);
+        return fpath("obj") / src_rel.parent_path() / (src_rel.stem() + ext);
     }
 
     U8 link_object(fpath build_path,fpath output,string link_obj_files,mcc::config::ConfigObject *cfg,mcc::compiler::Platform pt,string link_flags_extra = "");
@@ -43,7 +43,7 @@ namespace mcc::compiler {
         return p;
     }
     inline string get_mcc_root_path(mcc::config::ConfigObject *cfg,mcc::version::Version ver) {
-        return cbu::path_to_utf8(cfg->directory / std::format(".mcc/{}-{}-{}",version::get_version_string(ver,"_"),version::get_build_string(ver),cfg->get_raw_name()));
+        return cfg->directory / std::format(".mcc/{}-{}-{}",version::get_version_string(ver,"_"),version::get_build_string(ver),cfg->get_raw_name());
     }
     inline fpath get_export_path(mcc::config::ConfigObject *cfg,mcc::config::ExportType exp,BuildType type,Platform pt,mcc::version::Version ver) {
         assert(type != BuildType::BUILD_NONE);

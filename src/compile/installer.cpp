@@ -54,7 +54,7 @@ static U8 install_binary_package(ConfigObject *cfg,string name,ExternalBinary bi
     U8 code;
     if (!std::filesystem::exists(apath)) {
         cbu::log_info("Downloading archive");
-        code = cbu::run_shell_command(root,std::format("curl --fail --location --output {} {}",cbu::path_to_utf8(apath),bin.download_url),NULL);
+        code = cbu::run_shell_command(root,std::format("curl --fail --location --output {} {}",apath,bin.download_url),NULL);
         if (code) {
             cbu::log_error(false,"Failed to download archive!");
             return -1;
@@ -63,14 +63,14 @@ static U8 install_binary_package(ConfigObject *cfg,string name,ExternalBinary bi
     if (!std::filesystem::exists(dpath)) {
         cbu::log_info("Extracting archive");
         std::filesystem::create_directories(dpath);
-        code = cbu::run_shell_command(root,std::format("tar -xzf {} -C {}",cbu::path_to_utf8(apath),cbu::path_to_utf8(dpath)),NULL);
+        code = cbu::run_shell_command(root,std::format("tar -xzf {} -C {}",apath,dpath),NULL);
         if (code) {
             cbu::log_error(false,"Failed to extract archive for some reason, maybe an issue with permissions?");
             return -1;
         }
     }
     if (!std::filesystem::exists(tldpath)) {
-        cbu::log_error(false,std::format("TLD Path is invalid! {}",cbu::path_to_utf8(tldpath)));
+        cbu::log_error(false,std::format("TLD Path is invalid! {}",tldpath));
 
         return -1;
     }
@@ -83,7 +83,7 @@ static U8 install_binary_package(ConfigObject *cfg,string name,ExternalBinary bi
             return -1;
         }
 
-        std::ofstream(tldpath / ".cmd_ran").close();
+        std::ofstream(std::string(tldpath / ".cmd_ran")).close();
     }
 
     return 0;
@@ -102,8 +102,9 @@ U8 mcc::installer::install_all(ConfigObject *cfg) {
             code = install_linux_package(ext.linux_package);
             if (mcc::consume_interrupt()) return -1;
             if (code) return code;
-        } else {
-            cbu::log_error(false,"Not implemented");
+        } else if (ext.linux_ext_binary) {
+            code = install_binary_package(cfg,ext.name,ext.linux_ext_binary,mcc::compiler::Platform::PLATFORM_LINUX);
+            if (code) return code;
         }
         if (ext.win_ext_binary) {
             code = install_binary_package(cfg,ext.name,ext.win_ext_binary,mcc::compiler::Platform::PLATFORM_WINDOWS);

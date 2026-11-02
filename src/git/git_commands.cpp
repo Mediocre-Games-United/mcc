@@ -2,12 +2,11 @@
 #include "ansi.hpp"
 #include "base_types.hpp"
 #include "cli.hpp"
-#include "commands.hpp"
 #include "config_file.hpp"
 #include "logger.hpp"
 #include "shell.hpp"
 #include "state.hpp"
-#include "stringmath.hpp"
+#include "base_string.hpp"
 #include "workers.hpp"
 #include <filesystem>
 #include <format>
@@ -15,7 +14,7 @@
 static vector<string> separate_lines(string output) {
     vector<string> out{};
     string line = "";
-    for (char c : output) {
+    for (letter c : output) {
         if (c == 0) {
             out.push_back(line);
             line = "";
@@ -111,17 +110,17 @@ static U8 read_current_git_status(fpath dir,GitStatus &status) {
             status.is_remote = true;
             string full = line.substr(12);
 
-            string f1 = cbu::string_split(full,"+")[1];
-            auto f2 = cbu::string_split(f1,"-");
+            string f1 = full.split("+")[1];
+            auto f2 = f1.split("-");
             string a = f2[0];
             string b = f2[1];
 
-            status.ahead = stoi(a);
-            status.behind = stoi(b);
+            status.ahead = atoi(a);
+            status.behind = atoi(b);
         } else if (line.starts_with("#")) {
 
         } else if (line.starts_with("1")) {
-            auto split = cbu::string_split(line," ");
+            auto split = line.split(" ");
             if (split.size() < 9) continue;
 
             cbu::log_verbose(std::format("Git status {}",split[2]));
@@ -148,7 +147,7 @@ static U8 read_current_git_status(fpath dir,GitStatus &status) {
                 }
             }
         } else if (line.starts_with("?")) {
-            auto split = cbu::string_split(line," ");
+            auto split = line.split(" ");
             status.untracked.push_back(split[1]);
             status.has_any_changes = true;
         }
@@ -160,10 +159,11 @@ static U8 read_current_git_status(fpath dir,GitStatus &status) {
 
         return -1;
     }
-    for (string s : cbu::string_split(output,"\n")) {
-        char c = s[0];
-        cbu::log_verbose(std::format("Submodule entry {} first {}",s,c));
-        vector<string> split = cbu::string_split(s.substr(1)," ");
+    for (string s : output.split("\n")) {
+        if (s.empty()) continue;
+        letter c = s[0];
+        cbu::log_verbose(std::format("Submodule entry {}",s));
+        vector<string> split = s.substr(1).split(" ");
         string commit = split[0];
         string path = split[1];
 
@@ -643,7 +643,7 @@ U8 mcc::git::clone(string target,string url) {
     fpath dir = target;
 
     std::filesystem::create_directories(dir.parent_path());
-    if (cbu::run_shell_command(dir.parent_path(),std::format("git clone --recurse-submodules {} {}",url,cbu::path_to_utf8(dir)),NULL)) {
+    if (cbu::run_shell_command(dir.parent_path(),std::format("git clone --recurse-submodules {} {}",url,dir),NULL)) {
         cbu::log_error(false,"Failed to clone repository");
 
         return -1;
