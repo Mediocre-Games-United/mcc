@@ -15,6 +15,9 @@ using namespace mcc::config;
 static string get_extract_cmd_win(fpath exe_file) {
     return std::format("x86_64-w64-mingw32-objdump -p {} | awk \'$1 == \"DLL\" && $2 == \"Name:\" {{ print $3 }}\'",exe_file);
 }
+static string get_extract_cmd_linux(fpath exe_file) {
+    return std::format("ldd {} | awk 'NF {{ name=$1; sub(/^.*\\//,\"\",name); print name }}'",exe_file);
+}
 U8 mcc::libs::copy_libs(fpath target_path,fpath exe_file,mcc::config::ConfigObject *cfg,mcc::compiler::BuildType tp,mcc::compiler::Platform pt,mcc::config::ExportType exp,mcc::version::Version version,bool only_nontrivial) {
     fpath build_path = mcc::compiler::get_build_path(cfg,tp,pt,exp,version);
     cbu::log_info("Copying libs...");
@@ -37,92 +40,71 @@ U8 mcc::libs::copy_libs(fpath target_path,fpath exe_file,mcc::config::ConfigObje
     U8 code = 0;
     switch (pt) {
         case mcc::compiler::Platform::PLATFORM_LINUX: {
-            if (!only_nontrivial) {
-                std::filesystem::create_directories(target_path / "lib");
-                code = cbu::run_shell_command(build_path,std::format("ldd {}",exe_file),&output);
-                cbu::log_info(output);
-                string name;
-                string path;
-
-                bool is_name = true;
-                bool is_path = false;
-
-                size_t switch_stage = 0;
-                for (size_t i = 0; i < output.size(); i ++) {
-                    char c = output[i];
-                    if (c == '\n') {
-                        switch_stage = 0;
-                        continue;
-                    } if (c == ' ') {
-                        switch_stage = 0;
-                        continue;
-                    } if (c == '\t') {
-                        switch_stage = 0;
-                        continue;
-                    } if (switch_stage == 0 && c == '=') {
-                        switch_stage = 1;
-                        continue;
-                    } if (switch_stage == 1 && c == '>') {
-                        switch_stage = 0;
-                        is_name = false;
-                        is_path = true;
-                        continue;
-                    } if (c == '(' or (is_path and c == '\n')) {
-                        name.trim();
-                        path.trim();
-                        cbu::log_debug(std::format("Found name {} with path {}",name,path));
-                        is_path = false;
-
-                        std::error_code ec;
-                        fpath npath = fpath(name);
-                        string nm = npath.filename();
-                        if (nm == std::format("{}.so",cfg->get_raw_name())) {
-                            cbu::log_verbose("Skipped copying self");
-                            // continue;
-                        }
-
-                        fpath tgt = target_path / "lib" / nm;
-
-                        for (auto &s : cfg->sub_projects) {
-                            if (nm == std::format("{}.so",s->get_raw_name())) {
-                                tgt = target_path / nm;
-
-                                break;
-                            }
-                        }
-                        if (std::filesystem::exists(npath)) {
-                            cbu::log_verbose("Name is a valid path");
-
-                            for (char c : name) {
-                                cbu::log_verbose(std::format("'{}' ({})",c,U8(c)));
-                            }
-                            std::filesystem::copy_file(npath,tgt,std::filesystem::copy_options::overwrite_existing,ec);
-                            if (ec) cbu::log_warn(ec.message());
-                            continue;
-                        }
-                        if (path.empty()) {
-                            cbu::log_verbose("Empty path, skipping");
-                            continue;
-                        }
-                        if (!std::filesystem::exists(path)) continue;
-
-                        std::filesystem::copy_file(path,tgt,std::filesystem::copy_options::overwrite_existing,ec);
-                        if (ec) cbu::log_warn(ec.message());
-                        continue;
-                    } if (c == ')' or c == '\n') {
-                        is_name = true;
-                        name = "";
-                        path = "";
-                        continue;
-                    }
-
-                    if (is_name) name += c;
-                    else if (is_path) path += c;
+            vector<ExternalWrapper> external{};
+            for (auto &e : cfg->external_objects) {
+                external.push_back(ExternalWrapper{
+                    .obj = e,
+                    .cfg = cfg
+                });
+            }
+            for (auto &s : cfg->sub_projects) {
+                for (auto &e : s->external_objects) {
+                    external.push_back(ExternalWrapper{
+                        .obj = e,
+                        .cfg = s
+                    });
                 }
             }
 
+            std::filesystem::create_directories(target_path / "lib");
+            string output = "";
+            code = cbu::run_shell_command(build_path,get_extract_cmd_linux(exe_file),&output);
 
-            break;
+            vector<string> list = output.split("\n");
+            for (auto &s : list) {
+                s.trim();
+                cbu::log_debug(std::format("Found name {}",s));
+
+                fpath cand = fpath("/usr/lib") / s;
+                if (std::filesystem::exists(cand)) {
+                    std::error_code ec;
+                    std::filesystem::copy_file(cand,target_path / "lib" / s,std::filesystem::copy_options::overwrite_existing,ec);
+                    if (ec) cbu::log_warn(ec.message());
+                    continue;
+                }
+
+                bool match = false;
+                for (auto &ext : external) {
+                    ExternalBinary bin = ext.obj.linux_ext_binary;
+                    if (!bin) continue;
+                    fpath tld = mcc::compiler::get_external_binary_path(ext.cfg,ext.obj.name,mcc::compiler::Platform::PLATFORM_LINUX) / "extracted" / bin.tld;
+
+                    cand = tld / "lib" / s;
+                    if (std::filesystem::exists(cand)) {
+                        std::filesystem::copy_file(cand,target_path / "lib" / s,ec);
+                        match = true;
+                        if (ec) cbu::log_warn(ec.message());
+                        continue;
+                    }
+                    cand = tld / "bin" / s;
+                    if (std::filesystem::exists(cand)) {
+                        std::filesystem::copy_file(cand,target_path / "lib" / s,ec);
+                        match = true;
+                        if (ec) cbu::log_warn(ec.message());
+                        continue;
+                    }
+                    cand = tld / "build" / s;
+                    if (std::filesystem::exists(cand)) {
+                        std::filesystem::copy_file(cand,target_path / "lib" / s,ec);
+                        match = true;
+                        if (ec) cbu::log_warn(ec.message());
+                        continue;
+                    }
+                }
+
+                if (match) continue;
+                cbu::log_error(false,std::format("Could not find {}",s));
+            }
         }
         case mcc::compiler::Platform::PLATFORM_WINDOWS: {
             vector<ExternalWrapper> external{};
@@ -163,6 +145,12 @@ U8 mcc::libs::copy_libs(fpath target_path,fpath exe_file,mcc::config::ConfigObje
                     continue;
                 }
                 cand = tld / "bin" / nm;
+                if (std::filesystem::exists(cand)) {
+                    std::filesystem::copy_file(cand,target_path / nm,ec);
+                    if (ec) cbu::log_warn(ec.message());
+                    continue;
+                }
+                cand = tld / "build" / nm;
                 if (!std::filesystem::exists(cand)) {
                     cbu::log_error(false,std::format("Could not find {}.dll",bin.bin_name));
                     return -1;

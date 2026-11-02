@@ -231,7 +231,15 @@ static string get_LINKER_INCLUDES(mcc::config::ConfigObject *cfg,mcc::compiler::
         for (auto &e : external) {
             auto &s = e.obj;
             cbu::log_info(std::format("External: {}, {}",s.name,bool(s.linux_package)));
-            if (!s.linux_package) continue;
+            if (!s.linux_package) {
+                if (!s.linux_ext_binary) continue;
+                if (s.linux_ext_binary.bin_name.empty()) continue;
+
+                cbu::log_debug(std::format("Adding {} to flags",s.linux_ext_binary.download_url));
+                fpath tld = get_external_binary_path(cfg,s.name,mcc::compiler::Platform::PLATFORM_LINUX) / "extracted" / s.linux_ext_binary.tld;
+                LINKER_INCLUDES += std::format(" -L{} -L{} -L{} -l{} ",tld / "build",tld / "bin",tld / "lib",s.linux_ext_binary.bin_name);
+                continue;
+            }
             if (s.linux_package.link_name.empty()) continue;
             LINKER_INCLUDES += std::format(" -l{} ",s.linux_package.link_name);
         }
@@ -242,9 +250,9 @@ static string get_LINKER_INCLUDES(mcc::config::ConfigObject *cfg,mcc::compiler::
             auto &cfg = e.cfg;
             if (!s.win_ext_binary) continue;
 
-            cbu::log_info(std::format("Adding {} to flags",s.win_ext_binary.download_url));
+            cbu::log_debug(std::format("Adding {} to flags",s.win_ext_binary.download_url));
             fpath tld = get_external_binary_path(cfg,s.name,mcc::compiler::Platform::PLATFORM_WINDOWS) / "extracted" / s.win_ext_binary.tld;
-            LINKER_INCLUDES += std::format(" -L{} -L{} -l{} ",tld / "bin",tld / "lib",s.win_ext_binary.bin_name);
+            LINKER_INCLUDES += std::format(" -L{} -L{} -L{} -l{} ",tld / "build",tld / "bin",tld / "lib",s.win_ext_binary.bin_name);
         }
     }
 
@@ -398,6 +406,16 @@ U8 mcc::compiler::build_all(mcc::config::ConfigObject *cfg,BuildType type,Platfo
 
             cbu::log_info(std::format("Adding {} to flags",s.win_ext_binary.download_url));
             fpath tld = get_external_binary_path(cfg,s.name,Platform::PLATFORM_WINDOWS) / "extracted" / s.win_ext_binary.tld;
+            INCLUDES += std::format(" -I{} ",(tld / "include"));
+        }
+    } else if (pt == Platform::PLATFORM_LINUX) {
+        for (auto &e : external) {
+            auto &s = e.obj;
+            auto &cfg = e.cfg;
+            if (!s.linux_ext_binary) continue;
+
+            cbu::log_info(std::format("Adding {} to flags",s.linux_ext_binary.download_url));
+            fpath tld = get_external_binary_path(cfg,s.name,Platform::PLATFORM_LINUX) / "extracted" / s.linux_ext_binary.tld;
             INCLUDES += std::format(" -I{} ",(tld / "include"));
         }
     }

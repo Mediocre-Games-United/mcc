@@ -25,7 +25,7 @@ static void generate_clangd_lsp(mcc::config::ConfigObject *cfg) {
         }
     }
     for (auto &s : external) {
-        if (s.linux_ext_binary) cont += std::format("  - \"-I{}\"\n",s.linux_ext_binary.include_path(mcc::compiler::get_external_binary_path(cfg,s.name,mcc::compiler::Platform::PLATFORM_LINUX)));
+        if (s.linux_ext_binary) cont += std::format("  - \"-I{}\"\n",s.linux_ext_binary.include_path(mcc::compiler::get_external_binary_path(cfg,s.name,mcc::compiler::Platform::PLATFORM_LINUX) / "extracted"));
     }
 
     fpath cpath = cfg->directory / ".clangd";
