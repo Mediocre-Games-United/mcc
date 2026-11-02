@@ -55,9 +55,9 @@ void mcc::config_commands::config_add_export_cmd() {
         cbu::log_warn("Config does not exist or is not linked!");
         return;
     }
-    cbu::cli_input("Enter export type\nDefault (0 default)\nItch.io (1)\nGithub.com (2)");
+    cbu::cli_input("Enter export type\nDefault (0 default)\nItch.io (1)\nGithub.com (2)\nPortable (3)");
     int opt;
-    if (!cbu::cli_get_valid_int(&opt,0,2,true,0)) {
+    if (!cbu::cli_get_valid_int(&opt,0,3,true,0)) {
         cbu::log_error(false,"Invalid value");
         return;
     }
@@ -89,6 +89,11 @@ void mcc::config_commands::config_add_export_cmd() {
         }
         case 2: {
             exp = ExportType::EXPORT_GITHUB;
+
+            break;
+        }
+        case 3: {
+            exp = ExportType::EXPORT_PORTABLE;
 
             break;
         }

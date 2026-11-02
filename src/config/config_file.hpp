@@ -97,7 +97,8 @@ namespace mcc::config {
         EXPORT_ITCHIO, // Builds with some itchio definitions and files and pushes to itchio
         EXPORT_GITHUB, // Builds default and creates a github release. Creates a draft release first.
         // EXPORT_INSTALLER, // builds and wraps the program in a simple installer (not implemented yet)
-        // EXPORT_PORTABLE, // build into a portable zip/tar.gz file (not implemented yet)
+        EXPORT_PORTABLE, // build into a portable zip/tar.gz file
+        // EXPORT_SHARED_HEADERS, // builds binaries, shared libraries and copies header files into a package
 
         EXPORT_NONE
     };

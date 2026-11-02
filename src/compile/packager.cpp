@@ -178,6 +178,39 @@ U8 mcc::packager::export_all(mcc::config::ConfigObject *cfg) {
 
                 break;
             }
+            case mcc::config::ExportType::EXPORT_PORTABLE: {
+                U8 code = cbu::run_shell_command(export_path,"tar -czf portable.tar.gz export/ && zip -r portable.zip export/",NULL);
+                if (code) {
+                    cbu::log_error(false,"Failed to compress packages");
+
+                    return -1;
+                }
+
+                #ifdef _WIN32
+                // windows link
+                #else
+                fpath ln = cfg->directory / "latest_portable.tar.gz";
+                std::error_code ec;
+                if (std::filesystem::is_symlink(ln,ec)) {
+                    if (ec) cbu::log_warn(ec.message());
+                    std::filesystem::remove(ln,ec);
+                    if (ec) cbu::log_warn(ec.message());
+                }
+                std::filesystem::create_symlink(export_path / "portable.tar.gz",ln,ec);
+                if (ec) cbu::log_warn(ec.message());
+
+                ln = cfg->directory / "latest_portable.zip";
+                if (std::filesystem::is_symlink(ln,ec)) {
+                    if (ec) cbu::log_warn(ec.message());
+                    std::filesystem::remove(ln,ec);
+                    if (ec) cbu::log_warn(ec.message());
+                }
+                std::filesystem::create_symlink(export_path / "portable.zip",ln,ec);
+                if (ec) cbu::log_warn(ec.message());
+                #endif
+
+                break;
+            }
             default: {
                 break;
             }
