@@ -98,7 +98,7 @@ namespace mcc::config {
         EXPORT_GITHUB, // Builds default and creates a github release. Creates a draft release first.
         // EXPORT_INSTALLER, // builds and wraps the program in a simple installer (not implemented yet)
         EXPORT_PORTABLE, // build into a portable zip/tar.gz file
-        // EXPORT_SHARED_HEADERS, // builds binaries, shared libraries and copies header files into a package
+        EXPORT_SHARED_HEADERS, // builds binaries, shared libraries and copies header files into a package
 
         EXPORT_NONE
     };
@@ -156,6 +156,7 @@ namespace mcc::config {
         vector<ExportClass> export_types{};
         vector<ConfigObject*> sub_projects{};
         vector<SourceFileObject> source_files{}; // should not include main_source
+        vector<SourceFileObject> header_files{}; // header files (.h, .hpp)
         vector<SourceFileObject> test_files{}; // should not include main_source or source_files
         vector<ExternalObject> external_objects{}; // libraries that are linked and included when compiling
         SourceFileObject main_source; // used as main for mode 2, otherwise ignored. optionally compiled multiple times

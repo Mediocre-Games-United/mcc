@@ -105,6 +105,7 @@ U8 mcc::libs::copy_libs(fpath target_path,fpath exe_file,mcc::config::ConfigObje
                 if (match) continue;
                 cbu::log_error(false,std::format("Could not find {}",s));
             }
+            break;
         }
         case mcc::compiler::Platform::PLATFORM_WINDOWS: {
             vector<ExternalWrapper> external{};

@@ -125,7 +125,7 @@ static U8 read_current_git_status(fpath dir,GitStatus &status) {
 
             cbu::log_verbose(std::format("Git status {}",split[2]));
             if (split[2][0] == 'S') {
-                status.modified_submodules.push_back(std::format("\"{}\"",split[8]));
+                status.modified_submodules.push_back(split[8]);
                 status.has_any_changes = true;
             }
             else {

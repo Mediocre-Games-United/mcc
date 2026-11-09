@@ -123,6 +123,31 @@ static void copy_all_packaged_recursive(fpath root,fpath cdir,fpath target) {
     }
 }
 
+static U8 export_headers(mcc::config::ConfigObject *cfg,mcc::compiler::Platform pt,mcc::compiler::BuildType tp,mcc::version::Version ver) {
+    fpath export_path = mcc::compiler::get_export_path(cfg,mcc::config::ExportType::EXPORT_SHARED_HEADERS,tp,pt,ver);
+    fpath rpath = export_path / "build";
+    fpath tpath = export_path / "export";
+
+    string n = mcc::compiler::get_shared_lib_name(cfg->get_raw_name(),pt);
+    std::error_code ec;
+
+    std::filesystem::create_directories(tpath / "bin");
+    std::filesystem::copy_file(rpath / "out" / n,tpath / "bin" / n,std::filesystem::copy_options::overwrite_existing,ec);
+    if (ec) cbu::log_warn(ec.message());
+
+    for (auto &h : cfg->header_files) {
+        fpath apath = cfg->directory / cfg->src_directory / h.path;
+        cbu::log_debug(std::format("Rel {}, abs {}",h.path,apath));
+
+        fpath tgt = tpath / "include" / (h.name + ".hpp");
+        std::filesystem::create_directories(tgt.parent_path());
+        std::filesystem::copy_file(apath,tgt,std::filesystem::copy_options::overwrite_existing,ec);
+        if (ec) cbu::log_warn(ec.message());
+    }
+
+    return 0;
+}
+
 U8 mcc::packager::export_all(mcc::config::ConfigObject *cfg) {
     if (cfg->export_types.empty()) {
         cbu::log_error(false,"Config has no export types!");
@@ -208,6 +233,12 @@ U8 mcc::packager::export_all(mcc::config::ConfigObject *cfg) {
                 std::filesystem::create_symlink(export_path / "portable.zip",ln,ec);
                 if (ec) cbu::log_warn(ec.message());
                 #endif
+
+                break;
+            }
+            case mcc::config::ExportType::EXPORT_SHARED_HEADERS: {
+                U8 code = export_headers(cfg,pt,tp,version);
+                if (code) return -1;
 
                 break;
             }
