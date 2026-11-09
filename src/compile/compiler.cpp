@@ -209,7 +209,7 @@ static vector<mcc::config::ExternalWrapper> get_external(mcc::config::ConfigObje
             .cfg = cfg
         });
     }
-    if (cfg->model == mcc::config::ConfigModel::EXECUTABLES_WITH_SHARED) {
+    // if (cfg->model == mcc::config::ConfigModel::EXECUTABLES_WITH_SHARED) {
         for (auto &s : cfg->sub_projects) {
             cbu::log_debug(std::format("Subproject has {} external",s->external_objects.size()));
             for (auto &e : s->external_objects) {
@@ -219,7 +219,7 @@ static vector<mcc::config::ExternalWrapper> get_external(mcc::config::ConfigObje
                 });
             }
         }
-    }
+    // }
 
     return external;
 }
@@ -321,7 +321,7 @@ U8 mcc::compiler::build_all(mcc::config::ConfigObject *cfg,BuildType type,Platfo
     cbu::log_verbose(std::format("Building project {}",cfg->get_name()));
     vector<ExternalWrapper> external = get_external(cfg);
 
-    if (cfg->model == mcc::config::ConfigModel::EXECUTABLES_WITH_SHARED) {
+    // if (cfg->model == mcc::config::ConfigModel::EXECUTABLES_WITH_SHARED) {
         cbu::log_verbose("Build: building subprojects first!");
 
         for (auto &s : cfg->sub_projects) {
@@ -336,7 +336,7 @@ U8 mcc::compiler::build_all(mcc::config::ConfigObject *cfg,BuildType type,Platfo
             }
             cbu::log_success("Subproject built succesfully");
         }
-    }
+    // }
 
     string inc = "";
     get_includes_recurse(inc,cfg->directory);
@@ -464,21 +464,20 @@ U8 mcc::compiler::build_all(mcc::config::ConfigObject *cfg,BuildType type,Platfo
         link_path = build_path / std::format("out/{}",get_shared_lib_name(cfg->get_raw_name(),pt));
         link_obj_files = std::format("-shared {}",link_obj_files);
 
-        if (cfg->model == mcc::config::ConfigModel::EXECUTABLES_WITH_SHARED) {
-            for (auto &s: cfg->sub_projects) {
-                fpath build_path = get_build_path(s,type,pt,exp,version);
-                if (pt == Platform::PLATFORM_WINDOWS) {
-                    link_obj_files = std::format("{} {}/out/lib{}.dll.a",link_obj_files,(build_path),s->get_raw_name());
-                }
-                else {
-                    link_obj_files = std::format("{} -L{} -l{}",link_obj_files,(build_path / "out"),s->get_raw_name());
-                }
-            }
-        }
 
     } else {
         link_path = build_path / std::format("launcher{}",platform_exe[int(pt)]);
     }
+    for (auto &s: cfg->sub_projects) {
+        fpath build_path = get_build_path(s,type,pt,exp,version);
+        if (pt == Platform::PLATFORM_WINDOWS) {
+            link_obj_files = std::format("{} {}/out/lib{}.dll.a",link_obj_files,(build_path),s->get_raw_name());
+        }
+        else {
+            link_obj_files = std::format("{} -L{} -l{}",link_obj_files,(build_path / "out"),s->get_raw_name());
+        }
+    }
+
     cbu::log_info(std::format("Link path: {}",(link_path)));
 
     if (work.empty()) {
