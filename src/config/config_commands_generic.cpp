@@ -176,8 +176,8 @@ void mcc::config_commands::new_config_cmd() {
         return;
     }
     int mi;
-    cbu::cli_input("---\nEnter config mode\nGeneric executable (0 default)\nShared library (1)\nExecutable with subprojects (2)\nEnter value");
-    if (!cbu::cli_get_valid_int(&mi,0,2,true,0)) {
+    cbu::cli_input("---\nEnter config mode\nGeneric executable (0 default)\nShared library (1)\nExecutable with subprojects (2)\nHeader only (3)\nEnter value");
+    if (!cbu::cli_get_valid_int(&mi,0,3,true,0)) {
         cbu::log_error(false,"Invalid value");
         return;
     }
@@ -190,6 +190,9 @@ void mcc::config_commands::new_config_cmd() {
             break;
         } case 2: {
             model = ConfigModel::EXECUTABLES_WITH_SHARED;
+            break;
+        } case 3: {
+            model = ConfigModel::HEADER_ONLY;
             break;
         }
     }

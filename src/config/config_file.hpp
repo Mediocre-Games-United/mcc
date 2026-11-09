@@ -91,7 +91,8 @@ namespace mcc::config {
         SINGLE_EXECUTABLE           = 0, // compiles all files to a single executable file and ignores all subprojects. useful for simple or small projects without many dependencies
         SINGLE_SHARED               = 1, // compiles all files to a single shared object.
         EXECUTABLES_WITH_SHARED     = 2, // compiles subprojects into shared objects and links to them in the executables generated from mains
-        APP_MOD                     = 3
+        APP_MOD                     = 3,
+        HEADER_ONLY                 = 4, // does not compile anything
     };
     enum class ExportType : U8 {
         EXPORT_DEFAULT, // Builds and does nothing else on top of it

@@ -35,6 +35,10 @@ cbu::BinaryFileSection *ConfigFileFormatV4::get_sections() {
                     model = mcc::config::ConfigModel::EXECUTABLES_WITH_SHARED;
                     break;
                 }
+                case 4: {
+                    model = mcc::config::ConfigModel::HEADER_ONLY;
+                    break;
+                }
                 default: {
                     throw std::format("Invalid config model {}",value);
                 }
