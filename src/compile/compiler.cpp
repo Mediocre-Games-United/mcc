@@ -94,6 +94,7 @@ const char *mcc::compiler::platform_shared[size_t(Platform::PLATFORM_NONE)] = {
 const char *mcc::compiler::platform_exe[size_t(Platform::PLATFORM_NONE)] = {
     ".exe",""
 };
+const char *mcc::compiler::mod_name = ".mod";
 
 static const char *platform_compilers[size_t(mcc::compiler::Platform::PLATFORM_NONE)] = {
     "x86_64-w64-mingw32-g++ ", "g++ "
@@ -442,7 +443,10 @@ U8 mcc::compiler::build_all(mcc::config::ConfigObject *cfg,BuildType type,Platfo
 
         work.push_back(cbu::WorkObject{
             .call = [tgt,&succesful,&src_path,&build_path,&flags,&any_compiled,version]() {
-                if (!succesful) return;
+                if (!succesful) {
+                    delete tgt;
+                    return;
+                }
 
                 bool did_compile;
                 U8 code = build_object(src_path,build_path,*tgt,&did_compile,version,flags);

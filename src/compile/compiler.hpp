@@ -13,6 +13,7 @@ namespace mcc::compiler {
     extern const char *platform_names[size_t(Platform::PLATFORM_NONE)];
     extern const char *platform_exe[size_t(Platform::PLATFORM_NONE)];
     extern const char *platform_shared[size_t(Platform::PLATFORM_NONE)];
+    extern const char *mod_name;
 
     inline fpath get_obj_path(fpath src_rel,string ext) {
         return fpath("obj") / src_rel.parent_path() / (src_rel.stem() + ext);

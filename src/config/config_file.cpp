@@ -432,10 +432,10 @@ void mcc::config::update_config(cf *obj) {
     fpath hpath = obj->directory / obj->src_directory;
     if (obj->has_parent_directory) hpath = obj->directory / obj->parent_directory;
     config_recurse_src_files(subconfigs,main,test_main,sourcefiles,testfiles,lpath,lpath);
-    config_recurse_header_files(subconfigs,headerfiles,hpath,hpath);
+    config_recurse_header_files(subconfigs,headerfiles,lpath,hpath);
 
     hpath = obj->directory;
-    config_recurse_header_files(subconfigs,headerfiles,hpath,hpath);
+    config_recurse_header_files(subconfigs,headerfiles,lpath,hpath);
 
     vector<SourceFileObject> source_proceed{};
     vector<SourceFileObject> test_proceed{};
