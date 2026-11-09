@@ -382,31 +382,28 @@ void mcc::config::update_config(cf *obj) {
     config_recurse_sub_projects(subconfigs,lpath,obj->directory / FNAME);
     config_recurse_src_files(subconfigs,main,test_main,sourcefiles,testfiles,lpath,lpath);
 
-    vector<SourceFileObject> remove_queue{};
-    vector<SourceFileObject> test_remove_queue{};
+    vector<SourceFileObject> source_proceed{};
+    vector<SourceFileObject> test_proceed{};
     for (auto &s : subconfigs) update_config(s);
     for (auto &s : sourcefiles) {
-        if (!std::filesystem::exists(lpath / s.path) or subprojects_have_src_file(s,subconfigs) or testfiles_have_src_file(s,testfiles)) {
-            cbu::log_debug(std::format("Removing {}",s.name));
-            remove_queue.push_back(s);
+        if (!std::filesystem::exists(lpath / s.path) or (subprojects_have_src_file(s,subconfigs) or testfiles_have_src_file(s,testfiles))) {
+            cbu::log_verbose(std::format("Skipping src {}",s.name));
+            continue;
         }
 
+        source_proceed.push_back(s);
     }
     for (auto &s : testfiles) {
-        if (std::filesystem::exists(lpath / s.path)) {
-            if (!subprojects_have_test_file(s,subconfigs)) continue;
+        if (!std::filesystem::exists(lpath / s.path) or subprojects_have_test_file(s,subconfigs)) {
+            cbu::log_verbose(std::format("Skipping test {}",s.name));
+            continue;
         }
-        test_remove_queue.push_back(s);
-    }
-    for (auto &s : remove_queue) {
-        cbu::vector_erase_value(sourcefiles,s);
-    }
-    for (auto &s : test_remove_queue) {
-        cbu::vector_erase_value(testfiles,s);
+
+        test_proceed.push_back(s);
     }
 
-    obj->source_files = sourcefiles;
-    obj->test_files = testfiles;
+    obj->source_files = source_proceed;
+    obj->test_files = test_proceed;
     obj->sub_projects = subconfigs;
 
     obj->main_source = main;
