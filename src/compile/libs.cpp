@@ -38,165 +38,156 @@ U8 mcc::libs::copy_libs(fpath target_path,fpath exe_file,mcc::config::ConfigObje
 #endif
 
     U8 code = 0;
-    switch (pt) {
-        case mcc::compiler::Platform::PLATFORM_LINUX: {
-            vector<ExternalWrapper> external{};
-            for (auto &e : cfg->external_objects) {
-                external.push_back(ExternalWrapper{
-                    .obj = e,
-                    .cfg = cfg
-                });
-            }
-            for (auto &s : cfg->sub_projects) {
-                for (auto &e : s->external_objects) {
-                    external.push_back(ExternalWrapper{
-                        .obj = e,
-                        .cfg = s
-                    });
-                }
-            }
-
-            std::filesystem::create_directories(target_path / "lib");
-            string output = "";
-            code = cbu::run_shell_command(build_path,get_extract_cmd_linux(exe_file),&output);
-
-            vector<string> list = output.split("\n");
-            for (auto &s : list) {
-                s.trim();
-                cbu::log_debug(std::format("Found name {}",s));
-
-                fpath cand = fpath("/usr/lib") / s;
-                if (std::filesystem::exists(cand)) {
-                    std::error_code ec;
-                    std::filesystem::copy_file(cand,target_path / "lib" / s,std::filesystem::copy_options::overwrite_existing,ec);
-                    if (ec) cbu::log_warn(ec.message());
-                    continue;
-                }
-
-                bool match = false;
-                for (auto &ext : external) {
-                    ExternalBinary bin = ext.obj.linux_ext_binary;
-                    if (!bin) continue;
-                    fpath tld = mcc::compiler::get_external_binary_path(ext.cfg,ext.obj.name,mcc::compiler::Platform::PLATFORM_LINUX) / "extracted" / bin.tld;
-
-                    cand = tld / "lib" / s;
-                    if (std::filesystem::exists(cand)) {
-                        std::filesystem::copy_file(cand,target_path / "lib" / s,ec);
-                        match = true;
-                        if (ec) cbu::log_warn(ec.message());
-                        continue;
-                    }
-                    cand = tld / "bin" / s;
-                    if (std::filesystem::exists(cand)) {
-                        std::filesystem::copy_file(cand,target_path / "lib" / s,ec);
-                        match = true;
-                        if (ec) cbu::log_warn(ec.message());
-                        continue;
-                    }
-                    cand = tld / "build" / s;
-                    if (std::filesystem::exists(cand)) {
-                        std::filesystem::copy_file(cand,target_path / "lib" / s,ec);
-                        match = true;
-                        if (ec) cbu::log_warn(ec.message());
-                        continue;
-                    }
-                }
-
-                if (match) continue;
-                cbu::log_error(false,std::format("Could not find {}",s));
-            }
-            break;
+    if (pt == &mcc::compiler::platform_linux) {
+        vector<ExternalWrapper> external{};
+        for (auto &e : cfg->external_objects) {
+            external.push_back(ExternalWrapper{
+                .obj = e,
+                .cfg = cfg
+            });
         }
-        case mcc::compiler::Platform::PLATFORM_WINDOWS: {
-            vector<ExternalWrapper> external{};
-            for (auto &e : cfg->external_objects) {
+        for (auto &s : cfg->sub_projects) {
+            for (auto &e : s->external_objects) {
                 external.push_back(ExternalWrapper{
                     .obj = e,
-                    .cfg = cfg
+                    .cfg = s
                 });
             }
-            for (auto &s : cfg->sub_projects) {
-                for (auto &e : s->external_objects) {
-                    external.push_back(ExternalWrapper{
-                        .obj = e,
-                        .cfg = s
-                    });
-                }
+        }
 
-                fpath bpath = mcc::compiler::get_build_path(s,tp,pt,exp,version);
-                string nm = s->get_raw_name() + ".dll";
+        std::filesystem::create_directories(target_path / "lib");
+        string output = "";
+        code = cbu::run_shell_command(build_path,get_extract_cmd_linux(exe_file),&output);
 
+        vector<string> list = output.split("\n");
+        for (auto &s : list) {
+            s.trim();
+            cbu::log_debug(std::format("Found name {}",s));
+
+            fpath cand = fpath("/usr/lib") / s;
+            if (std::filesystem::exists(cand)) {
                 std::error_code ec;
-                std::filesystem::copy_file(bpath / nm,target_path / nm,std::filesystem::copy_options::overwrite_existing,ec);
+                std::filesystem::copy_file(cand,target_path / "lib" / s,std::filesystem::copy_options::overwrite_existing,ec);
                 if (ec) cbu::log_warn(ec.message());
-
+                continue;
             }
-            for (auto &e : external) {
-                ExternalBinary bin = e.obj.win_ext_binary;
+
+            bool match = false;
+            for (auto &ext : external) {
+                ExternalBinary bin = ext.obj.linux_ext_binary;
                 if (!bin) continue;
-                fpath tld = mcc::compiler::get_external_binary_path(e.cfg,e.obj.name,mcc::compiler::Platform::PLATFORM_WINDOWS) / "extracted" / bin.tld;
-                // cbu::log_info(std::format("TLD: {}",cbu::path_to_utf8(tld)));
+                fpath tld = mcc::compiler::get_external_binary_path(ext.cfg,ext.obj.name,pt) / "extracted" / bin.tld;
 
-                string nm = bin.bin_name + ".dll";
-                fpath cand = tld / "lib" / nm;
-                std::error_code ec;
+                cand = tld / "lib" / s;
                 if (std::filesystem::exists(cand)) {
-                    std::filesystem::copy_file(cand,target_path / nm,ec);
+                    std::filesystem::copy_file(cand,target_path / "lib" / s,ec);
+                    match = true;
                     if (ec) cbu::log_warn(ec.message());
                     continue;
                 }
-                cand = tld / "bin" / nm;
+                cand = tld / "bin" / s;
                 if (std::filesystem::exists(cand)) {
-                    std::filesystem::copy_file(cand,target_path / nm,ec);
+                    std::filesystem::copy_file(cand,target_path / "lib" / s,ec);
+                    match = true;
                     if (ec) cbu::log_warn(ec.message());
                     continue;
                 }
-                cand = tld / "build" / nm;
-                if (!std::filesystem::exists(cand)) {
-                    cbu::log_error(false,std::format("Could not find {}.dll",bin.bin_name));
-                    return -1;
+                cand = tld / "build" / s;
+                if (std::filesystem::exists(cand)) {
+                    std::filesystem::copy_file(cand,target_path / "lib" / s,ec);
+                    match = true;
+                    if (ec) cbu::log_warn(ec.message());
+                    continue;
                 }
+            }
 
+            if (match) continue;
+            cbu::log_error(false,std::format("Could not find {}",s));
+        }
+    } else if (pt == &mcc::compiler::platform_windows) {
+        vector<ExternalWrapper> external{};
+        for (auto &e : cfg->external_objects) {
+            external.push_back(ExternalWrapper{
+                .obj = e,
+                .cfg = cfg
+            });
+        }
+        for (auto &s : cfg->sub_projects) {
+            for (auto &e : s->external_objects) {
+                external.push_back(ExternalWrapper{
+                    .obj = e,
+                    .cfg = s
+                });
+            }
+
+            fpath bpath = mcc::compiler::get_build_path(s,tp,pt,exp,version);
+            string nm = s->get_raw_name() + ".dll";
+
+            std::error_code ec;
+            std::filesystem::copy_file(bpath / nm,target_path / nm,std::filesystem::copy_options::overwrite_existing,ec);
+            if (ec) cbu::log_warn(ec.message());
+
+        }
+        for (auto &e : external) {
+            ExternalBinary bin = e.obj.win_ext_binary;
+            if (!bin) continue;
+            fpath tld = mcc::compiler::get_external_binary_path(e.cfg,e.obj.name,pt) / "extracted" / bin.tld;
+            // cbu::log_info(std::format("TLD: {}",cbu::path_to_utf8(tld)));
+
+            string nm = bin.bin_name + ".dll";
+            fpath cand = tld / "lib" / nm;
+            std::error_code ec;
+            if (std::filesystem::exists(cand)) {
                 std::filesystem::copy_file(cand,target_path / nm,ec);
                 if (ec) cbu::log_warn(ec.message());
+                continue;
             }
-
-            // the harder ones
-            string output = "";
-            code = cbu::run_shell_command(build_path,get_extract_cmd_win(exe_file),&output);
-
-            vector<string> list = output.split("\n");
-            vector<string> temp{};
-            for (auto &s : list) {
-                s.trim();
-                fpath tpath = build_path / s;
-                if (!std::filesystem::exists(tpath)) continue;
-                code = cbu::run_shell_command(build_path,get_extract_cmd_win(tpath),&output);
-
-                vector<string> list = output.split("\n");
-                for (auto &e : list) { temp.push_back(e); }
-            }
-            for (auto &s : temp) { list.push_back(s); }
-
-            for (auto &s : list) {
-                s.trim();
-                fpath tpath = fpath("/usr/x86_64-w64-mingw32/bin") / s;
-
-                std::error_code ec;
-                std::filesystem::copy_file(tpath,target_path / s,std::filesystem::copy_options::overwrite_existing,ec);
+            cand = tld / "bin" / nm;
+            if (std::filesystem::exists(cand)) {
+                std::filesystem::copy_file(cand,target_path / nm,ec);
                 if (ec) cbu::log_warn(ec.message());
+                continue;
+            }
+            cand = tld / "build" / nm;
+            if (!std::filesystem::exists(cand)) {
+                cbu::log_error(false,std::format("Could not find {}.dll",bin.bin_name));
+                return -1;
             }
 
-            break;
+            std::filesystem::copy_file(cand,target_path / nm,ec);
+            if (ec) cbu::log_warn(ec.message());
         }
 
-        default: {}
+        // the harder ones
+        string output = "";
+        code = cbu::run_shell_command(build_path,get_extract_cmd_win(exe_file),&output);
+
+        vector<string> list = output.split("\n");
+        vector<string> temp{};
+        for (auto &s : list) {
+            s.trim();
+            fpath tpath = build_path / s;
+            if (!std::filesystem::exists(tpath)) continue;
+            code = cbu::run_shell_command(build_path,get_extract_cmd_win(tpath),&output);
+
+            vector<string> list = output.split("\n");
+            for (auto &e : list) { temp.push_back(e); }
+        }
+        for (auto &s : temp) { list.push_back(s); }
+
+        for (auto &s : list) {
+            s.trim();
+            fpath tpath = fpath("/usr/x86_64-w64-mingw32/bin") / s;
+
+            std::error_code ec;
+            std::filesystem::copy_file(tpath,target_path / s,std::filesystem::copy_options::overwrite_existing,ec);
+            if (ec) cbu::log_warn(ec.message());
+        }
     }
 
-
     if (cfg->model != ConfigModel::SINGLE_EXECUTABLE) {
-        string nm = compiler::get_shared_lib_name(cfg->get_raw_name(),pt);
-        if (pt == compiler::Platform::PLATFORM_LINUX) {
+        string nm = pt->get_shared_name(cfg->get_raw_name());
+        if (pt == &compiler::platform_linux) {
             fpath s = build_path / "lib" / nm;
             if (std::filesystem::exists(s)) std::filesystem::remove(s,ec);
             if (ec) cbu::log_warn(ec.message());
@@ -207,8 +198,8 @@ U8 mcc::libs::copy_libs(fpath target_path,fpath exe_file,mcc::config::ConfigObje
     }
     for (auto &s : cfg->sub_projects) {
         fpath sub_build_path = mcc::compiler::get_build_path(s,tp,pt,exp,version);
-        string nm = compiler::get_shared_lib_name(s->get_raw_name(),pt);
-        if (pt == compiler::Platform::PLATFORM_LINUX) {
+        string nm = pt->get_shared_name(s->get_raw_name());
+        if (pt == &compiler::platform_linux) {
             fpath s = build_path / "lib" / nm;
             if (std::filesystem::exists(s)) std::filesystem::remove(s,ec);
             if (ec) cbu::log_warn(ec.message());

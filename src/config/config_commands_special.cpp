@@ -64,10 +64,10 @@ void mcc::config_commands::config_add_export_cmd() {
     ExportType exp;
     switch (opt) {
         case 0: {
-            exp = ExportType::EXPORT_DEFAULT;
+            exp = &export_type_default;
             break;
         } case 1: {
-            exp = ExportType::EXPORT_ITCHIO;
+            exp = &export_type_itchio;
 
             string username,project;
             cbu::cli_input("Enter Itch.io username");
@@ -88,17 +88,17 @@ void mcc::config_commands::config_add_export_cmd() {
             break;
         }
         case 2: {
-            exp = ExportType::EXPORT_GITHUB;
+            exp = &export_type_github;
 
             break;
         }
         case 3: {
-            exp = ExportType::EXPORT_PORTABLE;
+            exp = &export_type_portable;
 
             break;
         }
         case 4: {
-            exp = ExportType::EXPORT_SHARED_HEADERS;
+            exp = &export_type_shared_headers;
 
             break;
         }
@@ -117,14 +117,14 @@ void mcc::config_commands::config_add_export_cmd() {
         cbu::log_error(false,"Invalid value");
         return;
     }
-    c.platform = mcc::compiler::Platform(pt);
+    c.platform = mcc::compiler::get_platform_index(pt);
 
     cbu::cli_input("Enter export build type\nRelease (0)\nBeta (1 default)");
     if (!cbu::cli_get_valid_int(&tp,0,1,true,1)) {
         cbu::log_error(false,"Invalid value");
         return;
     }
-    c.buildtype = mcc::compiler::BuildType(tp);
+    c.buildtype = mcc::compiler::get_build_type_index(tp);
 
     bool match = false;
     for (auto &s : cfg->export_types) {

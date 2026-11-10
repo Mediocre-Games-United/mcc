@@ -103,11 +103,11 @@ U8 mcc::installer::install_all(ConfigObject *cfg) {
             if (mcc::consume_interrupt()) return -1;
             if (code) return code;
         } else if (ext.linux_ext_binary) {
-            code = install_binary_package(cfg,ext.name,ext.linux_ext_binary,mcc::compiler::Platform::PLATFORM_LINUX);
+            code = install_binary_package(cfg,ext.name,ext.linux_ext_binary,&compiler::platform_linux);
             if (code) return code;
         }
         if (ext.win_ext_binary) {
-            code = install_binary_package(cfg,ext.name,ext.win_ext_binary,mcc::compiler::Platform::PLATFORM_WINDOWS);
+            code = install_binary_package(cfg,ext.name,ext.win_ext_binary,&compiler::platform_windows);
             if (code) return code;
         }
     }

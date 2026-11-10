@@ -21,6 +21,30 @@
 
 using namespace mcc::config;
 
+
+const ExportTypeStruct mcc::config::export_type_default = {0,"default"};
+const ExportTypeStruct mcc::config::export_type_itchio = {1,"itchio"};
+const ExportTypeStruct mcc::config::export_type_github = {2,"github"};
+const ExportTypeStruct mcc::config::export_type_portable = {3,"portable"};
+const ExportTypeStruct mcc::config::export_type_shared_headers = {4,"shared"};
+
+static umap<U8,ExportType> *get_export_types_map() {
+    static umap<U8,ExportType> map;
+
+    return &map;
+}
+mcc::config::ExportTypeStruct::ExportTypeStruct(U8 index,const char *name) : compiler::BaseTypeStruct(index), name(name) {
+    auto map = get_export_types_map();
+    map->try_emplace(index,this);
+}
+ExportType mcc::config::get_export_type_index(U8 index) {
+    auto map = get_export_types_map();
+
+    if (!map->contains(index)) cbu::log_error(true,std::format("Export type index {} is invalid!",index));
+
+    return map->at(index);
+}
+
 static umap<cbu::StringName,std::unordered_set<size_t>> duplicate_config_ids{};
 static size_t find_available_config_id(cbu::StringName name) {
     if (!duplicate_config_ids.contains(name)) {

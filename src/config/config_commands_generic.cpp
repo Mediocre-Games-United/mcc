@@ -63,9 +63,9 @@ void mcc::config_commands::list_config_cmd() {
 
         cbu::cli_output(std::format("- Export type {}",cbu::ansi_wrap_bold(
             std::format("{}, {} for {}",
-                        mcc::compiler::export_type_names[int(exp.type)],
-                        mcc::compiler::build_type_names[int(exp.buildtype)],
-                        mcc::compiler::platform_names[int(exp.platform)]
+                        exp.type->name,
+                        exp.buildtype->name,
+                        exp.platform->name
                         )
         )));
     }

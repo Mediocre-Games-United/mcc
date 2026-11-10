@@ -164,30 +164,24 @@ cbu::BinaryFileSection *ConfigFileFormatV4::get_sections() {
             },[]() -> void* { return new mcc::config::ExportClass(); },[](void *u) { delete (mcc::config::ExportClass*) u; },{
                 new cbu::U8BinarySection([](void *u,auto value) {
                     auto *obj = (mcc::config::ExportClass*) u;
-                    auto exp = mcc::config::ExportType(value);
-
-                    obj->type = exp;
+                    obj->type = mcc::config::get_export_type_index(value);;
                 },[](void *u) -> U8 {
                     auto *obj = (mcc::config::ExportClass*) u;
-                    return U8(obj->type);
+                    return U8(obj->type->index);
                 }),
                 new cbu::U8BinarySection([](void *u,auto value) {
                     auto *obj = (mcc::config::ExportClass*) u;
-                    auto exp = mcc::config::ExportType(value);
-
-                    obj->platform = mcc::compiler::Platform(exp);
+                    obj->platform = mcc::compiler::get_platform_index(value);
                 },[](void *u) -> U8 {
                     auto *obj = (mcc::config::ExportClass*) u;
-                    return U8(obj->platform);
+                    return U8(obj->platform->index);
                 }),
                 new cbu::U8BinarySection([](void *u,auto value) {
                     auto *obj = (mcc::config::ExportClass*) u;
-                    auto exp = mcc::config::ExportType(value);
-
-                    obj->buildtype = mcc::compiler::BuildType(exp);
+                    obj->buildtype = mcc::compiler::get_build_type_index(value);
                 },[](void *u) -> U8 {
                     auto *obj = (mcc::config::ExportClass*) u;
-                    return U8(obj->buildtype);
+                    return U8(obj->buildtype->index);
                 })
             })
         },false),
@@ -433,30 +427,24 @@ cbu::BinaryFileSection *ConfigFileFormatV3::get_sections() {
             },[]() -> void* { return new mcc::config::ExportClass(); },[](void *u) { delete (mcc::config::ExportClass*) u; },{
                 new cbu::U8BinarySection([](void *u,auto value) {
                     auto *obj = (mcc::config::ExportClass*) u;
-                    auto exp = mcc::config::ExportType(value);
-
-                    obj->type = exp;
+                    obj->type = mcc::config::get_export_type_index(value);;
                 },[](void *u) -> U8 {
                     auto *obj = (mcc::config::ExportClass*) u;
-                    return U8(obj->type);
+                    return U8(obj->type->index);
                 }),
                 new cbu::U8BinarySection([](void *u,auto value) {
                     auto *obj = (mcc::config::ExportClass*) u;
-                    auto exp = mcc::config::ExportType(value);
-
-                    obj->platform = mcc::compiler::Platform(exp);
+                    obj->platform = mcc::compiler::get_platform_index(value);
                 },[](void *u) -> U8 {
                     auto *obj = (mcc::config::ExportClass*) u;
-                    return U8(obj->platform);
+                    return U8(obj->platform->index);
                 }),
                 new cbu::U8BinarySection([](void *u,auto value) {
                     auto *obj = (mcc::config::ExportClass*) u;
-                    auto exp = mcc::config::ExportType(value);
-
-                    obj->buildtype = mcc::compiler::BuildType(exp);
+                    obj->buildtype = mcc::compiler::get_build_type_index(value);
                 },[](void *u) -> U8 {
                     auto *obj = (mcc::config::ExportClass*) u;
-                    return U8(obj->buildtype);
+                    return U8(obj->buildtype->index);
                 })
             })
         },false),
@@ -696,12 +684,11 @@ cbu::BinaryFileSection *ConfigFileFormatV2::get_sections() {
         },[](void*) {},{
             new cbu::U8BinarySection([](void *u,auto value) {
                 auto *obj = (cf*) u;
-                auto exp = mcc::config::ExportType(value);
 
                 // obj->export_types.push_back(exp);
             },[](void *u) -> U8 {
                 auto *v = (mcc::config::ExportType*) u;
-                return U8(*v);
+                return 0;
             })
         },false),
         new cbu::StringBinarySection([](void *obj,auto value) { // itchio username
@@ -883,12 +870,11 @@ cbu::BinaryFileSection *ConfigFileFormatV1::get_sections() {
         },[](void*) {},{
             new cbu::U8BinarySection([](void *u,auto value) {
                 auto *obj = (cf*) u;
-                auto exp = mcc::config::ExportType(value);
 
                 // obj->export_types.push_back(exp);
             },[](void *u) -> U8 {
                 auto *v = (mcc::config::ExportType*) u;
-                return U8(*v);
+                return 0;
             })
         },false)
     });

@@ -13,22 +13,29 @@
 #define FNAME "project.mcc"
 
 namespace mcc::compiler {
-    enum class BuildType {
-        BUILD_RELEASE,
-        BUILD_BETA,
-        BUILD_DEBUG,
-        BUILD_EDITOR,
-        BUILD_STABLE,
-
-        BUILD_NONE
+    struct BaseTypeStruct {
+        BaseTypeStruct(U8 index) : index(index) {}
+        U8 index;
     };
-
-    enum class Platform {
-        PLATFORM_WINDOWS,
-        PLATFORM_LINUX,
-
-        PLATFORM_NONE
+    struct BuildTypeStruct : BaseTypeStruct {
+        BuildTypeStruct(U8 index,const char *name,const char *cxx_flags,const bool compile_debug);
+        const char *name;
+        const char *cxx_flags;
+        const bool compile_debug;
     };
+    struct PlatformStruct : BaseTypeStruct{
+        PlatformStruct(U8 index,const char *name,const char *toolchain);
+        const char *name;
+        const char *toolchain;
+
+        virtual string get_shared_name(string libname) const = 0;
+        virtual string get_exe_name(string exename) const = 0;
+    };
+    using BuildType = const BuildTypeStruct*;
+    using Platform = const PlatformStruct*;
+
+    BuildType get_build_type_index(U8 index);
+    Platform get_platform_index(U8 index);
 }
 namespace mcc::config {
     struct SourceCompileTarget {
@@ -94,16 +101,19 @@ namespace mcc::config {
         APP_MOD                     = 3,
         HEADER_ONLY                 = 4, // does not compile anything
     };
-    enum class ExportType : U8 {
-        EXPORT_DEFAULT, // Builds and does nothing else on top of it
-        EXPORT_ITCHIO, // Builds with some itchio definitions and files and pushes to itchio
-        EXPORT_GITHUB, // Builds default and creates a github release. Creates a draft release first.
-        // EXPORT_INSTALLER, // builds and wraps the program in a simple installer (not implemented yet)
-        EXPORT_PORTABLE, // build into a portable zip/tar.gz file
-        EXPORT_SHARED_HEADERS, // builds binaries, shared libraries and copies header files into a package
 
-        EXPORT_NONE
+    struct ExportTypeStruct : compiler::BaseTypeStruct {
+        ExportTypeStruct(U8 index,const char *name);
+        const char *name;
     };
+    using ExportType = const ExportTypeStruct*;
+    extern const ExportTypeStruct export_type_default;
+    extern const ExportTypeStruct export_type_itchio;
+    extern const ExportTypeStruct export_type_github;
+    extern const ExportTypeStruct export_type_portable;
+    extern const ExportTypeStruct export_type_shared_headers;
+    ExportType get_export_type_index(U8 index);
+
     struct ExportClass {
         ExportType type;
         compiler::Platform platform;
