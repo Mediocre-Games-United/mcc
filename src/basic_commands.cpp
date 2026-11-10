@@ -34,6 +34,7 @@ static U8 list_cmd(string cmd);
 static U8 export_program();
 static U8 publish_program();
 static U8 clean_all();
+static U8 clean();
 static U8 install();
 static U8 test_all();
 static U8 list_version() {
@@ -78,7 +79,8 @@ void mcc::basic_commands::init() {
     mcc::add_command<>("publish",&publish_program,{},"Exports and publishes the program in the config's export format(s), shorthand for package, export, publish");
     mcc::add_command<>("install",&install,{},"Install required dependencies");
     mcc::add_command<>("test",&test_all,{},"Runs all unit tests");
-    mcc::add_command<>("clean",&clean_all,{},"Remove all build & export files");
+    mcc::add_command<>("clean",&clean,{},"Remove most build & export files");
+    mcc::add_command<>("clean_all",&clean_all,{},"Remove all build & export files");
     mcc::add_command<>("gsync",&mcc::git::sync,{},"Safe push & pull from git remotes");
     mcc::add_command<string>("subsync",&mcc::git::subsync,{"SubModule"},"Safe push & pull from git remotes in a submodule");
     mcc::add_command<>("gundo",&mcc::git::undo,{},"Undo local commit");
@@ -281,6 +283,26 @@ static U8 test_all() {
     });
 
     return code;
+}
+static U8 clean() {
+    if (!mcc::config::valid()) {
+        cbu::log_error(false,"No valid config found. Generate one with `config`");
+
+        return 1;
+    }
+
+
+    mcc::state::state_safe([]() {
+        log_config(mcc::state::active_config);
+        for (auto &s : mcc::state::active_config->sub_projects) {
+            std::filesystem::remove_all(s->directory / ".mcc/obj");
+        }
+
+        std::filesystem::remove_all(mcc::state::active_config->directory / ".mcc/obj");
+    });
+    cbu::log_info("Succesfully cleaned");
+
+    return 0;
 }
 static U8 clean_all() {
     if (!mcc::config::valid()) {

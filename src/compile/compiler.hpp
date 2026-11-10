@@ -72,7 +72,7 @@ namespace mcc::compiler {
         return p;
     }
     inline string get_mcc_root_path(mcc::config::ConfigObject *cfg,mcc::version::Version ver) {
-        return cfg->directory / std::format(".mcc/{}-{}-{}",version::get_version_string(ver,"_"),version::get_build_string(ver),cfg->get_raw_name());
+        return cfg->directory / std::format(".mcc/obj/{}-{}-{}",version::get_version_string(ver,"_"),version::get_build_string(ver),cfg->get_raw_name());
     }
     inline fpath get_export_path(mcc::config::ConfigObject *cfg,mcc::config::ExportType exp,BuildType type,Platform pt,mcc::version::Version ver) {
         return cfg->directory / get_mcc_root_path(cfg,ver) / std::format("export/{}/{}/{}",exp->name,pt->name,type->name);
