@@ -286,7 +286,7 @@ static string get_LINKER_INCLUDES(mcc::config::ConfigObject *cfg,mcc::compiler::
 }
 U8 mcc::compiler::link_object(fpath build_path,fpath output,string link_obj_files,mcc::config::ConfigObject *cfg,mcc::compiler::Platform pt,string link_flags_extra) {
     string linker_output;
-    string linker_cmd = std::format("{} {} {} {} {} {} -o {}",CXX,CXX_FLAGS,link_obj_files,
+    string linker_cmd = std::format("{} -Wl,--as-needed {} {} {} {} {} -o {}",CXX,CXX_FLAGS,link_obj_files,
                                     get_LINKER_INCLUDES(cfg,pt),LINKER_FLAGS,link_flags_extra,output);
 
     U8 linker_res = cbu::run_shell_command(build_path,linker_cmd,&linker_output);
