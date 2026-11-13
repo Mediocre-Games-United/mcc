@@ -14,17 +14,18 @@ using namespace mcc::config;
 
 static string get_extract_cmd_win(fpath exe_file) {
     return std::format(
-        "x86_64-w64-mingw32-objdump -p {} | awk '$1 == \"DLL\" && $2 == \"Name:\" {{ printf \"%s%c\", $3, 0 }}'",
+        "x86_64-w64-mingw32-objdump -p {} | awk '$1 == \"DLL\" && $2 == \"Name:\" {{ printf \"%s%c\", $3, 1 }}'",
         exe_file
     );
 }
 
 static string get_extract_cmd_linux(fpath exe_file) {
     return std::format(
-        "ldd {} | awk 'NF {{ name=$1; sub(/^.*\\//,\"\",name); printf \"%s%c\", name, 0 }}'",
+        "ldd {} | awk 'NF {{ name=$1; sub(/^.*\\//,\"\",name); printf \"%s%c\", name, 1 }}'",
                        exe_file
     );
 }
+
 U8 mcc::libs::copy_libs(fpath target_path,fpath exe_file,mcc::config::ConfigObject *cfg,mcc::compiler::BuildType tp,mcc::compiler::Platform pt,mcc::config::ExportType exp,mcc::version::Version version,bool only_nontrivial) {
     fpath build_path = mcc::compiler::get_build_path(cfg,tp,pt,exp,version);
     cbu::log_info("Copying libs...");
@@ -67,9 +68,9 @@ U8 mcc::libs::copy_libs(fpath target_path,fpath exe_file,mcc::config::ConfigObje
         string output = "";
         code = cbu::run_shell_command(build_path,get_extract_cmd_linux(exe_file),&output);
 
-        vector<string> list = output.split("\0");
+        vector<string> list = output.split("\1");
 
-        // cbu::log_verbose(output);
+        cbu::log_verbose(output);
         // for (auto &s : list) {
         //     cbu::log_debug(s);
         //     for (auto c : s) {
@@ -178,7 +179,7 @@ U8 mcc::libs::copy_libs(fpath target_path,fpath exe_file,mcc::config::ConfigObje
         string output = "";
         code = cbu::run_shell_command(build_path,get_extract_cmd_win(exe_file),&output);
 
-        vector<string> list = output.split("\0");
+        vector<string> list = output.split("\1");
         vector<string> temp{};
         for (auto &s : list) {
             s.trim();
@@ -186,7 +187,7 @@ U8 mcc::libs::copy_libs(fpath target_path,fpath exe_file,mcc::config::ConfigObje
             if (!std::filesystem::exists(tpath)) continue;
             code = cbu::run_shell_command(build_path,get_extract_cmd_win(tpath),&output);
 
-            vector<string> list = output.split("\0");
+            vector<string> list = output.split("\1");
             for (auto &e : list) { temp.push_back(e); }
         }
         for (auto &s : temp) { list.push_back(s); }
