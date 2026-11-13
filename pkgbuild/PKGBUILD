@@ -20,7 +20,7 @@ package() {
 
     mkdir -p "$pkgdir/usr/bin"
     cd "$pkgdir/usr/bin"
-    ln -s "$pkgdir/usr/share/mcc/mcc" "mcc"
+    ln -s "/usr/share/mcc/mcc" "mcc"
 
     cd "$srcdir/mcc"
     install -Dm644 "mcc.desktop" "$pkgdir/usr/share/applications/mcc.desktop"
