@@ -253,7 +253,7 @@ static string get_LINKER_INCLUDES(mcc::config::ConfigObject *cfg,mcc::compiler::
     auto external = get_external(cfg);
 
     if (pt == &platform_linux) {
-        LINKER_FLAGS = " -Wl,-rpath,'$ORIGIN/lib' -Wl,-rpath,'$ORIGIN/' ";
+        LINKER_FLAGS = " -Wl,-rpath,'$ORIGIN/lib' -Wl,-rpath,'$ORIGIN/extlib' -Wl,-rpath,'$ORIGIN/' ";
         for (auto &e : external) {
             auto &s = e.obj;
             cbu::log_info(std::format("External: {}, {}",s.name,bool(s.linux_package)));

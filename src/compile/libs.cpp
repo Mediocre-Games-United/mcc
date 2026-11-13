@@ -56,6 +56,7 @@ U8 mcc::libs::copy_libs(fpath target_path,fpath exe_file,mcc::config::ConfigObje
         }
 
         std::filesystem::create_directories(target_path / "lib");
+        std::filesystem::create_directories(target_path / "extlib");
         string output = "";
         code = cbu::run_shell_command(build_path,get_extract_cmd_linux(exe_file),&output);
 
@@ -80,21 +81,21 @@ U8 mcc::libs::copy_libs(fpath target_path,fpath exe_file,mcc::config::ConfigObje
 
                 cand = tld / "lib" / s;
                 if (std::filesystem::exists(cand)) {
-                    std::filesystem::copy_file(cand,target_path / "lib" / s,ec);
+                    std::filesystem::copy_file(cand,target_path / "extlib" / s,ec);
                     match = true;
                     if (ec) cbu::log_warn(ec.message());
                     continue;
                 }
                 cand = tld / "bin" / s;
                 if (std::filesystem::exists(cand)) {
-                    std::filesystem::copy_file(cand,target_path / "lib" / s,ec);
+                    std::filesystem::copy_file(cand,target_path / "extlib" / s,ec);
                     match = true;
                     if (ec) cbu::log_warn(ec.message());
                     continue;
                 }
                 cand = tld / "build" / s;
                 if (std::filesystem::exists(cand)) {
-                    std::filesystem::copy_file(cand,target_path / "lib" / s,ec);
+                    std::filesystem::copy_file(cand,target_path / "extlib" / s,ec);
                     match = true;
                     if (ec) cbu::log_warn(ec.message());
                     continue;
