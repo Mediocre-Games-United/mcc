@@ -7,7 +7,7 @@ depends=("glibc" "gcc" "mingw-w64-gcc" "zip" "tar" "gzip" "curl" "github-cli" "l
 options=('!debug')
 makedepends=("tar" "git")
 
-source=('git+https://github.com/Mediocre-Games-United/mcc.git' 'bin.tar.gz::https://github.com/Mediocre-Games-United/mcc/releases/download/v0.9.0/mcc-release-v0.9.0-linux-x86_64.tar.gz')
+source=('git+https://github.com/Mediocre-Games-United/mcc.git' 'bin.tar.gz::https://github.com/Mediocre-Games-United/mcc/releases/download/v0.9.0/mcc-release-v0.9.0-linux64-x86_64.tar.gz')
 sha256sums=('SKIP' 'SKIP')
 
 package() {
