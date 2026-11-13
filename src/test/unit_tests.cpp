@@ -32,16 +32,18 @@ static U8 link_test(mcc::config::ConfigObject *cfg,mcc::version::Version ver,fpa
             objs += std::format("{} ",(ofile));
         }
 
-        U8 c = mcc::compiler::link_object(build_path,exe_path,objs,cfg,platform);
+        U8 c = mcc::compiler::link_object(build_path,exe_path,objs,"",cfg,platform);
         if (c) return c;
     } else {
-        string objs = std::format("{}/main.o {}/test.o -L{}/out -l{}",(testpath),(testpath),(build_path),cfg->get_raw_name());
+        string objs = std::format("{}/main.o {}/test.o",(testpath),(testpath));
+        string lobjs = std::format("-L{}/out -l{}",(build_path),cfg->get_raw_name());
+
         for (auto &c : cfg->sub_projects) {
             fpath sub_build_path = mcc::compiler::get_build_path(c,buildtype,platform,exptype,ver);
-            objs = std::format("{} -L{}/out -l{}",objs,(sub_build_path),c->get_raw_name());
+            lobjs = std::format("{} -L{}/out -l{}",lobjs,(sub_build_path),c->get_raw_name());
         }
 
-        U8 c = mcc::compiler::link_object(build_path,exe_path,objs,cfg,platform);
+        U8 c = mcc::compiler::link_object(build_path,exe_path,objs,lobjs,cfg,platform);
         if (c) return c;
     }
 

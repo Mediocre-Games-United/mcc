@@ -284,9 +284,10 @@ static string get_LINKER_INCLUDES(mcc::config::ConfigObject *cfg,mcc::compiler::
 
     return LINKER_INCLUDES;
 }
-U8 mcc::compiler::link_object(fpath build_path,fpath output,string link_obj_files,mcc::config::ConfigObject *cfg,mcc::compiler::Platform pt,string link_flags_extra) {
+U8 mcc::compiler::link_object(fpath build_path,fpath output,string link_obj_files,string link_lib_files,mcc::config::ConfigObject *cfg,mcc::compiler::Platform pt,string link_flags_extra) {
     string linker_output;
-    string linker_cmd = std::format("{} -Wl,--as-needed {} {} {} {} {} -o {}",CXX,CXX_FLAGS,link_obj_files,
+    string linker_cmd = std::format("{} -Wl,--as-needed {} {} {} {} {} {} -o {}",CXX,CXX_FLAGS,
+                                    link_obj_files,link_lib_files,
                                     get_LINKER_INCLUDES(cfg,pt),LINKER_FLAGS,link_flags_extra,output);
 
     U8 linker_res = cbu::run_shell_command(build_path,linker_cmd,&linker_output);
@@ -412,6 +413,8 @@ U8 mcc::compiler::build_all(mcc::config::ConfigObject *cfg,BuildType type,Platfo
     fpath src_path = cfg->directory / cfg->src_directory;
 
     string link_obj_files = "";
+    string link_lib_files = "";
+
     std::atomic<bool> succesful = true;
     std::atomic<bool> any_compiled = false;
     auto srcs = cfg->source_files;
@@ -450,16 +453,16 @@ U8 mcc::compiler::build_all(mcc::config::ConfigObject *cfg,BuildType type,Platfo
     fpath link_path;
     if (cfg->model != mcc::config::ConfigModel::SINGLE_EXECUTABLE) {
         link_path = build_path / std::format("out/{}",pt->get_shared_name(cfg->get_raw_name()));
-        link_obj_files = std::format("-shared {}",link_obj_files);
+        link_lib_files = std::format("-shared {}",link_lib_files);
 
         if (cfg->model == mcc::config::ConfigModel::EXECUTABLES_WITH_SHARED) {
             for (auto &s: cfg->sub_projects) {
                 fpath build_path = get_build_path(s,type,pt,exp,version);
                 if (pt == &platform_windows) {
-                    link_obj_files = std::format("{} {}/out/{}",link_obj_files,(build_path),platform_windows.get_import_name(s->get_raw_name()));
+                    link_lib_files = std::format("{} {}/out/{}",link_lib_files,(build_path),platform_windows.get_import_name(s->get_raw_name()));
                 }
                 else {
-                    link_obj_files = std::format("{} -L{} -l{}",link_obj_files,(build_path / "out"),s->get_raw_name());
+                    link_lib_files = std::format("{} -L{} -l{}",link_lib_files,(build_path / "out"),s->get_raw_name());
                 }
             }
         }
@@ -470,10 +473,10 @@ U8 mcc::compiler::build_all(mcc::config::ConfigObject *cfg,BuildType type,Platfo
     for (auto &s: cfg->sub_projects) {
         fpath build_path = get_build_path(s,type,pt,exp,version);
         if (pt == &platform_windows) {
-            link_obj_files = std::format("{} {}/out/{}",link_obj_files,(build_path),platform_windows.get_import_name(s->get_raw_name()));
+            link_lib_files = std::format("{} {}/out/{}",link_lib_files,(build_path),platform_windows.get_import_name(s->get_raw_name()));
         }
         else {
-            link_obj_files = std::format("{} -L{} -l{}",link_obj_files,(build_path / "out"),s->get_raw_name());
+            link_lib_files = std::format("{} -L{} -l{}",link_lib_files,(build_path / "out"),s->get_raw_name());
         }
     }
 
@@ -501,7 +504,7 @@ U8 mcc::compiler::build_all(mcc::config::ConfigObject *cfg,BuildType type,Platfo
             if (pt == &platform_windows) {
                 link_flags_extra = std::format("-Wl,--out-implib,out/{}",platform_windows.get_import_name(cfg->get_raw_name()));
             }
-            if (link_object(build_path,link_path,link_obj_files,cfg,pt,link_flags_extra)) return -1;
+            if (link_object(build_path,link_path,link_obj_files,link_lib_files,cfg,pt,link_flags_extra)) return -1;
 
             if (cfg->model == mcc::config::ConfigModel::SINGLE_EXECUTABLE) {
                 U8 r = mcc::libs::copy_libs(build_path,link_path,cfg,type,pt,exp,version);
@@ -549,9 +552,9 @@ U8 mcc::compiler::build_all(mcc::config::ConfigObject *cfg,BuildType type,Platfo
         }
         if (pt == &platform_windows) {
             link_path = build_path / std::format("out/{}",platform_windows.get_import_name(cfg->get_raw_name()));
-            link_obj_files = std::format("{}",(link_path));
+            link_lib_files = std::format("{}",(link_path));
         } else {
-            link_obj_files = std::format("-L{} -l{}",(link_path.parent_path()),cfg->get_raw_name());
+            link_lib_files = std::format("-L{} -l{}",(link_path.parent_path()),cfg->get_raw_name());
         }
 
 
@@ -559,15 +562,15 @@ U8 mcc::compiler::build_all(mcc::config::ConfigObject *cfg,BuildType type,Platfo
             cbu::log_info(std::format("Including subproject dll {}",s->get_name()));
             fpath build_path = get_build_path(s,type,pt,exp,version);
             if (pt == &platform_windows) {
-                link_obj_files = std::format("{} {}/out/{}",link_obj_files,(build_path),platform_windows.get_import_name(s->get_raw_name()));
+                link_lib_files = std::format("{} {}/out/{}",link_lib_files,(build_path),platform_windows.get_import_name(s->get_raw_name()));
             }
-            else link_obj_files = std::format("{} -L{} -l{}",link_obj_files,(build_path / "out"),s->get_raw_name());
+            else link_lib_files = std::format("{} -L{} -l{}",link_lib_files,(build_path / "out"),s->get_raw_name());
         }
 
-        auto link_step = [&link_path,build_path,link_obj_files,pt,cfg](string name,string o,bool hide = false) -> U8 {
+        auto link_step = [&link_path,build_path,link_obj_files,link_lib_files,pt,cfg](string name,string o,bool hide = false) -> U8 {
             link_path = build_path / pt->get_exe_name(name);
 
-            U8 code = link_object(build_path,link_path,std::format("{} {}",link_obj_files,o),cfg,pt);
+            U8 code = link_object(build_path,link_path,std::format("{} {}",link_obj_files,o),link_lib_files,cfg,pt);
             if (code) return code;
 
             cbu::set_file_hidden(link_path);
