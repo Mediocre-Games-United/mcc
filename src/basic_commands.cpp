@@ -209,12 +209,14 @@ static U8 run_program() {
     } else cbu::log_verbose("Package created, starting the run wrapper");
 
     fpath build_path;
-    mcc::state::state_safe([&build_path]() {
+    string name;
+    mcc::state::state_safe([&build_path,&name]() {
         build_path = mcc::compiler::get_build_path(mcc::state::active_config,type,platform,NULL,mcc::state::active_config->version);
+        name = mcc::state::active_config->get_raw_name();
     });
 
     cbu::log_info("Starting program...");
-    U8 code = cbu::run_shell_command(build_path,std::format("{}/launcher",(build_path)),NULL);
+    U8 code = cbu::run_shell_command(build_path,std::format("{}/{}",build_path,mcc::compiler::platform_linux.get_exe_name(name)),NULL);
     if (code) {
         cbu::log_error(false,std::format("Program exited with code {}",code));
     } else cbu::log_success("Program exited with code 0!");

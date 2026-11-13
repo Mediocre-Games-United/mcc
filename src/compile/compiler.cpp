@@ -465,7 +465,7 @@ U8 mcc::compiler::build_all(mcc::config::ConfigObject *cfg,BuildType type,Platfo
         }
 
     } else {
-        link_path = build_path / pt->get_exe_name("launcher");
+        link_path = build_path / pt->get_exe_name(cfg->get_raw_name());
     }
     for (auto &s: cfg->sub_projects) {
         fpath build_path = get_build_path(s,type,pt,exp,version);
@@ -564,17 +564,21 @@ U8 mcc::compiler::build_all(mcc::config::ConfigObject *cfg,BuildType type,Platfo
             else link_obj_files = std::format("{} -L{} -l{}",link_obj_files,(build_path / "out"),s->get_raw_name());
         }
 
-        auto link_step = [&link_path,build_path,link_obj_files,pt,cfg](string name,string o) -> U8 {
+        auto link_step = [&link_path,build_path,link_obj_files,pt,cfg](string name,string o,bool hide = false) -> U8 {
             link_path = build_path / pt->get_exe_name(name);
 
-            return link_object(build_path,link_path,std::format("{} {}",link_obj_files,o),cfg,pt);
+            U8 code = link_object(build_path,link_path,std::format("{} {}",link_obj_files,o),cfg,pt);
+            if (code) return code;
+
+            cbu::set_file_hidden(link_path);
+            return 0;
         };
 
-        U8 linker_res = link_step("launcher","obj/main_launcher.o");
+        U8 linker_res = link_step(app_name,"obj/main_launcher.o");
         if (linker_res) return linker_res;
-        linker_res = link_step("crash_handler","obj/main_crash.o");
+        linker_res = link_step(".crash_handler","obj/main_crash.o",true);
         if (linker_res) return linker_res;
-        linker_res = link_step(app_name,"obj/main.o");
+        linker_res = link_step(std::format(".{}",app_name),"obj/main.o",true);
         if (linker_res) return linker_res;
 
         U8 lib_res = mcc::libs::copy_libs(build_path,link_path,cfg,type,pt,exp,version);
