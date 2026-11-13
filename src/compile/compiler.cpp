@@ -1,6 +1,5 @@
 #include "compiler.hpp"
 #include "base_types.hpp"
-#include "cli.hpp"
 #include "commands.hpp"
 #include "config/config_file.hpp"
 #include "file.hpp"
