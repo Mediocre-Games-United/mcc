@@ -18,6 +18,7 @@ package() {
     install -d "$pkgdir/usr/share/mcc"
     cp -a "export/." "$pkgdir/usr/share/mcc/"
 
+    mkdir -p "$pkgdir/usr/bin"
     cd "$pkgdir/usr/bin"
     ln -s "$pkgdir/usr/share/mcc/mcc" "mcc"
 
