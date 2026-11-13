@@ -123,6 +123,31 @@ static void copy_all_packaged_recursive(fpath root,fpath cdir,fpath target) {
     }
 }
 
+static U8 export_headers(mcc::config::ConfigObject *cfg,mcc::compiler::Platform pt,mcc::compiler::BuildType tp,mcc::version::Version ver) {
+    fpath export_path = mcc::compiler::get_export_path(cfg,&mcc::config::export_type_shared_headers,tp,pt,ver);
+    fpath rpath = export_path / "build";
+    fpath tpath = export_path / "export";
+
+    string n = pt->get_shared_name(cfg->get_raw_name());
+    std::error_code ec;
+
+    std::filesystem::create_directories(tpath / "bin");
+    std::filesystem::copy_file(rpath / "out" / n,tpath / "bin" / n,std::filesystem::copy_options::overwrite_existing,ec);
+    if (ec) cbu::log_warn(ec.message());
+
+    for (auto &h : cfg->header_files) {
+        fpath apath = cfg->directory / cfg->src_directory / h.path;
+        cbu::log_debug(std::format("Rel {}, abs {}",h.path,apath));
+
+        fpath tgt = tpath / "include" / (h.name + ".hpp");
+        std::filesystem::create_directories(tgt.parent_path());
+        std::filesystem::copy_file(apath,tgt,std::filesystem::copy_options::overwrite_existing,ec);
+        if (ec) cbu::log_warn(ec.message());
+    }
+
+    return 0;
+}
+
 U8 mcc::packager::export_all(mcc::config::ConfigObject *cfg) {
     if (cfg->export_types.empty()) {
         cbu::log_error(false,"Config has no export types!");
@@ -161,59 +186,49 @@ U8 mcc::packager::export_all(mcc::config::ConfigObject *cfg) {
         compiler::BuildType tp = exp.buildtype;
         fpath export_path = mcc::compiler::get_export_path(cfg,exp.type,tp,pt,version);
 
-        switch (exp.type) {
-            case mcc::config::ExportType::EXPORT_ITCHIO: {
-                string d = std::format(itch_toml_file_template);
-                cbu::write_to_file_safe(export_path / "export/.itch.toml",d);
+        if (exp.type == &mcc::config::export_type_itchio) {
+            string d = std::format(itch_toml_file_template);
+            cbu::write_to_file_safe(export_path / "export/.itch.toml",d);
+        } else if (exp.type == &mcc::config::export_type_github) {
+            U8 code = cbu::run_shell_command(export_path,"tar -czf github_archive.tar.gz export/",NULL);
+            if (code) {
+                cbu::log_error(false,"Failed to compress package");
 
-                break;
+                return -1;
             }
-            case mcc::config::ExportType::EXPORT_GITHUB: {
-                U8 code = cbu::run_shell_command(export_path,"tar -czf github_archive.tar.gz export/",NULL);
-                if (code) {
-                    cbu::log_error(false,"Failed to compress package");
+        } else if (exp.type == &mcc::config::export_type_portable) {
+            U8 code = cbu::run_shell_command(export_path,"tar -czf portable.tar.gz export/ && zip -r portable.zip export/",NULL);
+            if (code) {
+                cbu::log_error(false,"Failed to compress packages");
 
-                    return -1;
-                }
-
-                break;
+                return -1;
             }
-            case mcc::config::ExportType::EXPORT_PORTABLE: {
-                U8 code = cbu::run_shell_command(export_path,"tar -czf portable.tar.gz export/ && zip -r portable.zip export/",NULL);
-                if (code) {
-                    cbu::log_error(false,"Failed to compress packages");
 
-                    return -1;
-                }
-
-                #ifdef _WIN32
-                // windows link
-                #else
-                fpath ln = cfg->directory / "latest_portable.tar.gz";
-                std::error_code ec;
-                if (std::filesystem::is_symlink(ln,ec)) {
-                    if (ec) cbu::log_warn(ec.message());
-                    std::filesystem::remove(ln,ec);
-                    if (ec) cbu::log_warn(ec.message());
-                }
-                std::filesystem::create_symlink(export_path / "portable.tar.gz",ln,ec);
+            #ifdef _WIN32
+            // windows link
+            #else
+            fpath ln = cfg->directory / "latest_portable.tar.gz";
+            std::error_code ec;
+            if (std::filesystem::is_symlink(ln,ec)) {
                 if (ec) cbu::log_warn(ec.message());
-
-                ln = cfg->directory / "latest_portable.zip";
-                if (std::filesystem::is_symlink(ln,ec)) {
-                    if (ec) cbu::log_warn(ec.message());
-                    std::filesystem::remove(ln,ec);
-                    if (ec) cbu::log_warn(ec.message());
-                }
-                std::filesystem::create_symlink(export_path / "portable.zip",ln,ec);
+                std::filesystem::remove(ln,ec);
                 if (ec) cbu::log_warn(ec.message());
-                #endif
+            }
+            std::filesystem::create_symlink(export_path / "portable.tar.gz",ln,ec);
+            if (ec) cbu::log_warn(ec.message());
 
-                break;
+            ln = cfg->directory / "latest_portable.zip";
+            if (std::filesystem::is_symlink(ln,ec)) {
+                if (ec) cbu::log_warn(ec.message());
+                std::filesystem::remove(ln,ec);
+                if (ec) cbu::log_warn(ec.message());
             }
-            default: {
-                break;
-            }
+            std::filesystem::create_symlink(export_path / "portable.zip",ln,ec);
+            if (ec) cbu::log_warn(ec.message());
+            #endif
+        } else if (exp.type == &mcc::config::export_type_shared_headers) {
+            U8 code = export_headers(cfg,pt,tp,version);
+            if (code) return -1;
         }
     }
 

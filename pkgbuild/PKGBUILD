@@ -1,20 +1,25 @@
 pkgname=mcc
-pkgver=0.8.0
-pkgrel=8
+pkgver=0.9.0
+pkgrel=9
 pkgdesc="mcc compiler collection build systems"
 arch=("x86_64")
-depends=("glibc" "gcc" "mingw-w64-gcc" "zip" "tar" "gzip" "curl" "github-cli")
+depends=("glibc" "gcc" "mingw-w64-gcc" "zip" "tar" "gzip" "curl" "github-cli" "libarchive")
 options=('!debug')
 makedepends=("tar" "git")
 
-source=('git+https://github.com/Mediocre-Games-United/mcc.git' 'bin.tar.gz::https://github.com/Mediocre-Games-United/mcc/releases/download/v0.8.0/mcc-release-v0.8.0-linux-x86_64.tar.gz')
+source=('git+https://github.com/Mediocre-Games-United/mcc.git' 'bin.tar.gz::https://github.com/Mediocre-Games-United/mcc/releases/download/v0.9.0/mcc-release-v0.9.0-linux-x86_64.tar.gz')
 sha256sums=('SKIP' 'SKIP')
 
 package() {
     cd $srcdir
     tar -xzf bin.tar.gz
+    rm -rf "export/lib"
 
-    install -Dm755 "export/launcher" "$pkgdir/usr/bin/mcc"
+    install -d "$pkgdir/usr/share/mcc"
+    cp -a "export/." "$pkgdir/usr/share/mcc/"
+
+    cd "$pkgdir/usr/bin"
+    ln -s "$pkgdir/usr/share/mcc/mcc" "mcc"
 
     cd "$srcdir/mcc"
     install -Dm644 "mcc.desktop" "$pkgdir/usr/share/applications/mcc.desktop"

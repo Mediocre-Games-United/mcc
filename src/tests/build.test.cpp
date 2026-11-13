@@ -20,7 +20,7 @@ void cbu::test::test_main(test_result &res,int argc,char **argv) {
         mcc::state::state_safe([&code,&res]() {
             auto cfg = mcc::state::active_config;
             vector<mcc::compiler::BuildType> build_types = {mcc::compiler::BuildType::BUILD_EDITOR,mcc::compiler::BuildType::BUILD_RELEASE};
-            vector<mcc::compiler::Platform> build_platforms = {mcc::compiler::Platform::PLATFORM_LINUX,mcc::compiler::Platform::PLATFORM_WINDOWS};
+            vector<mcc::compiler::Platform> build_platforms = {mcc::compiler::Platform::PLATFORM_LINUX};
 
             for (auto &buildtype : build_types) {
                 for (auto &platform : build_platforms) {

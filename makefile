@@ -115,13 +115,13 @@ else
 endif
 
 INCLUDES := $(patsubst %,-I%,$(INCDIRS))
-PKGS := sdl3 sdl3_image sdl3_mixer stb glew mesa mingw-w64-gcc cmake clang boost libsodium
+PKGS := sdl3 sdl3_image sdl3_mixer stb glew mesa mingw-w64-gcc cmake clang boost libarchive
 
 
 
 CXXFLAGS += $(INCLUDES)
 STATICINC := -I/usr/include/SDL3 -I/usr/include/SDL3_image -I/usr/include/SDL3_mixer -I/usr/include/GL
-LDFLAGS := -lGL -lGLEW
+LDFLAGS := -lGL -lGLEW -larchive
 CHANNEL_NAME := linux
 CHANNEL_SUB :=
 ifeq ($(WIN),1)
@@ -213,7 +213,7 @@ install:
 	done
 
 
-SRCS := $(shell find $(SRC_DIR) -name '*.cpp' -not -name '*.test.cpp')
+SRCS := $(shell find $(SRC_DIR) -name '.mcc' -prune -o -name '*.cpp' -not -name '*.test.cpp' -print)
 OBJS := $(patsubst $(SRC_DIR)/%.cpp,$(BUILD_DIR)/%.o,$(SRCS))
 DEPS := $(OBJS:.o=.d)
 

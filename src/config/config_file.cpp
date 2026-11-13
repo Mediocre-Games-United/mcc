@@ -21,6 +21,30 @@
 
 using namespace mcc::config;
 
+
+const ExportTypeStruct mcc::config::export_type_default = {0,"default"};
+const ExportTypeStruct mcc::config::export_type_itchio = {1,"itchio"};
+const ExportTypeStruct mcc::config::export_type_github = {2,"github"};
+const ExportTypeStruct mcc::config::export_type_portable = {3,"portable"};
+const ExportTypeStruct mcc::config::export_type_shared_headers = {4,"shared"};
+
+static umap<U8,ExportType> *get_export_types_map() {
+    static umap<U8,ExportType> map;
+
+    return &map;
+}
+mcc::config::ExportTypeStruct::ExportTypeStruct(U8 index,const char *name) : compiler::BaseTypeStruct(index), name(name) {
+    auto map = get_export_types_map();
+    map->try_emplace(index,this);
+}
+ExportType mcc::config::get_export_type_index(U8 index) {
+    auto map = get_export_types_map();
+
+    if (!map->contains(index)) cbu::log_error(true,std::format("Export type index {} is invalid!",index));
+
+    return map->at(index);
+}
+
 static umap<cbu::StringName,std::unordered_set<size_t>> duplicate_config_ids{};
 static size_t find_available_config_id(cbu::StringName name) {
     if (!duplicate_config_ids.contains(name)) {
@@ -206,7 +230,19 @@ static bool subprojects_have_src_file(SourceFileObject &src,vector<cf*> &subconf
         for (auto &sr : s->source_files) {
             if (sr.name != src.name) continue;
 
-            cbu::log_verbose(std::format("Subproject {} src {} matches with t {}",s->get_name(),sr.name,src.name));
+            // cbu::log_verbose(std::format("Subproject {} src {} matches with t {}",s->get_name(),sr.name,src.name));
+            return true;
+        }
+    }
+
+    return false;
+}
+static bool subprojects_have_header_file(SourceFileObject &h,vector<cf*> &subconfigs) {
+    for (auto &s : subconfigs) {
+        for (auto &sr : s->source_files) {
+            if (sr.name != h.name) continue;
+
+            // cbu::log_verbose(std::format("Subproject {} header {} matches with t {}",s->get_name(),sr.name,h.name));
             return true;
         }
     }
@@ -217,7 +253,7 @@ static bool testfiles_have_src_file(SourceFileObject &src,vector<SourceFileObjec
     for (auto &t : testfiles) {
         if (src.name != t.name) continue;
 
-        cbu::log_verbose(std::format("Testfile {} matches with t {}",t.name,src.name));
+        // cbu::log_verbose(std::format("Testfile {} matches with t {}",t.name,src.name));
         return true;
     }
 
@@ -322,8 +358,43 @@ static void config_recurse_src_files(vector<cf*> &subconfigs,SourceFileObject &m
             });
 
             continue;
-        } if (ext == ".hpp" or ext == ".h") {
-            // cbu::log_debug(std::format("Found header file {}",cbu::path_to_utf8(s)));
+        }
+    }
+}
+static void config_recurse_header_files(vector<cf*> &subconfigs,vector<SourceFileObject> &headerfiles,fpath root,fpath path) {
+    for (auto &s : cbu::iterate_dir(path)) {
+        string nm = s.filename();
+        if (std::filesystem::is_directory(s)) {
+            if (nm == ".mcc" or nm == ".git" or nm == "pkgbuild" or nm == "latest") continue;
+
+            config_recurse_header_files(subconfigs,headerfiles,root,s);
+            continue;
+        }
+        if (!std::filesystem::is_regular_file(s)) continue;
+
+        fpath p = std::filesystem::relative(s,root);
+
+        string ext = s.extension();
+        if (ext == ".hpp" or ext == ".h") {
+            string name = s.stem();
+
+            // cbu::log_debug(std::format("Found header file {} with name {}",p,name));
+            bool file_exists = false;
+            for (auto &sr : headerfiles) {
+                if (sr.path == p) {
+                    file_exists = true;
+                    break;
+                }
+            }
+            if (file_exists) {
+                // cbu::log_debug("File already exists! Skipping...");
+                continue;
+            }
+            headerfiles.push_back(SourceFileObject{
+                .path = p,
+                .name = name
+            });
+
             continue;
         }
     }
@@ -374,39 +445,55 @@ static void config_recurse_sub_projects(vector<cf*> &subconfigs,fpath path,fpath
 void mcc::config::update_config(cf *obj) {
     vector<cf*> subconfigs = obj->sub_projects;
     vector<SourceFileObject> sourcefiles = obj->source_files;
+    vector<SourceFileObject> headerfiles = obj->header_files;
     vector<SourceFileObject> testfiles = obj->test_files;
 
     SourceFileObject main{};
     SourceFileObject test_main{};
     auto lpath = obj->directory / obj->src_directory;
     config_recurse_sub_projects(subconfigs,lpath,obj->directory / FNAME);
-    config_recurse_src_files(subconfigs,main,test_main,sourcefiles,testfiles,lpath,lpath);
 
-    vector<SourceFileObject> remove_queue{};
-    vector<SourceFileObject> test_remove_queue{};
+    fpath hpath = obj->directory / obj->src_directory;
+    if (obj->has_parent_directory) hpath = obj->directory / obj->parent_directory;
+    config_recurse_src_files(subconfigs,main,test_main,sourcefiles,testfiles,lpath,lpath);
+    config_recurse_header_files(subconfigs,headerfiles,lpath,hpath);
+
+    hpath = obj->directory;
+    config_recurse_header_files(subconfigs,headerfiles,lpath,hpath);
+
+    vector<SourceFileObject> source_proceed{};
+    vector<SourceFileObject> test_proceed{};
+    vector<SourceFileObject> header_proceed{};
     for (auto &s : subconfigs) update_config(s);
     for (auto &s : sourcefiles) {
-        if (!std::filesystem::exists(lpath / s.path) or subprojects_have_src_file(s,subconfigs) or testfiles_have_src_file(s,testfiles)) {
-            cbu::log_debug(std::format("Removing {}",s.name));
-            remove_queue.push_back(s);
+        if (!std::filesystem::exists(lpath / s.path) or (subprojects_have_src_file(s,subconfigs) or testfiles_have_src_file(s,testfiles))) {
+            // cbu::log_verbose(std::format("Skipping src {}",s.name));
+            continue;
         }
 
+        source_proceed.push_back(s);
     }
     for (auto &s : testfiles) {
-        if (std::filesystem::exists(lpath / s.path)) {
-            if (!subprojects_have_test_file(s,subconfigs)) continue;
+        if (!std::filesystem::exists(lpath / s.path) or subprojects_have_test_file(s,subconfigs)) {
+            // cbu::log_verbose(std::format("Skipping test {}",s.name));
+            continue;
         }
-        test_remove_queue.push_back(s);
+
+        test_proceed.push_back(s);
     }
-    for (auto &s : remove_queue) {
-        cbu::vector_erase_value(sourcefiles,s);
-    }
-    for (auto &s : test_remove_queue) {
-        cbu::vector_erase_value(testfiles,s);
+    for (auto &s : headerfiles) {
+        if (!std::filesystem::exists(lpath / s.path)) {
+            // cbu::log_verbose(std::format("Skipping header {}",s.name));
+            continue;
+        }
+
+        header_proceed.push_back(s);
     }
 
-    obj->source_files = sourcefiles;
-    obj->test_files = testfiles;
+    obj->source_files = source_proceed;
+    obj->test_files = test_proceed;
+    obj->header_files = header_proceed;
+
     obj->sub_projects = subconfigs;
 
     obj->main_source = main;

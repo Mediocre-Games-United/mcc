@@ -4,6 +4,10 @@
 
 using cf = mcc::config::ConfigObject;
 
+class ConfigFileFormatV4 : public cbu::BinaryFileVersion {
+public:
+    cbu::BinaryFileSection *get_sections() override;
+};
 class ConfigFileFormatV3 : public cbu::BinaryFileVersion {
 public:
     cbu::BinaryFileSection *get_sections() override;
@@ -18,7 +22,7 @@ public:
 };
 class ConfigFileFormat : public cbu::BinaryFileFormat {
 public:
-    ConfigFileFormat() : cbu::BinaryFileFormat({new ConfigFileFormatV1(),new ConfigFileFormatV2(),new ConfigFileFormatV3()},"mcc") {}
+    ConfigFileFormat() : cbu::BinaryFileFormat({new ConfigFileFormatV1(),new ConfigFileFormatV2(),new ConfigFileFormatV3(),new ConfigFileFormatV4()},"mcc") {}
 
     cf *load_config(fpath path);
     void save_config(cf *obj);

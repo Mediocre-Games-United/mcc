@@ -11,18 +11,18 @@
 #include <format>
 #include <functional>
 
-static mcc::compiler::BuildType buildtype = mcc::compiler::BuildType::BUILD_RELEASE;
+static mcc::compiler::BuildType buildtype = &mcc::compiler::build_type_release;
 #ifdef _WIN32
-static mcc::compiler::Platform platform = mcc::compiler::Platform::PLATFORM_WINDOWS;
+static mcc::compiler::Platform platform = &mcc::compiler::platform_windows;
 #else
-static mcc::compiler::Platform platform = mcc::compiler::Platform::PLATFORM_LINUX;
+static mcc::compiler::Platform platform = &mcc::compiler::platform_linux;
 #endif
-static mcc::config::ExportType exptype = mcc::config::ExportType::EXPORT_NONE;
+static mcc::config::ExportType exptype = NULL;
 
 static U8 link_test(mcc::config::ConfigObject *cfg,mcc::version::Version ver,fpath testpath) {
     fpath build_path = mcc::compiler::get_build_path(cfg,buildtype,platform,exptype,ver);
 
-    string nm = mcc::compiler::get_exe_name("run_test",platform);
+    string nm = platform->get_exe_name("run_test");
     fpath exe_path = testpath / nm;
     if (cfg->model == mcc::config::ConfigModel::SINGLE_EXECUTABLE) {
         string objs = std::format("{}/main.o {}/test.o ",(testpath),(testpath));
@@ -32,16 +32,18 @@ static U8 link_test(mcc::config::ConfigObject *cfg,mcc::version::Version ver,fpa
             objs += std::format("{} ",(ofile));
         }
 
-        U8 c = mcc::compiler::link_object(build_path,exe_path,objs,cfg,platform);
+        U8 c = mcc::compiler::link_object(build_path,exe_path,objs,"",cfg,platform);
         if (c) return c;
     } else {
-        string objs = std::format("{}/main.o {}/test.o -L{}/out -l{}",(testpath),(testpath),(build_path),cfg->get_raw_name());
+        string objs = std::format("{}/main.o {}/test.o",(testpath),(testpath));
+        string lobjs = std::format("-L{}/out -l{}",(build_path),cfg->get_raw_name());
+
         for (auto &c : cfg->sub_projects) {
             fpath sub_build_path = mcc::compiler::get_build_path(c,buildtype,platform,exptype,ver);
-            objs = std::format("{} -L{}/out -l{}",objs,(sub_build_path),c->get_raw_name());
+            lobjs = std::format("{} -L{}/out -l{}",lobjs,(sub_build_path),c->get_raw_name());
         }
 
-        U8 c = mcc::compiler::link_object(build_path,exe_path,objs,cfg,platform);
+        U8 c = mcc::compiler::link_object(build_path,exe_path,objs,lobjs,cfg,platform);
         if (c) return c;
     }
 
@@ -118,7 +120,7 @@ static U8 run_test(mcc::config::ConfigObject *cfg,mcc::version::Version ver) {
         test_work.push_back([build_path,opath,&succesful]() {
             string output;
 
-            if (cbu::run_shell_command(build_path,std::format("{}/{}",(opath),mcc::compiler::get_exe_name("run_test",platform)),NULL)) {
+            if (cbu::run_shell_command(build_path,std::format("{}/{}",(opath),platform->get_exe_name("run_test")),NULL)) {
                 succesful = false;
                 return;
             }

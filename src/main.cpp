@@ -1,4 +1,5 @@
 #include "cbu_state.hpp"
+#include "compiler.hpp"
 #include "file.hpp"
 #define CBU_RUN_SHELL_COMMAND_IMPLEMENTATION
 #include "shell.hpp"
@@ -65,13 +66,13 @@ static int handle_parser_output(cbu::parser_output pout) {
         temp->model = mcc::config::ConfigModel::SINGLE_EXECUTABLE;
         temp->set_name("temp");
         temp->export_types.push_back({
-            .type = mcc::config::ExportType::EXPORT_DEFAULT,
+            .type = &mcc::config::export_type_default,
 #ifdef _WIN32
-            .platform = mcc::compiler::Platform::PLATFORM_WINDOWS,
+            .platform = &mcc::compiler::platform_windows,
 #else
-            .platform = mcc::compiler::Platform::PLATFORM_LINUX,
+            .platform = &mcc::compiler::platform_linux,
 #endif
-            .buildtype = mcc::compiler::BuildType::BUILD_EDITOR,
+            .buildtype = &mcc::compiler::build_type_editor,
         });
 
         mcc::config::update_config(temp);

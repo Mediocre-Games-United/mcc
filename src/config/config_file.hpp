@@ -13,22 +13,29 @@
 #define FNAME "project.mcc"
 
 namespace mcc::compiler {
-    enum class BuildType {
-        BUILD_RELEASE,
-        BUILD_BETA,
-        BUILD_DEBUG,
-        BUILD_EDITOR,
-        BUILD_STABLE,
-
-        BUILD_NONE
+    struct BaseTypeStruct {
+        BaseTypeStruct(U8 index) : index(index) {}
+        U8 index;
     };
-
-    enum class Platform {
-        PLATFORM_WINDOWS,
-        PLATFORM_LINUX,
-
-        PLATFORM_NONE
+    struct BuildTypeStruct : BaseTypeStruct {
+        BuildTypeStruct(U8 index,const char *name,const char *cxx_flags,const bool compile_debug);
+        const char *name;
+        const char *cxx_flags;
+        const bool compile_debug;
     };
+    struct PlatformStruct : BaseTypeStruct{
+        PlatformStruct(U8 index,const char *name,const char *toolchain);
+        const char *name;
+        const char *toolchain;
+
+        virtual string get_shared_name(string libname) const = 0;
+        virtual string get_exe_name(string exename) const = 0;
+    };
+    using BuildType = const BuildTypeStruct*;
+    using Platform = const PlatformStruct*;
+
+    BuildType get_build_type_index(U8 index);
+    Platform get_platform_index(U8 index);
 }
 namespace mcc::config {
     struct SourceCompileTarget {
@@ -88,20 +95,25 @@ namespace mcc::config {
 
 
     enum class ConfigModel : U8 {
-        SINGLE_EXECUTABLE =      0, // compiles all files to a single executable file and ignores all subprojects. useful for simple or small projects without many dependencies
-        SINGLE_SHARED =          1, // compiles all files to a single shared object.
-        EXECUTABLES_WITH_SHARED = 2 // compiles subprojects into shared objects and links to them in the executables generated from mains
+        SINGLE_EXECUTABLE           = 0, // compiles all files to a single executable file and ignores all subprojects. useful for simple or small projects without many dependencies
+        SINGLE_SHARED               = 1, // compiles all files to a single shared object.
+        EXECUTABLES_WITH_SHARED     = 2, // compiles subprojects into shared objects and links to them in the executables generated from mains
+        APP_MOD                     = 3,
+        HEADER_ONLY                 = 4, // does not compile anything
     };
-    enum class ExportType : U8 {
-        EXPORT_DEFAULT, // Builds and does nothing else on top of it
-        EXPORT_ITCHIO, // Builds with some itchio definitions and files and pushes to itchio
-        EXPORT_GITHUB, // Builds default and creates a github release. Creates a draft release first.
-        // EXPORT_INSTALLER, // builds and wraps the program in a simple installer (not implemented yet)
-        EXPORT_PORTABLE, // build into a portable zip/tar.gz file
-        // EXPORT_SHARED_HEADERS, // builds binaries, shared libraries and copies header files into a package
 
-        EXPORT_NONE
+    struct ExportTypeStruct : compiler::BaseTypeStruct {
+        ExportTypeStruct(U8 index,const char *name);
+        const char *name;
     };
+    using ExportType = const ExportTypeStruct*;
+    extern const ExportTypeStruct export_type_default;
+    extern const ExportTypeStruct export_type_itchio;
+    extern const ExportTypeStruct export_type_github;
+    extern const ExportTypeStruct export_type_portable;
+    extern const ExportTypeStruct export_type_shared_headers;
+    ExportType get_export_type_index(U8 index);
+
     struct ExportClass {
         ExportType type;
         compiler::Platform platform;
@@ -156,6 +168,7 @@ namespace mcc::config {
         vector<ExportClass> export_types{};
         vector<ConfigObject*> sub_projects{};
         vector<SourceFileObject> source_files{}; // should not include main_source
+        vector<SourceFileObject> header_files{}; // header files (.h, .hpp)
         vector<SourceFileObject> test_files{}; // should not include main_source or source_files
         vector<ExternalObject> external_objects{}; // libraries that are linked and included when compiling
         SourceFileObject main_source; // used as main for mode 2, otherwise ignored. optionally compiled multiple times

@@ -14,11 +14,11 @@
 #include <unordered_set>
 
 static U8 push_itchio(mcc::config::ConfigObject *cfg,mcc::version::Version version,mcc::compiler::Platform pt,mcc::compiler::BuildType tp) {
-    fpath export_path = mcc::compiler::get_export_path(cfg,mcc::config::ExportType::EXPORT_ITCHIO,tp,pt,version);
+    fpath export_path = mcc::compiler::get_export_path(cfg,&mcc::config::export_type_itchio,tp,pt,version);
 
     cbu::log_info(std::format("itchio export: {}",(export_path)));
 
-    string cmd = std::format("butler push ./export/ {}/{}:{}-{} --userversion \"{}\"",cfg->itchio_username,cfg->itchio_project,mcc::compiler::platform_names[int(pt)],mcc::compiler::build_type_names[int(tp)],mcc::version::get_version_string(version,"."));
+    string cmd = std::format("butler push ./export/ {}/{}:{}-{} --userversion \"{}\"",cfg->itchio_username,cfg->itchio_project,pt->name,tp->name,mcc::version::get_version_string(version,"."));
     U8 code = cbu::run_shell_command(export_path,cmd,NULL);
     if (code) {
         cbu::log_error(false,"Itch.io push failed!");
@@ -29,7 +29,7 @@ static U8 push_itchio(mcc::config::ConfigObject *cfg,mcc::version::Version versi
     return 0;
 }
 inline string get_github_pkg_display(mcc::config::ConfigObject *cfg,mcc::version::Version version,mcc::compiler::Platform pt) {
-    return std::format("{}-release-{}-{}-x86_64.tar.gz",cfg->get_raw_name(),mcc::version::get_version_string(version,"."),mcc::compiler::platform_names[int(pt)]);
+    return std::format("{}-release-{}-{}-x86_64.tar.gz",cfg->get_raw_name(),mcc::version::get_version_string(version,"."),pt->name);
 }
 static U8 publish_github(mcc::config::ConfigObject *cfg,mcc::version::Version version,vector<mcc::config::ExportClass> exp) {
     cbu::log_info("Finding repo");
@@ -70,7 +70,7 @@ static U8 publish_github(mcc::config::ConfigObject *cfg,mcc::version::Version ve
     string tmp = (mcc::compiler::get_temp_path(cfg));
     std::error_code ec;
     for (auto &e : exp) {
-        fpath f = mcc::compiler::get_export_path(cfg,mcc::config::ExportType::EXPORT_GITHUB,e.buildtype,e.platform,version) / "github_archive.tar.gz";
+        fpath f = mcc::compiler::get_export_path(cfg,&mcc::config::export_type_github,e.buildtype,e.platform,version) / "github_archive.tar.gz";
 
         cbu::log_debug((f));
         string nm = get_github_pkg_display(cfg,version,e.platform);
@@ -103,7 +103,7 @@ static vector<mcc::config::ExportClass> get_exps(mcc::config::ConfigObject *cfg,
     return exps;
 }
 static U8 push_itchio_all(mcc::config::ConfigObject *cfg,mcc::version::Version ver) {
-    for (auto &c : get_exps(cfg,mcc::config::ExportType::EXPORT_ITCHIO)) {
+    for (auto &c : get_exps(cfg,&mcc::config::export_type_itchio)) {
         U8 code = push_itchio(cfg,ver,c.platform,c.buildtype);
         if (code) return code;
     }
@@ -122,19 +122,19 @@ U8 mcc::publisher::publish_all(mcc::config::ConfigObject *cfg,bool noconfirm) {
         unique.insert(exp.type);
     }
 
-    if (unique.contains(mcc::config::ExportType::EXPORT_ITCHIO)) {
+    if (unique.contains(&mcc::config::export_type_itchio)) {
         if (!noconfirm) {
             cbu::cli_input("Publish to itch.io? (default false)");
             cbu::cli_get_valid_bool(&confirm,true);
             if (confirm) code = push_itchio_all(cfg,version);
         } else code = push_itchio_all(cfg,version);
     }
-    if (unique.contains(mcc::config::ExportType::EXPORT_GITHUB)) {
+    if (unique.contains(&mcc::config::export_type_github)) {
         if (!noconfirm) {
             cbu::cli_input("Publish to github? (default false)");
             cbu::cli_get_valid_bool(&confirm,true);
-            if (confirm) code = publish_github(cfg,version,get_exps(cfg,mcc::config::ExportType::EXPORT_GITHUB));
-        } else code = publish_github(cfg,version,get_exps(cfg,mcc::config::ExportType::EXPORT_GITHUB));
+            if (confirm) code = publish_github(cfg,version,get_exps(cfg,&mcc::config::export_type_github));
+        } else code = publish_github(cfg,version,get_exps(cfg,&mcc::config::export_type_github));
     }
 
     if (code) return code;

@@ -20,11 +20,11 @@
 #include <unordered_map>
 
 #ifdef _WIN32
-static mcc::compiler::Platform default_platform = mcc::compiler::Platform::PLATFORM_WINDOWS;
+static mcc::compiler::Platform default_platform = &mcc::compiler::platform_windows;
 #else
-static mcc::compiler::Platform default_platform = mcc::compiler::Platform::PLATFORM_LINUX;
+static mcc::compiler::Platform default_platform = &mcc::compiler::platform_linux;
 #endif
-static mcc::compiler::BuildType default_buildtype = mcc::compiler::BuildType::BUILD_EDITOR;
+static mcc::compiler::BuildType default_buildtype = &mcc::compiler::build_type_editor;
 
 
 static U8 create_package_optimized(string tp,string pt);
@@ -34,6 +34,7 @@ static U8 list_cmd(string cmd);
 static U8 export_program();
 static U8 publish_program();
 static U8 clean_all();
+static U8 clean();
 static U8 install();
 static U8 test_all();
 static U8 list_version() {
@@ -78,7 +79,8 @@ void mcc::basic_commands::init() {
     mcc::add_command<>("publish",&publish_program,{},"Exports and publishes the program in the config's export format(s), shorthand for package, export, publish");
     mcc::add_command<>("install",&install,{},"Install required dependencies");
     mcc::add_command<>("test",&test_all,{},"Runs all unit tests");
-    mcc::add_command<>("clean",&clean_all,{},"Remove all build & export files");
+    mcc::add_command<>("clean",&clean,{},"Remove most build & export files");
+    mcc::add_command<>("clean_all",&clean_all,{},"Remove all build & export files");
     mcc::add_command<>("gsync",&mcc::git::sync,{},"Safe push & pull from git remotes");
     mcc::add_command<string>("subsync",&mcc::git::subsync,{"SubModule"},"Safe push & pull from git remotes in a submodule");
     mcc::add_command<>("gundo",&mcc::git::undo,{},"Undo local commit");
@@ -103,25 +105,25 @@ void mcc::basic_commands::init() {
         state::active_platform = default_platform;
     });
 
-    build_type_string_lookup["editor"] = mcc::compiler::BuildType::BUILD_EDITOR;
-    build_type_string_lookup["e"] = mcc::compiler::BuildType::BUILD_EDITOR;
-    build_type_string_lookup["beta"] = mcc::compiler::BuildType::BUILD_BETA;
-    build_type_string_lookup["b"] = mcc::compiler::BuildType::BUILD_BETA;
-    build_type_string_lookup["debug"] = mcc::compiler::BuildType::BUILD_DEBUG;
-    build_type_string_lookup["d"] = mcc::compiler::BuildType::BUILD_DEBUG;
-    build_type_string_lookup["release"] = mcc::compiler::BuildType::BUILD_RELEASE;
-    build_type_string_lookup["r"] = mcc::compiler::BuildType::BUILD_RELEASE;
-    build_type_string_lookup["stable"] = mcc::compiler::BuildType::BUILD_STABLE;
-    build_type_string_lookup["s"] = mcc::compiler::BuildType::BUILD_STABLE;
+    build_type_string_lookup["editor"] = &mcc::compiler::build_type_editor;
+    build_type_string_lookup["e"] = &mcc::compiler::build_type_editor;
+    build_type_string_lookup["beta"] = &mcc::compiler::build_type_beta;
+    build_type_string_lookup["b"] = &mcc::compiler::build_type_beta;
+    build_type_string_lookup["debug"] = &mcc::compiler::build_type_debug;
+    build_type_string_lookup["d"] = &mcc::compiler::build_type_debug;
+    build_type_string_lookup["release"] = &mcc::compiler::build_type_release;
+    build_type_string_lookup["r"] = &mcc::compiler::build_type_release;
+    build_type_string_lookup["stable"] = &mcc::compiler::build_type_stable;
+    build_type_string_lookup["s"] = &mcc::compiler::build_type_stable;
 
-    build_platform_string_lookup["win"] = mcc::compiler::Platform::PLATFORM_WINDOWS;
-    build_platform_string_lookup["windows"] = mcc::compiler::Platform::PLATFORM_WINDOWS;
-    build_platform_string_lookup["win32"] = mcc::compiler::Platform::PLATFORM_WINDOWS;
-    build_platform_string_lookup["w"] = mcc::compiler::Platform::PLATFORM_WINDOWS;
+    build_platform_string_lookup["win"] = &mcc::compiler::platform_windows;
+    build_platform_string_lookup["windows"] = &mcc::compiler::platform_windows;
+    build_platform_string_lookup["win32"] = &mcc::compiler::platform_windows;
+    build_platform_string_lookup["w"] = &mcc::compiler::platform_windows;
 
-    build_platform_string_lookup["linux"] = mcc::compiler::Platform::PLATFORM_LINUX;
-    build_platform_string_lookup["lin"] = mcc::compiler::Platform::PLATFORM_LINUX;
-    build_platform_string_lookup["l"] = mcc::compiler::Platform::PLATFORM_LINUX;
+    build_platform_string_lookup["linux"] = &mcc::compiler::platform_linux;
+    build_platform_string_lookup["lin"] = &mcc::compiler::platform_linux;
+    build_platform_string_lookup["l"] = &mcc::compiler::platform_linux;
 }
 
 static void print_cmd(mcc::cmdinfo &cmd) {
@@ -152,8 +154,8 @@ static void log_config(mcc::config::ConfigObject *obj) {
     if (!obj) cbu::log_error(true,"Active config is null!");
     cbu::log_info(std::format("Using config {}",obj->get_name()));
 }
-static mcc::compiler::BuildType type = mcc::compiler::BuildType::BUILD_EDITOR;
-static mcc::compiler::Platform platform = mcc::compiler::Platform::PLATFORM_LINUX;
+static mcc::compiler::BuildType type = &mcc::compiler::build_type_editor;
+static mcc::compiler::Platform platform = &mcc::compiler::platform_linux;
 
 static U8 check_config() {
     if (!mcc::config::valid()) {
@@ -172,9 +174,9 @@ static U8 create_package() {
         log_config(mcc::state::active_config);
 
         mcc::config::update_config(mcc::state::active_config);
-        code = mcc::compiler::build_all(mcc::state::active_config,type,platform,mcc::state::active_config->version,mcc::config::ExportType::EXPORT_NONE);
+        code = mcc::compiler::build_all(mcc::state::active_config,type,platform,mcc::state::active_config->version,NULL);
         if (code) return;
-        code = mcc::packager::package_all(mcc::state::active_config,type,platform,mcc::config::ExportType::EXPORT_NONE,mcc::state::active_config->version);
+        code = mcc::packager::package_all(mcc::state::active_config,type,platform,NULL,mcc::state::active_config->version);
     });
 
     return code;
@@ -207,12 +209,14 @@ static U8 run_program() {
     } else cbu::log_verbose("Package created, starting the run wrapper");
 
     fpath build_path;
-    mcc::state::state_safe([&build_path]() {
-        build_path = mcc::compiler::get_build_path(mcc::state::active_config,type,platform,mcc::config::ExportType::EXPORT_NONE,mcc::state::active_config->version);
+    string name;
+    mcc::state::state_safe([&build_path,&name]() {
+        build_path = mcc::compiler::get_build_path(mcc::state::active_config,type,platform,NULL,mcc::state::active_config->version);
+        name = mcc::state::active_config->get_raw_name();
     });
 
     cbu::log_info("Starting program...");
-    U8 code = cbu::run_shell_command(build_path,std::format("{}/launcher",(build_path)),NULL);
+    U8 code = cbu::run_shell_command(build_path,std::format("{}/{}",build_path,mcc::compiler::platform_linux.get_exe_name(name)),NULL);
     if (code) {
         cbu::log_error(false,std::format("Program exited with code {}",code));
     } else cbu::log_success("Program exited with code 0!");
@@ -281,6 +285,26 @@ static U8 test_all() {
     });
 
     return code;
+}
+static U8 clean() {
+    if (!mcc::config::valid()) {
+        cbu::log_error(false,"No valid config found. Generate one with `config`");
+
+        return 1;
+    }
+
+
+    mcc::state::state_safe([]() {
+        log_config(mcc::state::active_config);
+        for (auto &s : mcc::state::active_config->sub_projects) {
+            std::filesystem::remove_all(s->directory / ".mcc/obj");
+        }
+
+        std::filesystem::remove_all(mcc::state::active_config->directory / ".mcc/obj");
+    });
+    cbu::log_info("Succesfully cleaned");
+
+    return 0;
 }
 static U8 clean_all() {
     if (!mcc::config::valid()) {

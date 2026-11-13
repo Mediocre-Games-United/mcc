@@ -3,7 +3,6 @@
 
 volatile size_t mcc::interrupt_count = 0;
 std::mutex mcc::interrupt_mutex{};
-cbu::GlobalCBUState cbu::global_state{};
 
 void mcc::pre_command_checks() {
 
