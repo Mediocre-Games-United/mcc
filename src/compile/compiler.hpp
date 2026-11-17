@@ -57,7 +57,7 @@ namespace mcc::compiler {
 
     U8 link_object(fpath build_path,fpath output,string link_obj_files,string link_lib_files,mcc::config::ConfigObject *cfg,mcc::compiler::Platform pt,string link_flags_extra = "");
     U8 build_object(fpath src_path,fpath build_path,mcc::config::SourceCompileTarget tgt,bool *did_compile,mcc::version::Version version,string flags = "");
-    U8 build_all(mcc::config::ConfigObject *cfg,BuildType type,Platform pt,mcc::version::Version &version,mcc::config::ExportType exp,bool overwrite_version = true);
+    U8 build_all(mcc::config::ConfigObject *cfg,BuildType type,Platform pt,mcc::version::Version &version,mcc::config::ExportType exp,bool overwrite_version = true,vector<mcc::config::ConfigObject*> parents = {});
 
     inline fpath get_temp_path(mcc::config::ConfigObject *cfg) {
         fpath p = cfg->directory / ".mcc/tmp";

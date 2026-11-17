@@ -313,20 +313,25 @@ static void get_includes_recurse(string &output,fpath dir) {
 
 using namespace mcc::config;
 
-U8 mcc::compiler::build_all(mcc::config::ConfigObject *cfg,BuildType type,Platform pt,mcc::version::Version &version,mcc::config::ExportType exp,bool overwrite_version) {
+U8 mcc::compiler::build_all(mcc::config::ConfigObject *cfg,BuildType type,Platform pt,mcc::version::Version &version,mcc::config::ExportType exp,bool overwrite_version,vector<mcc::config::ConfigObject*> parents) {
     if (overwrite_version) {
-        string commit_id;
-        if (cbu::run_shell_command(cfg->directory,"git rev-parse --short=12 HEAD 2>/dev/null",&commit_id)) {
-            commit_id = "unknown";
+        if (exp) {
+            string commit_id;
+            if (cbu::run_shell_command(cfg->directory,"git rev-parse --short=12 HEAD 2>/dev/null",&commit_id)) {
+                commit_id = "unknown";
+            }
+            string date;
+
+            cbu::run_shell_command("/","date -u +\"%d-%m-%Y\"",&date);
+
+            commit_id.trim();
+            date.trim();
+            version.build_date = date;
+            version.git_commit = commit_id;
+        } else {
+            version.build_date = "continuous";
+            version.git_commit = "temp";
         }
-        string date;
-
-        cbu::run_shell_command("/","date -u +\"%d-%m-%Y\"",&date);
-
-        commit_id.trim();
-        date.trim();
-        version.build_date = date;
-        version.git_commit = commit_id;
     }
 
     fpath build_path = get_build_path(cfg,type,pt,exp,version);
@@ -344,8 +349,10 @@ U8 mcc::compiler::build_all(mcc::config::ConfigObject *cfg,BuildType type,Platfo
             cbu::log_verbose(std::format("Found subproject '{}'",s->get_name()));
         }
         U8 code;
+        auto copy = parents;
+        copy.push_back(cfg);
         for (auto &s : cfg->sub_projects) {
-            auto code = build_all(s,type,pt,version,exp,false);
+            auto code = build_all(s,type,pt,version,exp,false,copy);
             if (code) {
                 cbu::log_error(false,"Building subproject failed");
                 return -1;
@@ -359,8 +366,9 @@ U8 mcc::compiler::build_all(mcc::config::ConfigObject *cfg,BuildType type,Platfo
     cbu::log_verbose(std::format("inc: {}",inc));
 
     INCLUDES = std::format("-I{} {} ",(cfg->directory / "include"),inc);
-    if (cfg->has_parent_directory) {
-        fpath pdir = cfg->directory / cfg->parent_directory;
+    for (auto p : parents) {
+        cbu::log_debug(std::format("{} has parent {}",cfg->get_name(),p->get_name()));
+        fpath pdir = p->directory;
 
         INCLUDES = std::format("{} -I{} -I{}",INCLUDES,
                                (pdir / "src"),

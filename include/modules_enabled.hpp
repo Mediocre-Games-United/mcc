@@ -1,3 +1,3 @@
 #pragma once
 
-#define ARCHIVE_ENABLED
+#define CBU_ARCHIVE_ENABLED

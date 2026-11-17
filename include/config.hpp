@@ -4,3 +4,5 @@
 #define APP_NAME_FULL "MCC"
 
 #define CBU_CLI_ENABLE_MUTEX
+
+#define APP_ID_FULL "xyz.inthestars.mcc"
