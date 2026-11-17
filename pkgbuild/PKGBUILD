@@ -1,13 +1,13 @@
 pkgname=mcc
-pkgver=0.9.0
+pkgver=0.9.1
 pkgrel=9
 pkgdesc="mcc compiler collection build systems"
 arch=("x86_64")
-depends=("glibc" "gcc" "mingw-w64-gcc" "zip" "tar" "gzip" "curl" "github-cli" "libarchive")
+depends=("glibc" "gcc" "mingw-w64-gcc" "curl" "github-cli" "libarchive")
 options=('!debug')
 makedepends=("tar" "git")
 
-source=('git+https://github.com/Mediocre-Games-United/mcc.git' 'bin.tar.gz::https://github.com/Mediocre-Games-United/mcc/releases/download/v0.9.0/mcc-release-v0.9.0-linux-x86_64.tar.gz')
+source=('git+https://github.com/Mediocre-Games-United/mcc.git' 'bin.tar.gz::https://github.com/Mediocre-Games-United/mcc/releases/download/v0.9.1/mcc-release-v0.9.1-linux64-x86_64.tar.gz')
 sha256sums=('SKIP' 'SKIP')
 
 package() {
@@ -17,6 +17,9 @@ package() {
 
     install -d "$pkgdir/usr/share/mcc"
     cp -a "export/." "$pkgdir/usr/share/mcc/"
+
+    cd "$pkgdir/usr/share/mcc"
+    chmod +x "mcc"
 
     cd "$pkgdir/usr/bin"
     ln -s "$pkgdir/usr/share/mcc/mcc" "mcc"

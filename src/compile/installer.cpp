@@ -1,4 +1,5 @@
 #include "installer.hpp"
+#include "archive.hpp"
 #include "commands.hpp"
 #include "compiler.hpp"
 #include "config_file.hpp"
@@ -63,8 +64,8 @@ static U8 install_binary_package(ConfigObject *cfg,string name,ExternalBinary bi
     if (!std::filesystem::exists(dpath)) {
         cbu::log_info("Extracting archive");
         std::filesystem::create_directories(dpath);
-        code = cbu::run_shell_command(root,std::format("tar -xzf {} -C {}",apath,dpath),NULL);
-        if (code) {
+        auto archive = ArchiveTarGZ();
+        if (!archive.extract_archive_single(apath,dpath)) {
             cbu::log_error(false,"Failed to extract archive for some reason, maybe an issue with permissions?");
             return -1;
         }

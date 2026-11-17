@@ -1,4 +1,5 @@
 #include "config_commands_special.hpp"
+#include "archive.hpp"
 #include "base_types.hpp"
 #include "cli.hpp"
 #include "compiler.hpp"
@@ -200,18 +201,8 @@ bool download_and_extract_binary(
     cbu::cli_output(
         std::format("Extracting {} archive...", platform_name)
     );
-
-    const U8 extract_code = cbu::run_shell_command(
-        temp_path,
-        std::format(
-            "tar -xzf \"{}\" -C \"{}\"",
-            archive_path,
-                    extract_path
-        ),
-        nullptr
-    );
-
-    if (extract_code != 0) {
+    auto archive = ArchiveTarGZ();
+    if (!archive.extract_archive_single(archive_path,extract_path)) {
         cbu::log_error(
             false,
             std::format(

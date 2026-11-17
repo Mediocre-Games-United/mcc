@@ -1,4 +1,5 @@
 #include "packager.hpp"
+#include "archive.hpp"
 #include "compile/compiler.hpp"
 #include "config_file.hpp"
 #include "export_texts.hpp"
@@ -190,15 +191,16 @@ U8 mcc::packager::export_all(mcc::config::ConfigObject *cfg) {
             string d = std::format(itch_toml_file_template);
             cbu::write_to_file_safe(export_path / "export/.itch.toml",d);
         } else if (exp.type == &mcc::config::export_type_github) {
-            U8 code = cbu::run_shell_command(export_path,"tar -czf github_archive.tar.gz export/",NULL);
-            if (code) {
+            auto archive = ArchiveTarGZ();
+            if (!archive.compress_folder_single(export_path / "export",export_path / "github_archive.tar.gz")) {
                 cbu::log_error(false,"Failed to compress package");
 
                 return -1;
             }
         } else if (exp.type == &mcc::config::export_type_portable) {
-            U8 code = cbu::run_shell_command(export_path,"tar -czf portable.tar.gz export/ && zip -r portable.zip export/",NULL);
-            if (code) {
+            auto tarchive = ArchiveTarGZ();
+            auto zarchive = ArchiveZIP();
+            if (!tarchive.compress_folder_single(export_path / "export",export_path / "portable.tar.gz") or !zarchive.compress_folder_single(export_path / "export",export_path / "portable.zip")) {
                 cbu::log_error(false,"Failed to compress packages");
 
                 return -1;
