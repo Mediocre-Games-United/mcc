@@ -343,22 +343,25 @@ U8 mcc::compiler::build_all(mcc::config::ConfigObject *cfg,BuildType type,Platfo
     vector<ExternalWrapper> external = get_external(cfg);
 
     // if (cfg->model == mcc::config::ConfigModel::EXECUTABLES_WITH_SHARED) {
-        cbu::log_verbose("Build: building subprojects first!");
 
-        for (auto &s : cfg->sub_projects) {
-            cbu::log_verbose(std::format("Found subproject '{}'",s->get_name()));
+    vector<mcc::config::ConfigObject*> subparents = parents;
+    subparents.push_back(cfg);
+
+    cbu::log_verbose("Build: building subprojects first!");
+
+    for (auto &s : cfg->sub_projects) {
+        subparents.push_back(s);
+        cbu::log_verbose(std::format("Found subproject '{}'",s->get_name()));
+    }
+    U8 code;
+    for (auto &s : cfg->sub_projects) {
+        auto code = build_all(s,type,pt,version,exp,false,subparents);
+        if (code) {
+            cbu::log_error(false,"Building subproject failed");
+            return -1;
         }
-        U8 code;
-        auto copy = parents;
-        copy.push_back(cfg);
-        for (auto &s : cfg->sub_projects) {
-            auto code = build_all(s,type,pt,version,exp,false,copy);
-            if (code) {
-                cbu::log_error(false,"Building subproject failed");
-                return -1;
-            }
-            cbu::log_success("Subproject built succesfully");
-        }
+        cbu::log_success("Subproject built succesfully");
+    }
     // }
 
     string inc = "";
