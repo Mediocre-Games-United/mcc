@@ -73,13 +73,13 @@ namespace mcc::config {
     struct ExternalBinary { // package to be downloaded with curl
         string download_url; // url to download from, if empty is blank
 
-        string tld = "./"; // when extracting the package, skip through possible padding, [tld]/include will be included with -I
-        string install_cmd = ""; // if non empty, is executed in the tld
-        string bin_name; // name for the .dll / .so file so [name].dll/[name].so, will be linked from either [tld]/lib or [tld]/bin as well as lib[name].dll.a for windows
+        string tld = "./"; // when extracting the package, skip through possible padding
+        string include_path = "";
 
-        inline fpath include_path(fpath apath) {
-            return apath / tld / "include";
-        }
+        string install_cmd = ""; // if non empty, is executed in the tld
+        string bin_name; // name for the .dll.a / .so file so lib[name].dll.a/lib[name].so and added with -l[name] in linking
+        string dll_name; // name for the .dll runtime file
+
         inline operator bool() const {
             return !download_url.empty();
         }

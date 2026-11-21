@@ -6,6 +6,7 @@
 #include "commands.hpp"
 #include "config_commands_generic.hpp"
 #include "config_commands_special.hpp"
+#include "config_external_objects.hpp"
 #include "config_file_format.hpp"
 #include "file.hpp"
 #include "logger.hpp"
@@ -575,7 +576,7 @@ U8 mcc::config::cmd() {
 
             continue;
         } if (cmd == "x") {
-            mcc::config_commands::config_add_external_cmd();
+            mcc::config_commands::config_external_cmd();
 
             continue;
         } if (cmd == "n") {

@@ -8,6 +8,7 @@
 #include <filesystem>
 #include <format>
 #include <fstream>
+#include <system_error>
 #include "file.hpp"
 
 using namespace mcc::config;
@@ -47,10 +48,32 @@ static U8 install_linux_package(ExternalPackage pck) {
     return 0;
 }
 
+static bool find_copy_from_dir(fpath targetdir,fpath searchdir,string name) {
+    for (auto &p : cbu::iterate_dir(searchdir)) {
+        if (p.is_directory()) {
+            if (find_copy_from_dir(targetdir,p,name)) return true;
+
+            continue;
+        }
+
+        if (p.filename() != name) continue;
+
+        std::error_code ec;
+        std::filesystem::copy_file(p,targetdir / name,std::filesystem::copy_options::overwrite_existing,ec);
+        return true;
+    }
+
+    return false;
+}
 static U8 install_binary_package(ConfigObject *cfg,string name,ExternalBinary bin,mcc::compiler::Platform pt) {
     fpath root = mcc::compiler::get_external_binary_path(cfg,name,pt);
     fpath apath = root / "archive.tar.gz";
     fpath dpath = root / "extracted";
+    fpath binpath = root / "bin";
+    fpath incpath = root / "include";
+    std::filesystem::create_directories(binpath);
+    std::filesystem::create_directories(incpath);
+
     fpath tldpath = dpath / bin.tld;
     U8 code;
     if (!std::filesystem::exists(apath)) {
@@ -85,6 +108,36 @@ static U8 install_binary_package(ConfigObject *cfg,string name,ExternalBinary bi
         }
 
         std::ofstream(std::string(tldpath / ".cmd_ran")).close();
+    }
+    fpath p_inc_path = tldpath / bin.include_path;
+    std::error_code ec;
+    std::filesystem::copy(p_inc_path,incpath,std::filesystem::copy_options::overwrite_existing | std::filesystem::copy_options::recursive,ec);
+    if (ec) cbu::log_warn(ec.message());
+
+    string nm;
+    if (bin.dll_name) {
+        nm = mcc::compiler::platform_windows.get_shared_name(bin.dll_name);
+        if (!find_copy_from_dir(binpath,tldpath,nm)) {
+            cbu::log_error(false,std::format("Could not find {} in external {}",nm,name));
+
+            return 1;
+        }
+    } if (bin.bin_name) {
+        if (pt == &mcc::compiler::platform_windows) {
+            nm = mcc::compiler::platform_windows.get_import_name(bin.bin_name);
+            if (!find_copy_from_dir(binpath,tldpath,nm)) {
+                cbu::log_error(false,std::format("Could not find {} in external {}",nm,name));
+
+                return 1;
+            }
+        } else {
+            nm = pt->get_shared_name(bin.bin_name);
+            if (!find_copy_from_dir(binpath,tldpath,nm)) {
+                cbu::log_error(false,std::format("Could not find {} in external {}",nm,name));
+
+                return 1;
+            }
+        }
     }
 
     return 0;
