@@ -143,6 +143,7 @@ all: package
 package_base:
 	@rm -rf $(EXPORT_DIR)
 	@mkdir -p $(EXPORT_DIR)
+	@cp -r resources $(EXPORT_DIR)/resources
 
 can_push:
 	@if [ "$(EDITOR)" != "0" ]; then \

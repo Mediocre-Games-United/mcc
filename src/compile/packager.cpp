@@ -148,6 +148,61 @@ static U8 export_headers(mcc::config::ConfigObject *cfg,mcc::compiler::Platform 
 
     return 0;
 }
+static U8 export_bundle(mcc::config::ConfigObject *cfg,mcc::compiler::Platform pt,mcc::compiler::BuildType tp,mcc::version::Version ver) {
+    fpath export_path = mcc::compiler::get_export_path(cfg,&mcc::config::export_type_bundle,tp,pt,ver);
+    fpath rpath = export_path / "build";
+    fpath tpath = export_path / "export";
+    fpath bpath = export_path / "bundle";
+
+    std::filesystem::create_directories(bpath);
+    std::error_code ec;
+
+    auto archive = ArchiveTarGZ();
+    if (!archive.compress_folder_single(export_path / "export",export_path / "bundle/package.tar.gz")) {
+        cbu::log_error(false,"Failed to compress package");
+
+        return -1;
+    }
+
+    string ext = "";
+    string output;
+    U8 code;
+    if (pt == &mcc::compiler::platform_windows) {
+        code = cbu::run_shell_command(export_path / "bundle",std::format("x86_64-w64-mingw32-objcopy -I binary -O pe-x86-64 -B i386:x86-64 package.tar.gz package.o"),&output);
+
+        ext = std::format("-Iwin");
+    } else {
+        code = cbu::run_shell_command(export_path / "bundle",std::format("objcopy -I binary -O elf64-x86-64 --rename-section .data=.rodata,alloc,load,readonly,data,contents package.tar.gz package.o"),&output);
+    }
+    if (code) {
+        cbu::log_error(false,"Failed to embed package.tar.gz");
+
+        return 1;
+    }
+    fpath bres = cbu::resolve_path("res://bundler");
+    code = cbu::run_shell_command(bres,std::format("{} {} -DRUN_APP_NAME=\\\"{}\\\" -c bundler.cpp -o {}",pt->toolchain,ext,pt->get_exe_name(cfg->get_raw_name()),export_path / "bundle/bundler.o"),&output);
+    if (code) {
+        cbu::log_error(false,std::format("Failed to build bundler.o with output {}",output));
+
+        return 1;
+    }
+
+    string out = pt->get_exe_name("out");
+    string cmd;
+    if (pt == &mcc::compiler::platform_windows) {
+        cmd = std::format("{} bundler.o package.o {} {} -static-libgcc -static-libstdc++ -static -lbcrypt -o {}",pt->toolchain,cbu::resolve_path("res://bundler/win/libarchive.a"),cbu::resolve_path("res://bundler/win/libz.a"),out);
+    } else {
+        cmd = std::format("{} bundler.o package.o -larchive -o {}",pt->toolchain,out);
+    }
+    code = cbu::run_shell_command(export_path / "bundle",cmd,&output);
+    if (code) {
+        cbu::log_error(false,std::format("Failed to link bundler with output {}",output));
+
+        return 1;
+    }
+
+    return 0;
+}
 
 U8 mcc::packager::export_all(mcc::config::ConfigObject *cfg) {
     if (cfg->export_types.empty()) {
@@ -192,7 +247,7 @@ U8 mcc::packager::export_all(mcc::config::ConfigObject *cfg) {
             cbu::write_to_file_safe(export_path / "export/.itch.toml",d);
         } else if (exp.type == &mcc::config::export_type_github) {
             auto archive = ArchiveTarGZ();
-            if (!archive.compress_folder_single(export_path / "export",export_path / "github_archive.tar.gz")) {
+            if (!archive.compress_folder_single(export_path / "export",export_path / "github_archive.tar.gz","export")) {
                 cbu::log_error(false,"Failed to compress package");
 
                 return -1;
@@ -200,7 +255,7 @@ U8 mcc::packager::export_all(mcc::config::ConfigObject *cfg) {
         } else if (exp.type == &mcc::config::export_type_portable) {
             auto tarchive = ArchiveTarGZ();
             auto zarchive = ArchiveZIP();
-            if (!tarchive.compress_folder_single(export_path / "export",export_path / "portable.tar.gz") or !zarchive.compress_folder_single(export_path / "export",export_path / "portable.zip")) {
+            if (!tarchive.compress_folder_single(export_path / "export",export_path / "portable.tar.gz","export") or !zarchive.compress_folder_single(export_path / "export",export_path / "portable.zip","export")) {
                 cbu::log_error(false,"Failed to compress packages");
 
                 return -1;
@@ -230,6 +285,9 @@ U8 mcc::packager::export_all(mcc::config::ConfigObject *cfg) {
             #endif
         } else if (exp.type == &mcc::config::export_type_shared_headers) {
             U8 code = export_headers(cfg,pt,tp,version);
+            if (code) return -1;
+        } else if (exp.type == &mcc::config::export_type_bundle) {
+            U8 code = export_bundle(cfg,pt,tp,version);
             if (code) return -1;
         }
     }

@@ -28,6 +28,7 @@ const ExportTypeStruct mcc::config::export_type_itchio = {1,"itchio"};
 const ExportTypeStruct mcc::config::export_type_github = {2,"github"};
 const ExportTypeStruct mcc::config::export_type_portable = {3,"portable"};
 const ExportTypeStruct mcc::config::export_type_shared_headers = {4,"shared"};
+const ExportTypeStruct mcc::config::export_type_bundle = {5,"bundle"};
 
 static umap<U8,ExportType> *get_export_types_map() {
     static umap<U8,ExportType> map;

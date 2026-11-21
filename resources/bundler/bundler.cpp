@@ -88,7 +88,10 @@ static bool safe_relative_path(const fpath& path)
     return true;
 }
 
+// #define TRUNCATE_TLD
+
 static fpath remove_tld_path(const fpath& p) {
+    #ifdef TRUNCATE_TLD
     auto it = p.begin();
     if (it == p.end())
         return {};
@@ -98,7 +101,11 @@ static fpath remove_tld_path(const fpath& p) {
         result /= *it;
 
     return result;
+#else
+    return p;
+#endif
 }
+
 static void extract_archive(const fpath& destination,
                             const unsigned char* data,
                             std::size_t size)
