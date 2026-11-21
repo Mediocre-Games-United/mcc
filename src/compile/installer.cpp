@@ -72,7 +72,6 @@ static U8 install_binary_package(ConfigObject *cfg,string name,ExternalBinary bi
     fpath binpath = root / "bin";
     fpath incpath = root / "include";
     std::filesystem::create_directories(binpath);
-    std::filesystem::create_directories(incpath);
 
     fpath tldpath = dpath / bin.tld;
     U8 code;
@@ -109,10 +108,14 @@ static U8 install_binary_package(ConfigObject *cfg,string name,ExternalBinary bi
 
         std::ofstream(std::string(tldpath / ".cmd_ran")).close();
     }
-    fpath p_inc_path = tldpath / bin.include_path;
-    std::error_code ec;
-    std::filesystem::copy(p_inc_path,incpath,std::filesystem::copy_options::overwrite_existing | std::filesystem::copy_options::recursive,ec);
-    if (ec) cbu::log_warn(ec.message());
+    if (!std::filesystem::exists(incpath)) {
+        std::filesystem::create_directories(incpath);
+
+        fpath p_inc_path = tldpath / bin.include_path;
+        std::error_code ec;
+        std::filesystem::copy(p_inc_path,incpath,std::filesystem::copy_options::overwrite_existing | std::filesystem::copy_options::recursive,ec);
+        if (ec) cbu::log_warn(ec.message());
+    }
 
     string nm;
     if (bin.dll_name) {

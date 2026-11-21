@@ -190,7 +190,7 @@ U8 mcc::compiler::build_object(fpath src_path,fpath build_path,mcc::config::Sour
                 }
 
                 if (std::filesystem::last_write_time(abs_dep) >= obj_stamp) {
-                    cbu::log_verbose("Dependency is newer than object!");
+                    cbu::log_verbose(std::format("Dependency {} is newer than object {}!",abs_dep,abs_obj_path));
                     should_compile = true;
                     break;
                 }
@@ -339,7 +339,7 @@ U8 mcc::compiler::build_all(mcc::config::ConfigObject *cfg,BuildType type,Platfo
     mcc::installer::install_all(cfg);
 
 
-    cbu::log_verbose(std::format("Building project {}",cfg->get_name()));
+    cbu::log_info(std::format("Building project {}",cfg->get_name()));
     vector<ExternalWrapper> external = get_external(cfg);
 
     // if (cfg->model == mcc::config::ConfigModel::EXECUTABLES_WITH_SHARED) {
@@ -347,11 +347,11 @@ U8 mcc::compiler::build_all(mcc::config::ConfigObject *cfg,BuildType type,Platfo
     vector<mcc::config::ConfigObject*> subparents = parents;
     subparents.push_back(cfg);
 
-    cbu::log_verbose("Build: building subprojects first!");
+    cbu::log_info("Build: building subprojects first!");
 
     for (auto &s : cfg->sub_projects) {
         subparents.push_back(s);
-        cbu::log_verbose(std::format("Found subproject '{}'",s->get_name()));
+        cbu::log_info(std::format("Found subproject '{}'",s->get_name()));
     }
     U8 code;
     for (auto &s : cfg->sub_projects) {

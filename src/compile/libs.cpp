@@ -9,6 +9,7 @@
 #include "version.hpp"
 #include <filesystem>
 #include <format>
+#include <unordered_set>
 
 using namespace mcc::config;
 
@@ -150,30 +151,72 @@ U8 mcc::libs::copy_libs(fpath target_path,fpath exe_file,mcc::config::ConfigObje
             cbu::log_warn(std::format("Could not find {}",nm));
         }
 
-        // the harder ones
-        string output = "";
-        code = cbu::run_shell_command(build_path,get_extract_cmd_win(exe_file),&output);
+        const fpath mingw_bin = "/usr/x86_64-w64-mingw32/bin";
 
-        vector<string> list = output.split("\1");
-        vector<string> temp{};
-        for (auto &s : list) {
-            s.trim();
-            fpath tpath = build_path / s;
-            if (!std::filesystem::exists(tpath)) continue;
-            code = cbu::run_shell_command(build_path,get_extract_cmd_win(tpath),&output);
+        std::deque<string> pending;
+        std::unordered_set<string> checked;
 
-            vector<string> list = output.split("\1");
-            for (auto &e : list) { temp.push_back(e); }
-        }
-        for (auto &s : temp) { list.push_back(s); }
+        // Start with the executable.
+        pending.push_back(exe_file);
 
-        for (auto &s : list) {
-            s.trim();
-            fpath tpath = fpath("/usr/x86_64-w64-mingw32/bin") / s;
+        while (!pending.empty()) {
+            string current = std::move(pending.front());
+            pending.pop_front();
 
-            std::error_code ec;
-            std::filesystem::copy_file(tpath,target_path / s,std::filesystem::copy_options::overwrite_existing,ec);
-            if (ec) cbu::log_warn(ec.message());
+            // Windows DLL names are case-insensitive.
+            string key = current;
+            std::transform(key.begin(), key.end(), key.begin(),
+                           [](unsigned char c) { return std::tolower(c); });
+
+            if (!checked.insert(key).second)
+                continue;
+
+            const fpath current_path = current;
+            string output;
+
+            code = cbu::run_shell_command(
+                build_path,
+                get_extract_cmd_win(current_path),
+                                          &output
+            );
+
+            if (code != 0) {
+                cbu::log_warn(std::format("Could not inspect {}", current));
+                continue;
+            }
+
+            for (auto dep : output.split("\1")) {
+                dep.trim();
+                if (dep.empty())
+                    continue;
+
+                const fpath dep_name = dep;
+                fpath dep_path = build_path / dep_name;
+
+                if (!std::filesystem::exists(dep_path))
+                    dep_path = mingw_bin / dep_name;
+
+                if (!std::filesystem::exists(dep_path)) {
+                    cbu::log_warn(std::format("DLL not found: {}", dep));
+                    continue;
+                }
+
+                cbu::log_info(std::format("Found DLL dependency {}", dep));
+
+                // Queue the resolved file so its own imports are checked.
+                pending.push_back(dep_path);
+
+                // Copy it to the destination. Existing files are overwritten.
+                std::error_code ec;
+                std::filesystem::copy_file(
+                    dep_path,
+                    target_path / dep_name,
+                    std::filesystem::copy_options::overwrite_existing,
+                    ec
+                );
+                if (ec)
+                    cbu::log_warn(ec.message());
+            }
         }
     }
 

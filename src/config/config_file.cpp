@@ -452,7 +452,7 @@ void mcc::config::update_config(cf *obj) {
     SourceFileObject main{};
     SourceFileObject test_main{};
     auto lpath = obj->directory / obj->src_directory;
-    config_recurse_sub_projects(subconfigs,lpath,obj->directory / FNAME);
+    config_recurse_sub_projects(subconfigs,obj->directory,obj->directory / FNAME);
 
     fpath hpath = obj->directory / obj->src_directory;
     if (obj->has_parent_directory) hpath = obj->directory / obj->parent_directory;
