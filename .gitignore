@@ -9,6 +9,7 @@ build
 latest
 
 
+*.o
 *.tar.zst
 *.tar.gz
 
