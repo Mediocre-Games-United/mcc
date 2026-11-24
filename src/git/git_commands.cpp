@@ -379,7 +379,7 @@ static void print_status_info(GitStatus status,bool full) {
     if (full) print_change_info(status);
 
     for (auto &[key,stat] : status.submodules) {
-        cbu::cli_output(std::format("---\nSubmodule {}",key));
+        cbu::cli_output(std::format("Submodule {}",key));
         print_status_info(stat,full);
     }
 }
