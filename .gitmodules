@@ -1,3 +1,6 @@
 [submodule "cpp-baseutils"]
 	path = src/cpp-baseutils
 	url = https://github.com/Mediocre-Games-United/cpp-baseutils.git
+[submodule "src/simple-installer"]
+	path = src/simple-installer
+	url = https://github.com/Mediocre-Games-United/simple-installer.git

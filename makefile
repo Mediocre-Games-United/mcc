@@ -214,9 +214,10 @@ install:
 	done
 
 
-SRCS := $(shell find $(SRC_DIR) -name '.mcc' -prune -o -name '*.cpp' -not -name '*.test.cpp' -print)
+SRCS := $(shell find $(SRC_DIR) -name '.mcc' -prune -o -name '*.cpp' -not -name '*.test.cpp' -print | sort | awk -F/ '!seen[$$NF]++')
 OBJS := $(patsubst $(SRC_DIR)/%.cpp,$(BUILD_DIR)/%.o,$(SRCS))
 DEPS := $(OBJS:.o=.d)
+
 
 $(BUILD_DIR)/%.o: $(SRC_DIR)/%.cpp
 	@mkdir -p $(dir $@)
