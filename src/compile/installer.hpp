@@ -4,5 +4,5 @@
 #include <cstdint>
 
 namespace mcc::installer {
-    U8 install_all(mcc::config::ConfigObject *cfg);
+    U8 install_all(mcc::config::ConfigObject *cfg,mcc::compiler::Platform pt);
 }

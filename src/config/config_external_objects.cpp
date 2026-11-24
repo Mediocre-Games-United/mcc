@@ -338,7 +338,6 @@ void mcc::config_commands::config_external_cmd() {
                     );
 
                     update_config(cfg);
-                    mcc::installer::install_all(cfg);
 
                 break;
             }

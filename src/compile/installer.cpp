@@ -145,27 +145,30 @@ static U8 install_binary_package(ConfigObject *cfg,string name,ExternalBinary bi
 
     return 0;
 }
-U8 mcc::installer::install_all(ConfigObject *cfg) {
+U8 mcc::installer::install_all(ConfigObject *cfg,mcc::compiler::Platform pt) {
     cbu::log_info("Installing config...");
     U8 code;
 
     for (auto &s : cfg->sub_projects) {
         cbu::log_info("Installing subconfig first");
-        code = install_all(s);
+        code = install_all(s,pt);
         if (code) return code;
     }
     for (auto &ext : cfg->external_objects) {
-        if (ext.linux_package) {
-            code = install_linux_package(ext.linux_package);
-            if (mcc::consume_interrupt()) return -1;
-            if (code) return code;
-        } else if (ext.linux_ext_binary) {
-            code = install_binary_package(cfg,ext.name,ext.linux_ext_binary,&compiler::platform_linux);
-            if (code) return code;
-        }
-        if (ext.win_ext_binary) {
-            code = install_binary_package(cfg,ext.name,ext.win_ext_binary,&compiler::platform_windows);
-            if (code) return code;
+        if (pt == &mcc::compiler::platform_linux) {
+            if (ext.linux_package) {
+                code = install_linux_package(ext.linux_package);
+                if (mcc::consume_interrupt()) return -1;
+                if (code) return code;
+            } else if (ext.linux_ext_binary) {
+                code = install_binary_package(cfg,ext.name,ext.linux_ext_binary,&compiler::platform_linux);
+                if (code) return code;
+            }
+        } else if (pt == &mcc::compiler::platform_windows) {
+            if (ext.win_ext_binary) {
+                code = install_binary_package(cfg,ext.name,ext.win_ext_binary,&compiler::platform_windows);
+                if (code) return code;
+            }
         }
     }
 

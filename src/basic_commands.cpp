@@ -265,7 +265,8 @@ static U8 install() {
         log_config(mcc::state::active_config);
 
         mcc::config::update_config(mcc::state::active_config);
-        code = mcc::installer::install_all(mcc::state::active_config);
+        code = mcc::installer::install_all(mcc::state::active_config,&mcc::compiler::platform_windows);
+        code = mcc::installer::install_all(mcc::state::active_config,&mcc::compiler::platform_linux);
     });
 
     return code;

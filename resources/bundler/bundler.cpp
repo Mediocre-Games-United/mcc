@@ -192,6 +192,16 @@ static void extract_archive(const fpath& destination,
             fail(std::string("Error extracting file: ") +
             (message ? message : output.string()));
         }
+
+        #ifndef _WIN32
+        std::filesystem::permissions(
+            output,
+            std::filesystem::perms::owner_exec |
+            std::filesystem::perms::group_exec |
+            std::filesystem::perms::others_exec,
+            std::filesystem::perm_options::add
+        );
+        #endif
     }
 
     if (status != ARCHIVE_EOF) {
@@ -292,6 +302,7 @@ int main()
     fpath temp_dir;
     int app_exit_code = 1;
 
+    std::cout << "Extracting app bundle\n";
     try {
         const fpath executable_path = exe_path();
         temp_dir = make_temp_dir(executable_path.parent_path());
@@ -299,33 +310,27 @@ int main()
         #ifdef _WIN32
         SetFileAttributesW(temp_dir.c_str(), FILE_ATTRIBUTE_HIDDEN);
         #endif
+        std::cout << "Temp dir created\n";
 
         const auto* data = _binary_package_tar_xz_start;
         const std::size_t size = static_cast<std::size_t>(
             _binary_package_tar_xz_end - _binary_package_tar_xz_start);
 
         extract_archive(temp_dir, data, size);
+        std::cout << "Archive extracted\n";
 
         const fpath app_path = temp_dir / RUN_APP_NAME;
         if (!std::filesystem::is_regular_file(app_path))
             throw std::runtime_error("Application not found in archive: " +
             app_path.string());
 
-        #ifndef _WIN32
-        std::filesystem::permissions(
-            app_path,
-            std::filesystem::perms::owner_exec |
-            std::filesystem::perms::group_exec |
-            std::filesystem::perms::others_exec,
-            std::filesystem::perm_options::add
-        );
-        #endif
         app_exit_code = run_app(app_path, temp_dir);
     } catch (const std::exception& e) {
         std::cerr << "Bundler error: " << e.what() << '\n';
         app_exit_code = 1;
     }
 
+    std::cout << "Cleaning up temp directory\n";
     if (!temp_dir.empty()) {
         std::error_code ec;
         std::filesystem::remove_all(temp_dir, ec);

@@ -336,7 +336,7 @@ U8 mcc::compiler::build_all(mcc::config::ConfigObject *cfg,BuildType type,Platfo
 
     fpath build_path = get_build_path(cfg,type,pt,exp,version);
     std::filesystem::create_directories(build_path / "out");
-    mcc::installer::install_all(cfg);
+    mcc::installer::install_all(cfg,pt);
 
 
     cbu::log_info(std::format("Building project {}",cfg->get_name()));
