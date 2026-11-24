@@ -320,6 +320,7 @@ int main()
         std::cout << "Archive extracted\n";
 
         const fpath app_path = temp_dir / RUN_APP_NAME;
+        std::cout << "RUN_APP_NAME=" RUN_APP_NAME " app_path=" << app_path << "\n";
         if (!std::filesystem::is_regular_file(app_path))
             throw std::runtime_error("Application not found in archive: " +
             app_path.string());

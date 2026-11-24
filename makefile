@@ -121,7 +121,7 @@ PKGS := sdl3 sdl3_image sdl3_mixer stb glew mesa mingw-w64-gcc cmake clang boost
 
 CXXFLAGS += $(INCLUDES)
 STATICINC := -I/usr/include/SDL3 -I/usr/include/SDL3_image -I/usr/include/SDL3_mixer -I/usr/include/GL
-LDFLAGS := -lGL -lGLEW -larchive
+LDFLAGS := -lGL -lGLEW -larchive -lz -llzma
 CHANNEL_NAME := linux
 CHANNEL_SUB :=
 ifeq ($(WIN),1)

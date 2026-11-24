@@ -153,7 +153,7 @@ static U8 export_headers(mcc::config::ConfigObject *cfg,mcc::compiler::Platform 
     return 0;
 }
 
-static U8 bundle_folder(fpath tpath,fpath bpath,mcc::config::ConfigObject *cfg,mcc::compiler::Platform pt) {
+static U8 bundle_folder(fpath tpath,fpath bpath,string exe_name,mcc::config::ConfigObject *cfg,mcc::compiler::Platform pt) {
     std::filesystem::create_directories(bpath);
     std::error_code ec;
 
@@ -184,7 +184,7 @@ static U8 bundle_folder(fpath tpath,fpath bpath,mcc::config::ConfigObject *cfg,m
         return 1;
     }
     fpath bres = cbu::resolve_path("res://bundler");
-    code = cbu::run_shell_command(bres,std::format("{} {} -DRUN_APP_NAME=\\\"{}\\\" -c bundler.cpp -o {}",pt->toolchain,ext,pt->get_exe_name(cfg->get_raw_name()),bpath / "bundler.o"),&output);
+    code = cbu::run_shell_command(bres,std::format("{} -g -O0 {} -DRUN_APP_NAME=\\\"{}\\\" -c bundler.cpp -o {}",pt->toolchain,ext,pt->get_exe_name(exe_name),bpath / "bundler.o"),&output);
     if (code) {
         cbu::log_error(false,std::format("Failed to build bundler.o with output {}",output));
 
@@ -210,7 +210,7 @@ static U8 bundle_folder(fpath tpath,fpath bpath,mcc::config::ConfigObject *cfg,m
 static U8 export_bundle(mcc::config::ConfigObject *cfg,mcc::compiler::Platform pt,mcc::compiler::BuildType tp,mcc::version::Version ver) {
     fpath export_path = mcc::compiler::get_export_path(cfg,&mcc::config::export_type_bundle,tp,pt,ver);
 
-    return bundle_folder(export_path / "export",export_path / "bundle",cfg,pt);
+    return bundle_folder(export_path / "export",export_path / "bundle",cfg->get_raw_name(),cfg,pt);
 }
 static U8 export_installer(mcc::config::ConfigObject *cfg,mcc::compiler::Platform pt,mcc::compiler::BuildType tp,mcc::version::Version ver) {
     si::InstallPackage pkg = si::InstallPackage::blank();
@@ -254,11 +254,9 @@ static U8 export_installer(mcc::config::ConfigObject *cfg,mcc::compiler::Platfor
         return 1;
     }
 
-    string pkgname = std::format("package_{}",pt->name);
-    string downloadname = std::format("{}.tar.gz",pkgname);
     cbu::log_success("Install package created succesfully");
 
-    if (!std::filesystem::exists(tmp / downloadname)) {
+    if (!std::filesystem::exists(export_path / "gpkg.tar.gz")) {
         fpath dpath = tmp / ".mccd";
         if (cbu::run_shell_command(tmp,"curl --location --fail -OJ https://raw.githubusercontent.com/Mediocre-Games-United/si-gui/refs/heads/main/.mccd",NULL)) {
             cbu::log_error(false,"Failed to download installer dfile");
@@ -273,23 +271,22 @@ static U8 export_installer(mcc::config::ConfigObject *cfg,mcc::compiler::Platfor
         cbu::cli_get_valid_bool(&res,true);
         if (!res) return 1;
 
-        if (cbu::run_shell_command(tmp,std::format("curl --location --fail -Jo {} {}",downloadname,pkgdownload),NULL)) {
+        if (cbu::run_shell_command(export_path,std::format("curl --location --fail -Jo gpkg.tar.gz {}",pkgdownload),NULL)) {
             cbu::log_error(false,"Failed to download installer gui package");
             return 1;
         }
 
         std::error_code ec;
-        if (std::filesystem::exists(tmp / pkgname)) std::filesystem::remove_all(tmp / pkgname,ec);
+        if (std::filesystem::exists(export_path / "gpkg")) std::filesystem::remove_all(export_path / "gpkg",ec);
 
         ArchiveTarGZ archive;
-        archive.extract_archive_single(tmp / downloadname,tmp / pkgname);
+        archive.extract_archive_single(export_path / "gpkg.tar.gz",export_path / "gpkg");
     } else cbu::log_info("Install package is already downloaded");
 
     std::error_code ec;
-    std::filesystem::copy_file(export_path / "package.si",tmp / pkgname / "export/resources/package.si",std::filesystem::copy_options::overwrite_existing,ec);
+    std::filesystem::copy_file(export_path / "package.si",export_path / "gpkg/export/resources/package.si",std::filesystem::copy_options::overwrite_existing,ec);
 
-    string bundlename = std::format("bundle_{}",pt->name);
-    if (bundle_folder(tmp / pkgname / "export",tmp / bundlename,cfg,pt)) {
+    if (bundle_folder(export_path / "gpkg/export",export_path / "bundle","si-gui",cfg,pt)) {
         cbu::log_error(false,"Failed to bundle installer");
         return 1;
     }

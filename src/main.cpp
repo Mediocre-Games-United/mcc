@@ -80,6 +80,12 @@ static int handle_parser_output(cbu::parser_output pout) {
             mcc::state::active_config = temp;
             mcc::state::current_project = temp->directory;
         });
+    } else if (pout.flags.contains('h')) {
+        bool r = mcc::config::set_file_current(std::filesystem::current_path() / FNAME);
+        if (!r) {
+            cbu::log_error(false,"File not found!");
+            return -1;
+        }
     } else {
         if (std::filesystem::exists(pout.cmd)) {
             if (!mcc::config::set_file_current(pout.cmd)) {
@@ -113,6 +119,7 @@ int main(int argc,char *argv[]) {
 
     cbu::parser_output pout = cbu::parse_args(argc,argv,{
         cbu::parser_flag('t',"temp","Generates a temporary config in the current working directory for monolithic executables that require no linking steps"),
+        cbu::parser_flag('h',"here","If a config exists at CWD, set it as current for the operation"),
     },{
         cbu::parser_val(cbu::parser_flag('n',"config-name","Same as --config but set the config by name rather than filepath")),
         cbu::parser_val(cbu::parser_flag('c',"config","Sets the current config filepath, if not present the current working directory will be used instead")),

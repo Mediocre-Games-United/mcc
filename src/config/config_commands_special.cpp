@@ -118,7 +118,7 @@ void mcc::config_commands::config_add_export_cmd() {
                 return;
             }
             cbu::cli_input("Enter package display name");
-            if (!cbu::cli_get_valid_string(&name)) {
+            if (!cbu::cli_get_valid_string(&readable)) {
                 cbu::log_error(false,"Name cannot be empty");
                 return;
             }
