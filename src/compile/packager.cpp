@@ -194,7 +194,7 @@ static U8 bundle_folder(fpath tpath,fpath bpath,mcc::config::ConfigObject *cfg,m
     string out = pt->get_exe_name("out");
     string cmd;
     if (pt == &mcc::compiler::platform_windows) {
-        cmd = std::format("{} bundler.o package.o {} {} -static-libgcc -static-libstdc++ -static -lbcrypt -o {}",pt->toolchain,cbu::resolve_path("res://bundler/win/libarchive.a"),cbu::resolve_path("res://bundler/win/libz.a"),out);
+        cmd = std::format("{} bundler.o package.o {} {} {} -static-libgcc -static-libstdc++ -static -lbcrypt -o {}",pt->toolchain,cbu::resolve_path("res://bundler/win/libarchive.a"),cbu::resolve_path("res://bundler/win/libz.a"),cbu::resolve_path("res://bundler/win/liblzma.a"),out);
     } else {
         cmd = std::format("{} bundler.o package.o -larchive -o {}",pt->toolchain,out);
     }
