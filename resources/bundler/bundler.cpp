@@ -31,8 +31,8 @@
 using fpath = std::filesystem::path;
 
 extern "C" {
-    extern const unsigned char _binary_package_tar_gz_start[];
-    extern const unsigned char _binary_package_tar_gz_end[];
+    extern const unsigned char _binary_package_tar_xz_start[];
+    extern const unsigned char _binary_package_tar_xz_end[];
 }
 
 static fpath exe_path()
@@ -300,9 +300,9 @@ int main()
         SetFileAttributesW(temp_dir.c_str(), FILE_ATTRIBUTE_HIDDEN);
         #endif
 
-        const auto* data = _binary_package_tar_gz_start;
+        const auto* data = _binary_package_tar_xz_start;
         const std::size_t size = static_cast<std::size_t>(
-            _binary_package_tar_gz_end - _binary_package_tar_gz_start);
+            _binary_package_tar_xz_end - _binary_package_tar_xz_start);
 
         extract_archive(temp_dir, data, size);
 

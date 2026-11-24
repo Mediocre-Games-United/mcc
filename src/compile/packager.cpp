@@ -152,39 +152,39 @@ static U8 export_headers(mcc::config::ConfigObject *cfg,mcc::compiler::Platform 
 
     return 0;
 }
-static U8 export_bundle(mcc::config::ConfigObject *cfg,mcc::compiler::Platform pt,mcc::compiler::BuildType tp,mcc::version::Version ver) {
-    fpath export_path = mcc::compiler::get_export_path(cfg,&mcc::config::export_type_bundle,tp,pt,ver);
-    fpath rpath = export_path / "build";
-    fpath tpath = export_path / "export";
-    fpath bpath = export_path / "bundle";
 
+static U8 bundle_folder(fpath tpath,fpath bpath,mcc::config::ConfigObject *cfg,mcc::compiler::Platform pt) {
     std::filesystem::create_directories(bpath);
     std::error_code ec;
 
-    auto archive = ArchiveTarGZ();
-    if (!archive.compress_folder_single(export_path / "export",export_path / "bundle/package.tar.gz")) {
+    cbu::log_info("Compressing package with xz...");
+    Timer xz_time{main_clock};
+    xz_time.set_baseline();
+    auto archive = ArchiveTarXZ{9};
+    if (!archive.compress_folder_single(tpath,bpath / "package.tar.xz")) {
         cbu::log_error(false,"Failed to compress package");
 
         return -1;
     }
+    cbu::log_info(std::format("Compression done in {}",os_format_time(xz_time.previous_delta())));
 
     string ext = "";
     string output;
     U8 code;
     if (pt == &mcc::compiler::platform_windows) {
-        code = cbu::run_shell_command(export_path / "bundle",std::format("x86_64-w64-mingw32-objcopy -I binary -O pe-x86-64 -B i386:x86-64 package.tar.gz package.o"),&output);
+        code = cbu::run_shell_command(bpath,std::format("x86_64-w64-mingw32-objcopy -I binary -O pe-x86-64 -B i386:x86-64 package.tar.xz package.o"),&output);
 
         ext = std::format("-Iwin");
     } else {
-        code = cbu::run_shell_command(export_path / "bundle",std::format("objcopy -I binary -O elf64-x86-64 --rename-section .data=.rodata,alloc,load,readonly,data,contents package.tar.gz package.o"),&output);
+        code = cbu::run_shell_command(bpath,std::format("objcopy -I binary -O elf64-x86-64 --rename-section .data=.rodata,alloc,load,readonly,data,contents package.tar.xz package.o"),&output);
     }
     if (code) {
-        cbu::log_error(false,"Failed to embed package.tar.gz");
+        cbu::log_error(false,"Failed to embed package.tar.xz");
 
         return 1;
     }
     fpath bres = cbu::resolve_path("res://bundler");
-    code = cbu::run_shell_command(bres,std::format("{} {} -DRUN_APP_NAME=\\\"{}\\\" -c bundler.cpp -o {}",pt->toolchain,ext,pt->get_exe_name(cfg->get_raw_name()),export_path / "bundle/bundler.o"),&output);
+    code = cbu::run_shell_command(bres,std::format("{} {} -DRUN_APP_NAME=\\\"{}\\\" -c bundler.cpp -o {}",pt->toolchain,ext,pt->get_exe_name(cfg->get_raw_name()),bpath / "bundler.o"),&output);
     if (code) {
         cbu::log_error(false,std::format("Failed to build bundler.o with output {}",output));
 
@@ -198,7 +198,7 @@ static U8 export_bundle(mcc::config::ConfigObject *cfg,mcc::compiler::Platform p
     } else {
         cmd = std::format("{} bundler.o package.o -larchive -o {}",pt->toolchain,out);
     }
-    code = cbu::run_shell_command(export_path / "bundle",cmd,&output);
+    code = cbu::run_shell_command(bpath,cmd,&output);
     if (code) {
         cbu::log_error(false,std::format("Failed to link bundler with output {}",output));
 
@@ -206,6 +206,11 @@ static U8 export_bundle(mcc::config::ConfigObject *cfg,mcc::compiler::Platform p
     }
 
     return 0;
+}
+static U8 export_bundle(mcc::config::ConfigObject *cfg,mcc::compiler::Platform pt,mcc::compiler::BuildType tp,mcc::version::Version ver) {
+    fpath export_path = mcc::compiler::get_export_path(cfg,&mcc::config::export_type_bundle,tp,pt,ver);
+
+    return bundle_folder(export_path / "export",export_path / "bundle",cfg,pt);
 }
 static U8 export_installer(mcc::config::ConfigObject *cfg,mcc::compiler::Platform pt,mcc::compiler::BuildType tp,mcc::version::Version ver) {
     si::InstallPackage pkg = si::InstallPackage::blank();
@@ -249,7 +254,8 @@ static U8 export_installer(mcc::config::ConfigObject *cfg,mcc::compiler::Platfor
         return 1;
     }
 
-    string downloadname = std::format("package_{}.tar.gz",pt->name);
+    string pkgname = std::format("package_{}",pt->name);
+    string downloadname = std::format("{}.tar.gz",pkgname);
     cbu::log_success("Install package created succesfully");
 
     if (!std::filesystem::exists(tmp / downloadname)) {
@@ -273,13 +279,20 @@ static U8 export_installer(mcc::config::ConfigObject *cfg,mcc::compiler::Platfor
         }
 
         std::error_code ec;
-        if (std::filesystem::exists(tmp / "export")) std::filesystem::remove_all(tmp / "export",ec);
+        if (std::filesystem::exists(tmp / pkgname)) std::filesystem::remove_all(tmp / pkgname,ec);
 
         ArchiveTarGZ archive;
-        archive.extract_archive_single(tmp / downloadname,tmp / "export");
+        archive.extract_archive_single(tmp / downloadname,tmp / pkgname);
     } else cbu::log_info("Install package is already downloaded");
 
+    std::error_code ec;
+    std::filesystem::copy_file(export_path / "package.si",tmp / pkgname / "export/resources/package.si",std::filesystem::copy_options::overwrite_existing,ec);
 
+    string bundlename = std::format("bundle_{}",pt->name);
+    if (bundle_folder(tmp / pkgname / "export",tmp / bundlename,cfg,pt)) {
+        cbu::log_error(false,"Failed to bundle installer");
+        return 1;
+    }
 
     return 0;
 }
