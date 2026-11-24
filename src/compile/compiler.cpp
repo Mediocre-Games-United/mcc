@@ -269,7 +269,7 @@ static string get_LINKER_INCLUDES(mcc::config::ConfigObject *cfg,mcc::compiler::
             LINKER_INCLUDES += std::format(" -l{} ",s.linux_package.link_name);
         }
     } else {
-        LINKER_FLAGS = " -lopengl32 ";
+        LINKER_FLAGS = " -lopengl32 -lole32 -lshell32 -lkernel32 -luuid ";
         for (auto &e : external) {
             auto &s = e.obj;
             auto &cfg = e.cfg;

@@ -1,5 +1,6 @@
 #include "packager.hpp"
 #include "archive.hpp"
+#include "cli.hpp"
 #include "compile/compiler.hpp"
 #include "config_file.hpp"
 #include "export_texts.hpp"
@@ -248,7 +249,37 @@ static U8 export_installer(mcc::config::ConfigObject *cfg,mcc::compiler::Platfor
         return 1;
     }
 
-    cbu::log_success("Install package created succesfully, downloading installer gui");
+    string downloadname = std::format("package_{}.tar.gz",pt->name);
+    cbu::log_success("Install package created succesfully");
+
+    if (!std::filesystem::exists(tmp / downloadname)) {
+        fpath dpath = tmp / ".mccd";
+        if (cbu::run_shell_command(tmp,"curl --location --fail -OJ https://raw.githubusercontent.com/Mediocre-Games-United/si-gui/refs/heads/main/.mccd",NULL)) {
+            cbu::log_error(false,"Failed to download installer dfile");
+            return 1;
+        }
+        string fmtstr = string(cbu::require_file(dpath)).split("\n")[0];
+        string pkgdownload = std::vformat(std::string(fmtstr),std::make_format_args(pt->name));
+
+        cbu::log_info(std::format("Installer download link: {}",pkgdownload));
+        bool res;
+        cbu::cli_input("Trust installer gui download link? (default false)");
+        cbu::cli_get_valid_bool(&res,true);
+        if (!res) return 1;
+
+        if (cbu::run_shell_command(tmp,std::format("curl --location --fail -Jo {} {}",downloadname,pkgdownload),NULL)) {
+            cbu::log_error(false,"Failed to download installer gui package");
+            return 1;
+        }
+
+        std::error_code ec;
+        if (std::filesystem::exists(tmp / "export")) std::filesystem::remove_all(tmp / "export",ec);
+
+        ArchiveTarGZ archive;
+        archive.extract_archive_single(tmp / downloadname,tmp / "export");
+    } else cbu::log_info("Install package is already downloaded");
+
+
 
     return 0;
 }
