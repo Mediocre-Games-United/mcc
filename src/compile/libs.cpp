@@ -29,7 +29,7 @@ static string get_extract_cmd_linux(fpath exe_file) {
 
 U8 mcc::libs::copy_libs(fpath target_path,fpath exe_file,mcc::config::ConfigObject *cfg,mcc::compiler::BuildType tp,mcc::compiler::Platform pt,mcc::config::ExportType exp,mcc::version::Version version,bool only_nontrivial) {
     fpath build_path = mcc::compiler::get_build_path(cfg,tp,pt,exp,version);
-    cbu::log_info("Copying libs...");
+    cbu::log_info(std::format("Copying libs for {}...",exe_file));
 
     string output;
 #ifdef _WIN32
@@ -72,12 +72,12 @@ U8 mcc::libs::copy_libs(fpath target_path,fpath exe_file,mcc::config::ConfigObje
         vector<string> list = output.split("\1");
 
         cbu::log_verbose(output);
-        // for (auto &s : list) {
-        //     cbu::log_debug(s);
-        //     for (auto c : s) {
-        //         cbu::log_debug(std::format("{} ({})",string(c),U32(c)));
-        //     }
-        // }
+        for (auto &s : list) {
+            cbu::log_info(std::format("Found lib {}",s));
+            for (auto c : s) {
+                cbu::log_debug(std::format("{} ({})",string(c),U32(c)));
+            }
+        }
         for (auto &s : list) {
             s.trim();
             cbu::log_debug(std::format("Found name {}",s));

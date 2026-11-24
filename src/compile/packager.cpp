@@ -3,6 +3,7 @@
 #include "compile/compiler.hpp"
 #include "config_file.hpp"
 #include "export_texts.hpp"
+#include "install_obj.hpp"
 #include "logger.hpp"
 #include <filesystem>
 #include <format>
@@ -10,6 +11,8 @@
 #include "shell.hpp"
 #include "vectormath.hpp"
 #include "version.hpp"
+#include "time.hpp"
+#include "os.hpp"
 
 static vector<string> banned_extensions = {".flp"};
 
@@ -203,6 +206,52 @@ static U8 export_bundle(mcc::config::ConfigObject *cfg,mcc::compiler::Platform p
 
     return 0;
 }
+static U8 export_installer(mcc::config::ConfigObject *cfg,mcc::compiler::Platform pt,mcc::compiler::BuildType tp,mcc::version::Version ver) {
+    si::InstallPackage pkg = si::InstallPackage::blank();
+
+    if (!pkg.set_flag(pkg.flag_beta,tp != &mcc::compiler::build_type_release)) {
+        cbu::log_error(false,"Failed to set beta flag to install pkg");
+        return 1;
+    }
+    if (!pkg.set_version({ver.major,ver.minor,ver.patch})) {
+        cbu::log_error(false,"Failed to set version to install pkg");
+        return 1;
+    }
+    if (!pkg.set_name(cfg->install_pkg_name,cfg->install_pkg_readable)) {
+        cbu::log_error(false,"Failed to set name to install pkg");
+        return 1;
+    }
+
+    fpath tmp = mcc::compiler::get_temp_path(cfg);
+    fpath export_path = mcc::compiler::get_export_path(cfg,&mcc::config::export_type_installer,tp,pt,ver);
+    fpath tpkg = tmp / "pkg.tar.xz";
+
+    ArchiveTarXZ archive{9};
+
+    cbu::log_info("Compressing app with xz, might take a while...");
+
+    Timer xz_timer{main_clock};
+    xz_timer.set_baseline();
+    if (!archive.compress_folder_single(export_path / "export",tpkg)) {
+        cbu::log_error(false,"Failed to package app with xz");
+        return 1;
+    }
+    cbu::log_success(std::format("Package created succesfully in {}",os_format_time(xz_timer.previous_delta())));
+
+    if (!pkg.set_pkg(tpkg)) {
+        cbu::log_error(false,"Failed to upload app to install pkg");
+        return 1;
+    }
+
+    if (!pkg.save_to_file(export_path / "package.si")) {
+        cbu::log_error(false,"Failed to set beta flag to install pkg");
+        return 1;
+    }
+
+    cbu::log_success("Install package created succesfully, downloading installer gui");
+
+    return 0;
+}
 
 U8 mcc::packager::export_all(mcc::config::ConfigObject *cfg) {
     if (cfg->export_types.empty()) {
@@ -288,6 +337,9 @@ U8 mcc::packager::export_all(mcc::config::ConfigObject *cfg) {
             if (code) return -1;
         } else if (exp.type == &mcc::config::export_type_bundle) {
             U8 code = export_bundle(cfg,pt,tp,version);
+            if (code) return -1;
+        } else if (exp.type == &mcc::config::export_type_installer) {
+            U8 code = export_installer(cfg,pt,tp,version);
             if (code) return -1;
         }
     }

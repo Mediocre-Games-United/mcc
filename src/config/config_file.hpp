@@ -113,6 +113,7 @@ namespace mcc::config {
     extern const ExportTypeStruct export_type_portable;
     extern const ExportTypeStruct export_type_shared_headers;
     extern const ExportTypeStruct export_type_bundle;
+    extern const ExportTypeStruct export_type_installer;
     ExportType get_export_type_index(U8 index);
 
     struct ExportClass {
@@ -179,6 +180,9 @@ namespace mcc::config {
 
         string itchio_username;
         string itchio_project;
+
+        string install_pkg_name;
+        string install_pkg_readable;
 
         bool is_registered = false;
         inline void set_name(string n) { name = n; }

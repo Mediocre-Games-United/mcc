@@ -238,6 +238,20 @@ cbu::BinaryFileSection *ConfigFileFormatV1::get_sections() {
             cf *c = (cf*) obj;
             return c->version.patch;
         }),
+        new cbu::StringBinarySection([](void *obj,auto value) { // installer id
+            cf *c = (cf*) obj;
+            c->install_pkg_name = value;
+        },[](void *obj) -> string {
+            cf *c = (cf*) obj;
+            return c->install_pkg_name;
+        }),
+        new cbu::StringBinarySection([](void *obj,auto value) { // installer readable
+            cf *c = (cf*) obj;
+            c->install_pkg_readable = value;
+        },[](void *obj) -> string {
+            cf *c = (cf*) obj;
+            return c->install_pkg_readable;
+        }),
     });
 }
 

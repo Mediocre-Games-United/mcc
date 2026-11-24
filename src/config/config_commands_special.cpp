@@ -56,9 +56,9 @@ void mcc::config_commands::config_add_export_cmd() {
         cbu::log_warn("Config does not exist or is not linked!");
         return;
     }
-    cbu::cli_input("Enter export type\nDefault (0 default)\nItch.io (1)\nGithub.com (2)\nPortable (3)\nHeaders + libs (4)\nSingle file bundled executable (5)");
+    cbu::cli_input("Enter export type\nDefault (0 default)\nItch.io (1)\nGithub.com (2)\nPortable (3)\nHeaders + libs (4)\nSingle file bundled executable (5)\nSingle file bundled installer (6)");
     int opt;
-    if (!cbu::cli_get_valid_int(&opt,0,5,true,0)) {
+    if (!cbu::cli_get_valid_int(&opt,0,6,true,0)) {
         cbu::log_error(false,"Invalid value");
         return;
     }
@@ -105,6 +105,27 @@ void mcc::config_commands::config_add_export_cmd() {
         }
         case 5: {
             exp = &export_type_bundle;
+
+            break;
+        }
+        case 6: {
+            exp = &export_type_installer;
+
+            string name,readable;
+            cbu::cli_input("Enter package name id (non readable)");
+            if (!cbu::cli_get_valid_string(&name)) {
+                cbu::log_error(false,"Name cannot be empty");
+                return;
+            }
+            cbu::cli_input("Enter package display name");
+            if (!cbu::cli_get_valid_string(&name)) {
+                cbu::log_error(false,"Name cannot be empty");
+                return;
+            }
+
+            cfg->install_pkg_name = name;
+            cfg->install_pkg_readable = readable;
+            update_config(cfg);
 
             break;
         }
