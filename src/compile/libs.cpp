@@ -47,6 +47,34 @@ U8 mcc::libs::copy_libs(fpath target_path,fpath exe_file,mcc::config::ConfigObje
 #endif
 
     U8 code = 0;
+    auto copy_sub = [cfg,pt,build_path,&ec,target_path,tp,exp,version]() {
+        if (cfg->model != ConfigModel::SINGLE_EXECUTABLE) {
+            string nm = pt->get_shared_name(cfg->get_raw_name());
+            if (pt == &compiler::platform_linux) {
+                fpath s = build_path / "lib" / nm;
+                if (std::filesystem::exists(s)) std::filesystem::remove(s,ec);
+                if (ec) cbu::log_warn(ec.message());
+            }
+
+            std::filesystem::copy_file(build_path / "out" / nm,target_path / nm,std::filesystem::copy_options::overwrite_existing,ec);
+            if (ec) cbu::log_warn(ec.message());
+        }
+        for (auto &s : cfg->sub_projects) {
+            fpath sub_build_path = mcc::compiler::get_build_path(s,tp,pt,exp,version);
+            string nm = pt->get_shared_name(s->get_raw_name());
+            if (pt == &compiler::platform_linux) {
+                fpath s = build_path / "lib" / nm;
+                if (std::filesystem::exists(s)) std::filesystem::remove(s,ec);
+                if (ec) cbu::log_warn(ec.message());
+            }
+
+            std::filesystem::copy_file(sub_build_path / "out" / nm,target_path / nm,std::filesystem::copy_options::overwrite_existing,ec);
+            if (ec) cbu::log_warn(ec.message());
+        }
+    };
+
+    copy_sub();
+
     if (pt == &mcc::compiler::platform_linux) {
         vector<ExternalWrapper> external{};
         for (auto &e : cfg->external_objects) {
@@ -220,29 +248,7 @@ U8 mcc::libs::copy_libs(fpath target_path,fpath exe_file,mcc::config::ConfigObje
         }
     }
 
-    if (cfg->model != ConfigModel::SINGLE_EXECUTABLE) {
-        string nm = pt->get_shared_name(cfg->get_raw_name());
-        if (pt == &compiler::platform_linux) {
-            fpath s = build_path / "lib" / nm;
-            if (std::filesystem::exists(s)) std::filesystem::remove(s,ec);
-            if (ec) cbu::log_warn(ec.message());
-        }
-
-        std::filesystem::copy_file(build_path / "out" / nm,target_path / nm,std::filesystem::copy_options::overwrite_existing,ec);
-        if (ec) cbu::log_warn(ec.message());
-    }
-    for (auto &s : cfg->sub_projects) {
-        fpath sub_build_path = mcc::compiler::get_build_path(s,tp,pt,exp,version);
-        string nm = pt->get_shared_name(s->get_raw_name());
-        if (pt == &compiler::platform_linux) {
-            fpath s = build_path / "lib" / nm;
-            if (std::filesystem::exists(s)) std::filesystem::remove(s,ec);
-            if (ec) cbu::log_warn(ec.message());
-        }
-
-        std::filesystem::copy_file(sub_build_path / "out" / nm,target_path / nm,std::filesystem::copy_options::overwrite_existing,ec);
-        if (ec) cbu::log_warn(ec.message());
-    }
+    copy_sub();
 
     return code;
 }

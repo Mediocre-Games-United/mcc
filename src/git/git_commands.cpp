@@ -425,6 +425,8 @@ U8 mcc::git::sync() {
         code = sync_dir(status,mcc::state::current_project);
         if (code) return;
 
+        status = get_general_status(dir,true);
+        if (!status.valid) { code = 0; return; }
         print_status_full(dir,false);
     });
     mcc::config::background();
@@ -444,6 +446,8 @@ U8 mcc::git::subsync(string sub) {
         code = sync_dir(status,mcc::state::current_project);
         if (code) return;
 
+        status = get_general_status(dir,true);
+        if (!status.valid) { code = 0; return; }
         print_status_full(dir,false);
     });
     mcc::config::background();
