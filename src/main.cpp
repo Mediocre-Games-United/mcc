@@ -107,6 +107,7 @@ static int handle_parser_output(cbu::parser_output pout) {
 }
 
 int main(int argc,char *argv[]) {
+    cbu::init_log_saving();
     int exit = 0;
     cbu::set_interrupt_handler(mcc::interrupt_count);
 
@@ -143,5 +144,6 @@ int main(int argc,char *argv[]) {
     }
 
     cbu::log_debug("Closed succesfully");
+    cbu::finish_log_saving();
     return exit;
 }
