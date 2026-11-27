@@ -157,6 +157,9 @@ namespace mcc::config {
             version = other.version;
             itchio_username = other.itchio_username;
             itchio_project = other.itchio_project;
+
+            stamp = other.stamp;
+            modified = true;
         }
 
         string get_name();
@@ -189,6 +192,12 @@ namespace mcc::config {
         inline string get_raw_name() const { return name; }
         void register_name();
         void remove_name();
+        inline void set_modified() {
+            modified = true;
+            stamp += 1;
+        }
+        bool modified = false;
+        U32 stamp = 0;
     private:
         string name;
         size_t id = 0;

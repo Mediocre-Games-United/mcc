@@ -37,6 +37,7 @@ void mcc::config_commands::config_parent_dir_cmd() {
     cfg->has_parent_directory = true;
     cfg->parent_directory = relpath;
 
+    cfg->set_modified();
     update_config(cfg);
 
     cbu::log_success("Added parent directory succesfully!");
@@ -167,6 +168,8 @@ void mcc::config_commands::config_add_export_cmd() {
 
     cbu::log_success("Added export type to config!");
     cfg->export_types.push_back(c);
+    cfg->set_modified();
+
     update_config(cfg);
 }
 

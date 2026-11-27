@@ -252,6 +252,13 @@ cbu::BinaryFileSection *ConfigFileFormatV1::get_sections() {
             cf *c = (cf*) obj;
             return c->install_pkg_readable;
         }),
+        new cbu::U32BinarySection([](void *obj,auto value) { // stamp
+            auto *c = (cf*) obj;
+            c->stamp = value;
+        },[](void *obj) -> U32 {
+            cf *c = (cf*) obj;
+            return c->stamp;
+        }),
     });
 }
 
@@ -265,7 +272,21 @@ cf *ConfigFileFormat::load_config(fpath path) {
 }
 void ConfigFileFormat::save_config(cf *obj) {
     if (obj->is_temp) return;
+    if (!obj->modified) return;
+    obj->modified = false;
 
+    fpath p = obj->directory / FNAME;
+    if (std::filesystem::exists(p)) {
+        cf *read = load_config(p);
+
+        if (read->stamp > obj->stamp) {
+            obj->hotswap(*read);
+            return;
+        }
+    }
+
+    if (!obj->modified) return;
+    obj->modified = false;
     load_object_to_buffer(obj);
-    save_buffer_to_file(obj->directory / FNAME);
+    save_buffer_to_file(p);
 }

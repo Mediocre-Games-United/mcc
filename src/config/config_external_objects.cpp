@@ -336,6 +336,7 @@ void mcc::config_commands::config_external_cmd() {
                     cfg->external_objects.push_back(
                         ExternalObject(std::move(obj))
                     );
+                    cfg->set_modified();
 
                     update_config(cfg);
 

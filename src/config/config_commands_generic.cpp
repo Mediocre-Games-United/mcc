@@ -130,6 +130,8 @@ void mcc::config_commands::edit_config_cmd() {
                 cfg->remove_name();
                 cfg->set_name(name);
                 cfg->register_name();
+                cfg->set_modified();
+
                 update_config(cfg);
 
                 break;
@@ -142,6 +144,8 @@ void mcc::config_commands::edit_config_cmd() {
                     break;
                 }
                 cfg->src_directory = std::filesystem::relative(dir,cfg->directory);
+                cfg->set_modified();
+
                 update_config(cfg);
 
                 break;
@@ -156,6 +160,8 @@ void mcc::config_commands::edit_config_cmd() {
                 if (!remove) break;
                 cbu::log_warn("Removing all ext objects!");
                 cfg->external_objects = {};
+                cfg->set_modified();
+
                 update_config(cfg);
 
                 break;
@@ -220,6 +226,8 @@ void mcc::config_commands::new_config_cmd() {
     cfg->directory = project_path;
     cfg->src_directory = src_path;
     cfg->model = model;
+    cfg->set_modified();
+
     update_config(cfg);
 
     link_config(cfg);
@@ -265,6 +273,8 @@ void mcc::config_commands::set_config_version_cmd() {
     if (!confirm) return;
 
     cfg->version = vr;
+    cfg->set_modified();
+
     update_config(cfg);
     cbu::log_success("Version replaced");
 }
